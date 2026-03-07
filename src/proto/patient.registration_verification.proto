@@ -1,0 +1,39 @@
+syntax = "proto3";
+
+package patient.registration_verification;
+
+import "google/protobuf/timestamp.proto";
+
+option go_package = "shared/proto/patient/registration_verification;registration_verification";
+
+// Registration with email verification: start flow (store in Redis, send verification email)
+// then verify (token -> create user + patient).
+service RegistrationVerificationService {
+  // StartRegistration stores pending registration and sends verification email.
+  // Client should direct the user to check email and use the link (token) in VerifyEmail.
+  rpc StartRegistration(StartRegistrationRequest) returns (StartRegistrationResponse);
+  // VerifyEmail consumes the token from the verification link, creates user and patient, returns ids.
+  rpc VerifyEmail(VerifyEmailRequest) returns (VerifyEmailResponse);
+}
+
+message StartRegistrationRequest {
+  string phone_number = 1;
+  string email = 2;
+  string password = 3;
+  string full_name = 4;
+  google.protobuf.Timestamp date_of_birth = 5;
+}
+
+message StartRegistrationResponse {
+  string message = 1;  // e.g. "Verification email sent. Please check your inbox."
+}
+
+message VerifyEmailRequest {
+  string token = 1;  // token from verification link
+}
+
+message VerifyEmailResponse {
+  string message = 1;
+  string patient_id = 2;
+  string user_id = 3;  // for redirect to login or session
+}

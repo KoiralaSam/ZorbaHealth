@@ -1,0 +1,46 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: medical-records-service
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: medical-records-service
+  template:
+    metadata:
+      labels:
+        app: medical-records-service
+    spec:
+      containers:
+        - name: medical-records-service
+          image: europe-west1-docker.pkg.dev/{{PROJECT_ID}}/zorba-health/medical-records-service
+          ports:
+            - containerPort: 50054
+              name: grpc
+          env:
+            - name: GRPC_ADDR
+              valueFrom:
+                configMapKeyRef:
+                  key: MEDICAL_RECORDS_SERVICE_GRPC_ADDR
+                  name: app-config
+          resources:
+            requests:
+              memory: "128Mi"
+              cpu: "125m"
+            limits:
+              memory: "256Mi"
+              cpu: "250m"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: medical-records-service
+spec:
+  type: ClusterIP
+  ports:
+    - port: 50054
+      targetPort: 50054
+      name: grpc
+  selector:
+    app: medical-records-service

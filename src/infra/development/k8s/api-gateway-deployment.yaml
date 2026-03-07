@@ -1,0 +1,76 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: api-gateway
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: api-gateway
+  template:
+    metadata:
+      labels:
+        app: api-gateway
+    spec:
+      containers:
+        - name: api-gateway
+          image: zorba-health/api-gateway
+          ports:
+            - containerPort: 8081
+              name: http
+          resources:
+            requests:
+              memory: "128Mi"
+              cpu: "125m"
+            limits:
+              memory: "256Mi"
+              cpu: "250m"
+          env:
+            - name: API_GATEWAY_HTTP_ADDR
+              valueFrom:
+                configMapKeyRef:
+                  key: API_GATEWAY_HTTP_ADDR
+                  name: app-config
+            - name: AGENT_WORKER_GRPC_ADDR
+              valueFrom:
+                configMapKeyRef:
+                  key: AGENT_WORKER_GRPC_ADDR
+                  name: app-config
+            - name: PATIENT_SERVICE_GRPC_ADDR
+              valueFrom:
+                configMapKeyRef:
+                  key: PATIENT_SERVICE_GRPC_ADDR
+                  name: app-config
+            - name: RAG_SERVICE_GRPC_ADDR
+              valueFrom:
+                configMapKeyRef:
+                  key: RAG_SERVICE_GRPC_ADDR
+                  name: app-config
+            - name: MEDICAL_RECORDS_SERVICE_GRPC_ADDR
+              valueFrom:
+                configMapKeyRef:
+                  key: MEDICAL_RECORDS_SERVICE_GRPC_ADDR
+                  name: app-config
+            - name: ANALYTICS_SERVICE_GRPC_ADDR
+              valueFrom:
+                configMapKeyRef:
+                  key: ANALYTICS_SERVICE_GRPC_ADDR
+                  name: app-config
+            - name: NOTIFICATION_SERVICE_GRPC_ADDR
+              valueFrom:
+                configMapKeyRef:
+                  key: NOTIFICATION_SERVICE_GRPC_ADDR
+                  name: app-config
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: api-gateway
+spec:
+  type: LoadBalancer
+  ports:
+    - port: 8081
+      targetPort: 8081
+      name: http
+  selector:
+    app: api-gateway

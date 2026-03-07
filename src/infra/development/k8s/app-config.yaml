@@ -1,0 +1,33 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: app-config
+data:
+  ENVIRONMENT: "development"
+  # API Gateway
+  API_GATEWAY_HTTP_ADDR: ":8081"
+  # Patient Service
+  PATIENT_SERVICE_HTTP_ADDR: ":8083"
+  PATIENT_SERVICE_GRPC_ADDR: "patient-service:9093"
+  # Auth Service
+  AUTH_SERVICE_HTTP_ADDR: ":8082"
+  AUTH_SERVICE_GRPC_ADDR: "auth-service:9092"
+  # Agent Worker Service
+  AGENT_WORKER_GRPC_ADDR: "agent-worker:50051"
+  # RAG Service
+  RAG_SERVICE_GRPC_ADDR: "rag-service:50053"
+  # Medical Records Service
+  MEDICAL_RECORDS_SERVICE_GRPC_ADDR: "medical-records-service:50054"
+  # Analytics Service
+  ANALYTICS_SERVICE_GRPC_ADDR: "analytics-service:50055"
+  # Notification Service
+  NOTIFICATION_SERVICE_GRPC_ADDR: "notification-service:50056"
+  # Public web base URL used to generate verification links in emails
+  PUBLIC_WEB_BASE_URL: "http://localhost:3000"
+  # PostgreSQL (host/port/db name only; credentials in app-secrets)
+  POSTGRES_HOST: "postgres"
+  POSTGRES_PORT: "5432"
+  POSTGRES_USER: "healthai"
+  POSTGRES_DB: "healthai"
+  # Redis
+  REDIS_ADDR: "redis:6379"

@@ -1,0 +1,78 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: patient-service
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: patient-service
+  template:
+    metadata:
+      labels:
+        app: patient-service
+    spec:
+      containers:
+        - name: patient-service
+          image: zorba-health/patient-service
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 9093
+              name: grpc
+          resources:
+            requests:
+              memory: "128Mi"
+              cpu: "125m"
+            limits:
+              memory: "256Mi"
+              cpu: "250m"
+          env:
+            - name: PATIENT_SERVICE_HTTP_ADDR
+              valueFrom:
+                configMapKeyRef:
+                  key: PATIENT_SERVICE_HTTP_ADDR
+                  name: app-config
+            - name: PATIENT_SERVICE_GRPC_ADDR
+              valueFrom:
+                configMapKeyRef:
+                  key: PATIENT_SERVICE_GRPC_ADDR
+                  name: app-config
+            - name: AUTH_SERVICE_GRPC_ADDR
+              valueFrom:
+                configMapKeyRef:
+                  key: AUTH_SERVICE_GRPC_ADDR
+                  name: app-config
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  key: DATABASE_URL
+                  name: app-secrets
+            - name: PATIENT_SERVICE_JWT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  key: PATIENT_SERVICE_JWT_SECRET
+                  name: app-secrets
+            - name: REDIS_ADDR
+              valueFrom:
+                configMapKeyRef:
+                  key: REDIS_ADDR
+                  name: app-config
+            - name: RABBITMQ_URI
+              valueFrom:
+                secretKeyRef:
+                  key: uri
+                  name: rabbitmq-credentials
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: patient-service
+spec:
+  type: ClusterIP
+  ports:
+    - port: 9093
+      targetPort: 9093
+      name: grpc
+  selector:
+    app: patient-service

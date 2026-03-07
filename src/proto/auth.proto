@@ -1,0 +1,96 @@
+syntax = "proto3";
+
+package auth;
+
+import "google/protobuf/timestamp.proto";
+
+option go_package = "shared/proto/auth;auth";
+
+service LoginService {
+  rpc Login(LoginRequest) returns (LoginResponse);
+}
+
+service RegisterPatientService {
+  rpc RegisterPatient(RegisterPatientRequest) returns (RegisterPatientResponse);
+}
+
+service RegisterHealthProviderService {
+  rpc RegisterHealthProvider(RegisterHealthProviderRequest) returns (RegisterHealthProviderResponse);
+}
+
+// --- Middleware as a service: other services call this to verify JWT and get claims ---
+service VerifyTokenService {
+  rpc VerifyToken(VerifyTokenRequest) returns (VerifyTokenResponse);
+}
+
+// --- Logout: invalidate session (delete auth row) ---
+service LogoutService {
+  rpc Logout(LogoutRequest) returns (LogoutResponse);
+}
+
+// --- Login: for both patient and health_provider (auth has users; role comes from users.role) ---
+
+message LoginRequest {
+  string email = 1;
+  string phone_number = 2;
+  string password = 3;
+}
+
+message LoginResponse {
+  string message = 1;
+  string access_token = 2;
+  string user_id = 3;
+  string role = 4;  // "patient" or "health_provider" — use user_id + role to call respective service for entity id
+}
+
+// --- Register patient: auth creates user (role=patient) only; patient-service creates patients row ---
+
+message RegisterPatientRequest {
+  string phone_number = 1;
+  string email = 2;
+  string password = 3;
+  string full_name = 4;
+  google.protobuf.Timestamp date_of_birth = 5;
+}
+
+message RegisterPatientResponse {
+  string message = 1;
+  string user_id = 2;
+}
+
+// --- Register health provider: auth creates user (role=health_provider) only; health_provider service creates row ---
+
+message RegisterHealthProviderRequest {
+  string email = 1;
+  string phone_number = 2;
+  string password = 3;
+  string organization_name = 4;
+  string service_type = 5;
+}
+
+message RegisterHealthProviderResponse {
+  string message = 1;
+  string user_id = 2;
+}
+
+// --- VerifyToken: used by API gateway / other services as auth middleware ---
+message VerifyTokenRequest {
+  string access_token = 1;
+}
+
+message VerifyTokenResponse {
+  bool valid = 1;
+  string user_id = 2;
+  string auth_uuid = 3;
+  string role = 4;
+  string message = 5;  // error message when valid = false
+}
+
+// --- Logout ---
+message LogoutRequest {
+  string access_token = 1;
+}
+
+message LogoutResponse {
+  string message = 1;
+}

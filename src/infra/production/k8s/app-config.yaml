@@ -1,0 +1,18 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: app-config
+data:
+  ENVIRONMENT: "production"
+  # Agent Worker Service
+  AGENT_WORKER_GRPC_ADDR: ":50051"
+  # Patient Service
+  PATIENT_SERVICE_GRPC_ADDR: ":50052"
+  # RAG Service
+  RAG_SERVICE_GRPC_ADDR: ":50053"
+  # Medical Records Service
+  MEDICAL_RECORDS_SERVICE_GRPC_ADDR: ":50054"
+  # Analytics Service
+  ANALYTICS_SERVICE_GRPC_ADDR: ":50055"
+  # Notification Service
+  NOTIFICATION_SERVICE_GRPC_ADDR: ":50056"

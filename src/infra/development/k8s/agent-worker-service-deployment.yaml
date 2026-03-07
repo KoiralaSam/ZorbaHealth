@@ -1,0 +1,46 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: agent-worker-service
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: agent-worker-service
+  template:
+    metadata:
+      labels:
+        app: agent-worker-service
+    spec:
+      containers:
+        - name: agent-worker-service
+          image: zorba-health/agent-worker-service
+          ports:
+            - containerPort: 50051
+              name: grpc
+          resources:
+            requests:
+              memory: "256Mi"
+              cpu: "250m"
+            limits:
+              memory: "512Mi"
+              cpu: "500m"
+          env:
+            - name: GRPC_ADDR
+              valueFrom:
+                configMapKeyRef:
+                  key: AGENT_WORKER_GRPC_ADDR
+                  name: app-config
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: agent-worker-service
+spec:
+  type: ClusterIP
+  ports:
+    - port: 50051
+      targetPort: 50051
+      name: grpc
+  selector:
+    app: agent-worker-service
