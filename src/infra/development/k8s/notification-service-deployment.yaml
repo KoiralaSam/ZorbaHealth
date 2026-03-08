@@ -43,14 +43,14 @@ spec:
                   name: sendgrid-credentials
             - name: SENDGRID_FROM_EMAIL
               valueFrom:
-                secretKeyRef:
-                  key: fromEmail
-                  name: sendgrid-credentials
+                configMapKeyRef:
+                  key: SENDGRID_FROM_EMAIL
+                  name: app-config
             - name: SENDGRID_FROM_NAME
               valueFrom:
-                secretKeyRef:
-                  key: fromName
-                  name: sendgrid-credentials
+                configMapKeyRef:
+                  key: SENDGRID_FROM_NAME
+                  name: app-config
             - name: PUBLIC_WEB_BASE_URL
               valueFrom:
                 configMapKeyRef:

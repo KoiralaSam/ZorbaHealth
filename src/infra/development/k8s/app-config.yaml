@@ -22,6 +22,9 @@ data:
   ANALYTICS_SERVICE_GRPC_ADDR: "analytics-service:50055"
   # Notification Service
   NOTIFICATION_SERVICE_GRPC_ADDR: "notification-service:50056"
+  # SendGrid sender (non-secret; API key stays in sendgrid-credentials secret)
+  SENDGRID_FROM_EMAIL: "zorbahealth@samarpankoirala.tech"
+  SENDGRID_FROM_NAME: "ZorbaHealth"
   # Public web base URL used to generate verification links in emails
   PUBLIC_WEB_BASE_URL: "http://localhost:3000"
   # PostgreSQL (host/port/db name only; credentials in app-secrets)

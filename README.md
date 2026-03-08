@@ -68,8 +68,10 @@ cp src/infra/development/k8s/secrets.example.yaml src/infra/development/k8s/secr
 Edit `src/infra/development/k8s/secrets.yaml` and replace every placeholder:
 
 - **postgres-secret:** `POSTGRES_PASSWORD` (use the same value inside `app-secrets.DATABASE_URL`)
-- **sendgrid-credentials:** `apiKey`, `fromEmail`, `fromName` (use a verified SendGrid sender)
+- **sendgrid-credentials:** `apiKey` (use a verified SendGrid API key)
 - **app-secrets:** `DATABASE_URL` (full Postgres URL), `AUTH_SERVICE_JWT_SECRET`, `PATIENT_SERVICE_JWT_SECRET`
+
+Set `SENDGRID_FROM_EMAIL` and `SENDGRID_FROM_NAME` in `app-config.yaml` (or override in ConfigMap) to your verified sender address and name.
 
 See `src/infra/development/k8s/secrets.example.yaml` for the exact keys.
 
@@ -107,6 +109,11 @@ kubectl get pods
 # Optional: Kubernetes dashboard (if using Minikube)
 minikube dashboard
 ```
+
+### Troubleshooting
+
+- **`couldn't find key fromEmail in Secret sendgrid-credentials`** — Fixed: the notification-service now reads `SENDGRID_FROM_EMAIL` and `SENDGRID_FROM_NAME` from the ConfigMap (`app-config`). Set them in `src/infra/development/k8s/app-config.yaml` to your verified sender (e.g. `your-verified-sender@example.com` and `ZorbaHealth`).
+- **`secret "app-secrets" not found`** — Your `secrets.yaml` is missing the `app-secrets` (and possibly `postgres-secret`) block. Copy the full `secrets.example.yaml` to `secrets.yaml`, then replace every placeholder. If you already have a `secrets.yaml`, add the `app-secrets` and `postgres-secret` sections from `secrets.example.yaml`. Re-run `tilt up` or run `kubectl apply -f src/infra/development/k8s/secrets.yaml`.
 
 ---
 
