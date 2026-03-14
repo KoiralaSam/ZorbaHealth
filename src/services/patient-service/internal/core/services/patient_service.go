@@ -2,8 +2,11 @@ package services
 
 import (
 	"context"
+	"crypto/rand"
 	"errors"
+	"fmt"
 	"regexp"
+	"strings"
 	"time"
 
 	"github.com/KoiralaSam/ZorbaHealth/services/patient-service/internal/core/domain/models"
@@ -24,34 +27,57 @@ func NewPatientService(repo outbound.PatientRepository, authService outbound.Aut
 	return &PatientService{repo: repo, authService: authService, pendingRegistrationRepo: pendingRegistrationRepo}
 }
 
-func (s *PatientService) StartRegistrationWithVerification(ctx context.Context, req *models.RegisterPatientRequest) (verificationToken string, err error) {
+func (s *PatientService) StartRegistrationWithVerification(ctx context.Context, req *models.RegisterPatientRequest) (verificationToken string, otp string, err error) {
 	if req == nil {
-		return "", errors.New("registration request is required")
+		return "", "", errors.New("registration request is required")
 	}
 	if !phoneRegex.MatchString(req.PhoneNumber) {
-		return "", errors.New("invalid phone number: must be 10–15 digits, optional leading +")
+		return "", "", errors.New("invalid phone number: must be 10–15 digits, optional leading +")
 	}
 	if req.DateOfBirth.IsZero() {
-		return "", errors.New("date of birth is required")
+		return "", "", errors.New("date of birth is required")
 	}
 	if req.DateOfBirth.After(time.Now()) {
-		return "", errors.New("date of birth cannot be in the future")
+		return "", "", errors.New("date of birth cannot be in the future")
+	}
+
+	otp, err = generateOTP(6)
+	if err != nil {
+		return "", "", fmt.Errorf("failed to generate OTP: %w", err)
 	}
 
 	token := uuid.New().String()
 	pendingRegistration := &models.PendingRegistration{
-		Email:       req.Email,
-		PhoneNumber: req.PhoneNumber,
-		Password:    req.Password,
-		FullName:    req.FullName,
-		DateOfBirth: req.DateOfBirth,
-		CreatedAt:   time.Now(),
+		Email:         req.Email,
+		PhoneNumber:   req.PhoneNumber,
+		Password:      req.Password,
+		FullName:      req.FullName,
+		DateOfBirth:   req.DateOfBirth,
+		CreatedAt:     time.Now(),
+		PhoneVerified: false,
+		EmailVerified: false,
 	}
 	ttl := 15 * time.Minute
 	if err := s.pendingRegistrationRepo.Set(ctx, token, pendingRegistration, ttl); err != nil {
-		return "", errors.New("failed to set pending registration: " + err.Error())
+		return "", "", errors.New("failed to set pending registration: " + err.Error())
 	}
-	return token, nil
+	otpTTL := 5 * time.Minute
+	if err := s.pendingRegistrationRepo.SetOTP(ctx, req.PhoneNumber, token, otp, otpTTL); err != nil {
+		return "", "", errors.New("failed to set OTP: " + err.Error())
+	}
+	return token, otp, nil
+}
+
+func generateOTP(digits int) (string, error) {
+	const digitset = "0123456789"
+	b := make([]byte, digits)
+	if _, err := rand.Read(b); err != nil {
+		return "", err
+	}
+	for i := range b {
+		b[i] = digitset[int(b[i])%len(digitset)]
+	}
+	return string(b), nil
 }
 
 func (s *PatientService) VerifyEmailAndCreatePatient(ctx context.Context, token string) (*models.Patient, error) {
@@ -59,6 +85,19 @@ func (s *PatientService) VerifyEmailAndCreatePatient(ctx context.Context, token 
 	if err != nil {
 		return nil, errors.New("invalid or expired verification link: " + err.Error())
 	}
+
+	// Mark email as verified (user clicked the email link)
+	pending.EmailVerified = true
+	ttl := 15 * time.Minute
+	if err := s.pendingRegistrationRepo.Set(ctx, token, pending, ttl); err != nil {
+		return nil, errors.New("failed to update pending registration: " + err.Error())
+	}
+
+	if !pending.PhoneVerified {
+		return nil, errors.New("verify your phone to complete registration")
+	}
+
+	// Both verified: create patient and clean up
 	defer s.pendingRegistrationRepo.Delete(ctx, token)
 	req := &models.RegisterPatientRequest{
 		PhoneNumber: pending.PhoneNumber,
@@ -68,7 +107,6 @@ func (s *PatientService) VerifyEmailAndCreatePatient(ctx context.Context, token 
 		DateOfBirth: pending.DateOfBirth,
 	}
 
-	// Create user in auth service
 	authResult, err := s.authService.RegisterPatient(ctx, req)
 	if err != nil {
 		return nil, errors.New("failed to create user in auth service: " + err.Error())
@@ -93,6 +131,29 @@ func (s *PatientService) VerifyEmailAndCreatePatient(ctx context.Context, token 
 	return patient, nil
 }
 
+// VerifyPhoneOTP verifies the OTP for the given phone and sets PhoneVerified on the pending registration.
+func (s *PatientService) VerifyPhoneOTP(ctx context.Context, phone string, code string) error {
+	storedToken, storedCode, err := s.pendingRegistrationRepo.GetOTP(ctx, phone)
+	if err != nil {
+		return errors.New("invalid or expired OTP")
+	}
+	if storedCode != code {
+		return errors.New("invalid OTP code")
+	}
+
+	pending, err := s.pendingRegistrationRepo.Get(ctx, storedToken)
+	if err != nil {
+		return errors.New("pending registration not found or expired")
+	}
+	pending.PhoneVerified = true
+	ttl := 15 * time.Minute
+	if err := s.pendingRegistrationRepo.Set(ctx, storedToken, pending, ttl); err != nil {
+		return errors.New("failed to update pending registration: " + err.Error())
+	}
+	_ = s.pendingRegistrationRepo.DeleteOTP(ctx, phone)
+	return nil
+}
+
 func (s *PatientService) LoginPatient(
 	ctx context.Context,
 	patient *models.Patient,
@@ -110,22 +171,37 @@ func (s *PatientService) GetPatientByID(
 	return s.repo.GetPatientByID(ctx, id)
 }
 
+// normalizePhone returns digits only (E.164 without +) for consistent lookup.
+func normalizePhone(phone string) string {
+	var b strings.Builder
+	for _, r := range phone {
+		if r >= '0' && r <= '9' {
+			b.WriteRune(r)
+		}
+	}
+	return b.String()
+}
+
 func (s *PatientService) GetPatientByPhoneNumber(
 	ctx context.Context,
 	phoneNumber string,
 ) (*models.Patient, error) {
-	// business rules can live here
-	// e.g., normalize phone number format before lookup
-	return s.repo.GetPatientByPhoneNumber(ctx, phoneNumber)
+	normalized := normalizePhone(phoneNumber)
+	if normalized == "" {
+		return nil, errors.New("invalid phone number: no digits")
+	}
+	return s.repo.GetPatientByPhoneNumber(ctx, normalized)
 }
 
 func (s *PatientService) GetPatientByEmail(
 	ctx context.Context,
 	email string,
 ) (*models.Patient, error) {
-	// business rules can live here
-	// e.g., normalize email to lowercase before lookup
-	return s.repo.GetPatientByEmail(ctx, email)
+	normalized := strings.TrimSpace(strings.ToLower(email))
+	if normalized == "" {
+		return nil, errors.New("email is required")
+	}
+	return s.repo.GetPatientByEmail(ctx, normalized)
 }
 
 func (s *PatientService) UpdatePatient(

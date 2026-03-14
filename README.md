@@ -16,9 +16,7 @@ Voice calls use **FreePBX**, **LiveKit**, and **LiveKit SIP** on a **separate se
 
 ## Project architecture and flow
 
-High-level flow (system context):
-
-[![Trip Scheduling Flow](https://mermaid.ink/img/pako:eNqNVt9v2jAQ_lcsP21qGvGjZSEPlSpaTX1YxWDVpAmpMvZBIkicOQ6UVf3fd4mdEgcKzQOK47v7vjt_d-aVcimAhnSW5vC3gJTDXcyWiiWzlOCTMaVjHmcs1eQpB3X49Xb88J1p2LLd4d4vFWdTUJuYw-HmnYo3oM5sH34fs10Cqf7Qb6oRFL-bnZLz5c3NnmRIRgrwteJGJmXOuTa2eyP0aFAPyXIyHtWO5YaxN7-PEoNJpNrM1nOSCw3Y_QuPWLq0nBvWl4h30fIos_Bhg5n6vMIVDTgVLyNN5II4LO9L65A8wrbyJimAyAkjwlbSBHBwENisQ2vl80T4pfezapbGRW1RHckkYaloILMNi9dsvgYXtHUQv2E-lXwF-hCccQ5ZE3sNiwZ0A_O2sjSw6oPTbB_nWbT3TB3dGEiykGrLlABBtCQTNp_H-sdP8sUwK3EmkGcS2-lnAQV8rUtwVCchGSvJIc8tJ2KoMGxDjxSZKIVapZZrpovc9_2j4nF7whGPifvM8jxepp8XkW2SzAQmOVKMZXoyF6_Nwq5bunetkLxp2HfIUQR8JQts5Bqz9DJGx3K1ZtZdHAVpCc9mZStkc3s-0WZtTFukOsGnB5QeE7u6PM4gKScQsozktmF_TmuN1qidUHZJa6q9V04m2RowlrV1SnbQc5GUq33YacFL_R2faHtPzxXt0ZN1O-6iXbRW1Zu4HxeiqjTJivk6ziPTcp-U1aXD-NPgZ46a21KL061Qj6kzc38_facarzCyv1tOdGgVk7OUpCipOSxjZEI9moBKWCzwKn8tQ8yojiCBGQ3xVTC1muEV_4Z2rNByuks5DbUqwKNKFsuIhgu2znFlZo79C1Cb4L36R8rmkoav9IWGvW_-1XVn0O_1-kE3GAyHgUd3-Lnb8fu9frc_xKfbvQ6CN4_-qyJ0_KDX7Q86QTDoDAfD66ve23_1IPGQ?type=png)](https://mermaid.live/edit#pako:eNqNVt9v2jAQ_lcsP21qGvGjZSEPlSpaTX1YxWDVpAmpMvZBIkicOQ6UVf3fd4mdEgcKzQOK47v7vjt_d-aVcimAhnSW5vC3gJTDXcyWiiWzlOCTMaVjHmcs1eQpB3X49Xb88J1p2LLd4d4vFWdTUJuYw-HmnYo3oM5sH34fs10Cqf7Qb6oRFL-bnZLz5c3NnmRIRgrwteJGJmXOuTa2eyP0aFAPyXIyHtWO5YaxN7-PEoNJpNrM1nOSCw3Y_QuPWLq0nBvWl4h30fIos_Bhg5n6vMIVDTgVLyNN5II4LO9L65A8wrbyJimAyAkjwlbSBHBwENisQ2vl80T4pfezapbGRW1RHckkYaloILMNi9dsvgYXtHUQv2E-lXwF-hCccQ5ZE3sNiwZ0A_O2sjSw6oPTbB_nWbT3TB3dGEiykGrLlABBtCQTNp_H-sdP8sUwK3EmkGcS2-lnAQV8rUtwVCchGSvJIc8tJ2KoMGxDjxSZKIVapZZrpovc9_2j4nF7whGPifvM8jxepp8XkW2SzAQmOVKMZXoyF6_Nwq5bunetkLxp2HfIUQR8JQts5Bqz9DJGx3K1ZtZdHAVpCc9mZStkc3s-0WZtTFukOsGnB5QeE7u6PM4gKScQsozktmF_TmuN1qidUHZJa6q9V04m2RowlrV1SnbQc5GUq33YacFL_R2faHtPzxXt0ZN1O-6iXbRW1Zu4HxeiqjTJivk6ziPTcp-U1aXD-NPgZ46a21KL061Qj6kzc38_facarzCyv1tOdGgVk7OUpCipOSxjZEI9moBKWCzwKn8tQ8yojiCBGQ3xVTC1muEV_4Z2rNByuks5DbUqwKNKFsuIhgu2znFlZo79C1Cb4L36R8rmkoav9IWGvW_-1XVn0O_1-kE3GAyHgUd3-Lnb8fu9frc_xKfbvQ6CN4_-qyJ0_KDX7Q86QTDoDAfD66ve23_1IPGQ)
+![Zorba Health architecture and flow](src/docs/mermaid_project_plan.svg)
 
 Detailed architecture and flows for Zorba Health are in the repo:
 
@@ -69,6 +67,7 @@ Edit `src/infra/development/k8s/secrets.yaml` and replace every placeholder:
 
 - **postgres-secret:** `POSTGRES_PASSWORD` (use the same value inside `app-secrets.DATABASE_URL`)
 - **sendgrid-credentials:** `apiKey` (use a verified SendGrid API key)
+- **voipms-credentials:** `username`, `password` (VoIP.ms API login; used for OTP SMS when implemented)
 - **app-secrets:** `DATABASE_URL` (full Postgres URL), `AUTH_SERVICE_JWT_SECRET`, `PATIENT_SERVICE_JWT_SECRET`
 
 Set `SENDGRID_FROM_EMAIL` and `SENDGRID_FROM_NAME` in `app-config.yaml` (or override in ConfigMap) to your verified sender address and name.
@@ -129,16 +128,16 @@ Voice and SIP are **not** run inside this repo’s Tilt/Kubernetes stack. They r
 
 ### Typical setup on the separate server
 
-1. **Install and configure FreePBX**  
+1. **Install and configure FreePBX**
    - Set up trunks, DID(s), and dialplan so calls can be sent to LiveKit SIP (e.g. via a SIP trunk or endpoint).
 
-2. **Install and run LiveKit**  
+2. **Install and run LiveKit**
    - Run the [LiveKit server](https://docs.livekit.io/deploy/) (single binary or Docker) and expose the required ports.
 
-3. **Install and run LiveKit SIP**  
+3. **Install and run LiveKit SIP**
    - Follow [LiveKit SIP](https://docs.livekit.io/realtime-voice/sip/) to run the SIP dispatcher/connector that registers or receives SIP from FreePBX and creates LiveKit rooms.
 
-4. **Point this app at LiveKit**  
+4. **Point this app at LiveKit**
    - Configure the Zorba Health backend (e.g. API gateway or the service that handles calls) with the LiveKit API URL and credentials so it can create/join rooms and handle call logic.
 
 Exact steps depend on your host (VM, cloud, or on-prem). Use the official docs for [LiveKit](https://docs.livekit.io/) and [LiveKit SIP](https://docs.livekit.io/realtime-voice/sip/) and your FreePBX distribution.
@@ -147,12 +146,12 @@ Exact steps depend on your host (VM, cloud, or on-prem). Use the official docs f
 
 ## Running with Tilt and Kubernetes (summary)
 
-| Step | Action |
-|------|--------|
-| 1 | Clone repo, `cd ZorbaHealth` |
-| 2 | `cp src/infra/development/k8s/secrets.example.yaml src/infra/development/k8s/secrets.yaml` and fill in real values |
-| 3 | `cd src && tilt up` |
-| 4 | Open web app at http://localhost:3000, API at http://localhost:8081 |
+| Step | Action                                                                                                             |
+| ---- | ------------------------------------------------------------------------------------------------------------------ |
+| 1    | Clone repo, `cd ZorbaHealth`                                                                                       |
+| 2    | `cp src/infra/development/k8s/secrets.example.yaml src/infra/development/k8s/secrets.yaml` and fill in real values |
+| 3    | `cd src && tilt up`                                                                                                |
+| 4    | Open web app at http://localhost:3000, API at http://localhost:8081                                                |
 
 Tilt uses the manifests under `src/infra/development/k8s/` (ConfigMap, Secrets, PostgreSQL, Redis, RabbitMQ, and each service deployment). Ensure your Kubernetes context points to your local cluster (e.g. Docker Desktop or Minikube) before running `tilt up`.
 

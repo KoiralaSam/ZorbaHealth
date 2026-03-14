@@ -22,6 +22,9 @@ data:
   ANALYTICS_SERVICE_GRPC_ADDR: "analytics-service:50055"
   # Notification Service
   NOTIFICATION_SERVICE_GRPC_ADDR: "notification-service:50056"
+  # OTP HTTP server (SMS via VoIP.ms) — credentials in voipms-credentials secret
+  HTTP_ADDR: ":3000"
+  VOIPMS_DID: "3185162690"
   # SendGrid sender (non-secret; API key stays in sendgrid-credentials secret)
   SENDGRID_FROM_EMAIL: "zorbahealth@samarpankoirala.tech"
   SENDGRID_FROM_NAME: "ZorbaHealth"

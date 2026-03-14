@@ -27,6 +27,11 @@ type PatientRegisterResponse struct {
 	PatientID string `json:"patient_id,omitempty"`
 }
 
+type PatientRegisterVerifyOTPRequest struct {
+	PhoneNumber string `json:"phone_number"`
+	OTP         string `json:"otp"`
+}
+
 type HospitalLoginRequest struct {
 	Email    string `json:"email"`
 	Password string `json:"password"`

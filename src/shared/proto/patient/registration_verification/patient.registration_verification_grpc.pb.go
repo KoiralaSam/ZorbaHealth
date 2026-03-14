@@ -20,6 +20,7 @@ const _ = grpc.SupportPackageIsVersion9
 
 const (
 	RegistrationVerificationService_StartRegistration_FullMethodName = "/patient.registration_verification.RegistrationVerificationService/StartRegistration"
+	RegistrationVerificationService_VerifyPhoneOTP_FullMethodName    = "/patient.registration_verification.RegistrationVerificationService/VerifyPhoneOTP"
 	RegistrationVerificationService_VerifyEmail_FullMethodName       = "/patient.registration_verification.RegistrationVerificationService/VerifyEmail"
 )
 
@@ -33,6 +34,8 @@ type RegistrationVerificationServiceClient interface {
 	// StartRegistration stores pending registration and sends verification email.
 	// Client should direct the user to check email and use the link (token) in VerifyEmail.
 	StartRegistration(ctx context.Context, in *StartRegistrationRequest, opts ...grpc.CallOption) (*StartRegistrationResponse, error)
+	// VerifyPhoneOTP verifies the OTP sent to the user's phone number.
+	VerifyPhoneOTP(ctx context.Context, in *VerifyPhoneOTPRequest, opts ...grpc.CallOption) (*VerifyPhoneOTPResponse, error)
 	// VerifyEmail consumes the token from the verification link, creates user and patient, returns ids.
 	VerifyEmail(ctx context.Context, in *VerifyEmailRequest, opts ...grpc.CallOption) (*VerifyEmailResponse, error)
 }
@@ -49,6 +52,16 @@ func (c *registrationVerificationServiceClient) StartRegistration(ctx context.Co
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(StartRegistrationResponse)
 	err := c.cc.Invoke(ctx, RegistrationVerificationService_StartRegistration_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *registrationVerificationServiceClient) VerifyPhoneOTP(ctx context.Context, in *VerifyPhoneOTPRequest, opts ...grpc.CallOption) (*VerifyPhoneOTPResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(VerifyPhoneOTPResponse)
+	err := c.cc.Invoke(ctx, RegistrationVerificationService_VerifyPhoneOTP_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
@@ -75,6 +88,8 @@ type RegistrationVerificationServiceServer interface {
 	// StartRegistration stores pending registration and sends verification email.
 	// Client should direct the user to check email and use the link (token) in VerifyEmail.
 	StartRegistration(context.Context, *StartRegistrationRequest) (*StartRegistrationResponse, error)
+	// VerifyPhoneOTP verifies the OTP sent to the user's phone number.
+	VerifyPhoneOTP(context.Context, *VerifyPhoneOTPRequest) (*VerifyPhoneOTPResponse, error)
 	// VerifyEmail consumes the token from the verification link, creates user and patient, returns ids.
 	VerifyEmail(context.Context, *VerifyEmailRequest) (*VerifyEmailResponse, error)
 	mustEmbedUnimplementedRegistrationVerificationServiceServer()
@@ -89,6 +104,9 @@ type UnimplementedRegistrationVerificationServiceServer struct{}
 
 func (UnimplementedRegistrationVerificationServiceServer) StartRegistration(context.Context, *StartRegistrationRequest) (*StartRegistrationResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method StartRegistration not implemented")
+}
+func (UnimplementedRegistrationVerificationServiceServer) VerifyPhoneOTP(context.Context, *VerifyPhoneOTPRequest) (*VerifyPhoneOTPResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method VerifyPhoneOTP not implemented")
 }
 func (UnimplementedRegistrationVerificationServiceServer) VerifyEmail(context.Context, *VerifyEmailRequest) (*VerifyEmailResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method VerifyEmail not implemented")
@@ -133,6 +151,24 @@ func _RegistrationVerificationService_StartRegistration_Handler(srv interface{},
 	return interceptor(ctx, in, info, handler)
 }
 
+func _RegistrationVerificationService_VerifyPhoneOTP_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(VerifyPhoneOTPRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(RegistrationVerificationServiceServer).VerifyPhoneOTP(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: RegistrationVerificationService_VerifyPhoneOTP_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(RegistrationVerificationServiceServer).VerifyPhoneOTP(ctx, req.(*VerifyPhoneOTPRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 func _RegistrationVerificationService_VerifyEmail_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(VerifyEmailRequest)
 	if err := dec(in); err != nil {
@@ -161,6 +197,10 @@ var RegistrationVerificationService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "StartRegistration",
 			Handler:    _RegistrationVerificationService_StartRegistration_Handler,
+		},
+		{
+			MethodName: "VerifyPhoneOTP",
+			Handler:    _RegistrationVerificationService_VerifyPhoneOTP_Handler,
 		},
 		{
 			MethodName: "VerifyEmail",

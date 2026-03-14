@@ -40,12 +40,25 @@ func (c *PatientConsumer) Listen() error {
 			return fmt.Errorf("pending verification event missing register_request")
 		}
 
+		// IMPORTANT: Don't return provider errors (email/SMS) here, otherwise RabbitMQ will redeliver
+		// and we can get stuck in an infinite retry loop (e.g., SendGrid credits exceeded).
+		// We only return errors for malformed/unprocessable messages.
+
 		if err := c.svc.SendPendingVerificationEmail(ctx, payload.RegisterRequest, PatientEvent.OwnerID); err != nil {
 			log.Printf("Failed to send verification email: %v", err)
-			return err
+		} else {
+			log.Printf("Sent verification email to %s", payload.RegisterRequest.Email)
 		}
 
-		log.Printf("Sent verification email to %s", payload.RegisterRequest.Email)
+		if payload.RegisterRequest.PhoneNumber != "" && payload.RegisterRequest.Otp != "" {
+			if err := c.svc.SendOTP(ctx, payload.RegisterRequest.PhoneNumber, payload.RegisterRequest.Otp); err != nil {
+				log.Printf("Failed to send OTP SMS: %v", err)
+			} else {
+				log.Printf("Sent OTP to %s", payload.RegisterRequest.PhoneNumber)
+			}
+		}
+
+		// Ack the message regardless of provider outcome to prevent infinite redelivery.
 		return nil
 	})
 }

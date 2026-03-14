@@ -171,6 +171,51 @@ func PatientRegisterVerifyHandler(w http.ResponseWriter, r *http.Request) {
 	writeJson(w, http.StatusOK, response, nil)
 }
 
+// PatientRegisterVerifyOTPHandler verifies the OTP sent to the patient's phone (step 1 of registration).
+func PatientRegisterVerifyOTPHandler(w http.ResponseWriter, r *http.Request) {
+	var reqBody PatientRegisterVerifyOTPRequest
+	if err := json.NewDecoder(r.Body).Decode(&reqBody); err != nil {
+		writeJson(w, http.StatusBadRequest, nil, &contracts.APIError{
+			Code:    "INVALID_REQUEST_BODY",
+			Message: "Invalid request body: " + err.Error(),
+		})
+		return
+	}
+	defer r.Body.Close()
+
+	if reqBody.PhoneNumber == "" || reqBody.OTP == "" {
+		writeJson(w, http.StatusBadRequest, nil, &contracts.APIError{
+			Code:    "INVALID_REQUEST_BODY",
+			Message: "phone_number and otp are required",
+		})
+		return
+	}
+
+	client, err := grpc_clients.NewPatientAuthServiceClient()
+	if err != nil {
+		writeJson(w, http.StatusInternalServerError, nil, &contracts.APIError{
+			Code:    "INTERNAL_SERVER_ERROR",
+			Message: "Failed to create auth client: " + err.Error(),
+		})
+		return
+	}
+	defer client.Close()
+
+	response, err := client.RegistrationClient.VerifyPhoneOTP(context.Background(), &registration_verification.VerifyPhoneOTPRequest{
+		PhoneNumber: reqBody.PhoneNumber,
+		Otp:         reqBody.OTP,
+	})
+	if err != nil {
+		writeJson(w, http.StatusBadRequest, nil, &contracts.APIError{
+			Code:    "VERIFICATION_FAILED",
+			Message: "Invalid or expired OTP: " + err.Error(),
+		})
+		return
+	}
+
+	writeJson(w, http.StatusOK, response, nil)
+}
+
 // HospitalLoginHandler handles hospital staff authentication
 func HospitalLoginHandler(w http.ResponseWriter, r *http.Request) {
 	var reqBody HospitalLoginRequest

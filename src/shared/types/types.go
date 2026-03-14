@@ -58,3 +58,21 @@ type TimeRange struct {
 
 // Metadata represents flexible key-value metadata
 type Metadata map[string]interface{}
+
+// SMSRequest is the payload for the VoIP.ms SMS/MMS URL callback (GET query params or POST body).
+// When SMS/MMS is received by your DID, VoIP.ms sends these fields to your webhook.
+type SMSRequest struct {
+	ID      string `json:"id"`      // The ID of the SMS/MMS message
+	Date    string `json:"date"`    // The date and time the message was received (timestamp)
+	From    string `json:"from"`   // The phone number that sent the message
+	To      string `json:"to"`     // The DID number that received the message
+	Message string `json:"message"` // The content of the message
+	Files   string `json:"files"`   // Comma-separated list of media files (MMS)
+}
+
+// SMSResponse is the body you may return from your SMS webhook (e.g. 200 OK).
+// VoIP.ms docs do not specify a required response shape; this is for consistency if you send JSON back.
+type SMSResponse struct {
+	Status  string `json:"status,omitempty"`  // e.g. "ok", "received"
+	Message string `json:"message,omitempty"`  // Optional human-readable message
+}

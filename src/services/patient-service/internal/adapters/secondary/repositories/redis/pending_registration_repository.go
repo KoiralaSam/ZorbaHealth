@@ -13,6 +13,7 @@ import (
 )
 
 const keyPrefix = "pending_reg:"
+const otpKeyPrefix = "otp:"
 
 type PendingRegistrationRepository struct {
 	client *redis.Client
@@ -55,4 +56,45 @@ func (r *PendingRegistrationRepository) Get(ctx context.Context, token string) (
 
 func (r *PendingRegistrationRepository) Delete(ctx context.Context, token string) error {
 	return r.client.Del(ctx, keyPrefix+token).Err()
+}
+
+type otpEntry struct {
+	Token string `json:"token"`
+	Code  string `json:"code"`
+}
+
+func normalizePhone(phone string) string {
+	var b []byte
+	for _, r := range phone {
+		if r >= '0' && r <= '9' {
+			b = append(b, byte(r))
+		}
+	}
+	return string(b)
+}
+
+func (r *PendingRegistrationRepository) SetOTP(ctx context.Context, phone string, token string, code string, ttl time.Duration) error {
+	key := otpKeyPrefix + normalizePhone(phone)
+	b, err := json.Marshal(otpEntry{Token: token, Code: code})
+	if err != nil {
+		return err
+	}
+	return r.client.Set(ctx, key, b, ttl).Err()
+}
+
+func (r *PendingRegistrationRepository) GetOTP(ctx context.Context, phone string) (token string, code string, err error) {
+	key := otpKeyPrefix + normalizePhone(phone)
+	b, err := r.client.Get(ctx, key).Bytes()
+	if err != nil {
+		return "", "", err
+	}
+	var e otpEntry
+	if err := json.Unmarshal(b, &e); err != nil {
+		return "", "", err
+	}
+	return e.Token, e.Code, nil
+}
+
+func (r *PendingRegistrationRepository) DeleteOTP(ctx context.Context, phone string) error {
+	return r.client.Del(ctx, otpKeyPrefix+normalizePhone(phone)).Err()
 }

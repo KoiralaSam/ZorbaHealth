@@ -8,7 +8,7 @@ import (
 	"os/signal"
 	"syscall"
 
-	events "github.com/KoiralaSam/ZorbaHealth/services/patient-service/internal/adapters/primary/events/rabbitmq"
+	rmqadapter "github.com/KoiralaSam/ZorbaHealth/services/patient-service/internal/adapters/secondary/messaging/rabbitmq"
 	grpc "github.com/KoiralaSam/ZorbaHealth/services/patient-service/internal/adapters/primary/grpc/handlers"
 	authsvc "github.com/KoiralaSam/ZorbaHealth/services/patient-service/internal/adapters/secondary/external/auth"
 	"github.com/KoiralaSam/ZorbaHealth/services/patient-service/internal/adapters/secondary/repositories/postgres"
@@ -88,7 +88,7 @@ func main() {
 	}
 	defer rabbitmq.Close()
 	log.Println("Starting RabbitMQ connection")
-	patientPublisher := events.NewPatientPublisher(rabbitmq)
+	patientPublisher := rmqadapter.NewPatientPublisher(rabbitmq)
 
 	// --- gRPC server: register handlers and serve ---
 	grpcServer := grpcserver.NewServer()

@@ -21,12 +21,14 @@ func main() {
 	mux.HandleFunc("OPTIONS /api/v1/auth/patient/login", optCORS)
 	mux.HandleFunc("OPTIONS /api/v1/auth/patient/register", optCORS)
 	mux.HandleFunc("OPTIONS /api/v1/auth/patient/register/verify", optCORS)
+	mux.HandleFunc("OPTIONS /api/v1/auth/patient/register/verify-otp", optCORS)
 	mux.HandleFunc("OPTIONS /api/v1/auth/hospital/login", optCORS)
 
 	// API routes with CORS (Go 1.22+ requires space between method and path)
 	mux.HandleFunc("POST /api/v1/auth/patient/login", corsMiddleware(PatientLoginHandler))
 	mux.HandleFunc("POST /api/v1/auth/patient/register", corsMiddleware(PatientRegisterHandler))
 	mux.HandleFunc("POST /api/v1/auth/patient/register/verify", corsMiddleware(PatientRegisterVerifyHandler))
+	mux.HandleFunc("POST /api/v1/auth/patient/register/verify-otp", corsMiddleware(PatientRegisterVerifyOTPHandler))
 
 	server := &http.Server{
 		Addr:    httpAddr,

@@ -18,6 +18,7 @@ type PendingRegistrationData struct {
 	PhoneNumber string `json:"phone_number"`
 	FullName    string `json:"full_name"`
 	DateOfBirth string `json:"date_of_birth"` // ISO8601
+	Otp         string `json:"otp,omitempty"` // OTP sent via SMS for phone verification
 }
 
 // PatientEventData is the envelope for patient-related events.

@@ -13,6 +13,7 @@ export enum APIEndpoints {
   // Patient Registration
   PATIENT_REGISTER = "/api/v1/auth/patient/register",
   PATIENT_REGISTER_VERIFY = "/api/v1/auth/patient/register/verify",
+  PATIENT_REGISTER_VERIFY_OTP = "/api/v1/auth/patient/register/verify-otp",
   HOSPITAL_REGISTER = "/api/v1/auth/hospital/register",
 }
 
@@ -84,6 +85,19 @@ export interface PatientRegisterResponseData {
 
 export type HTTPPatientRegisterResponse =
   APIResponse<PatientRegisterResponseData>;
+
+// Patient Verify OTP - POST /api/v1/auth/patient/register/verify-otp
+export interface HTTPPatientVerifyOTPRequest {
+  phone_number: string;
+  otp: string;
+}
+
+export interface PatientVerifyOTPResponseData {
+  message?: string;
+}
+
+export type HTTPPatientVerifyOTPResponse =
+  APIResponse<PatientVerifyOTPResponseData>;
 
 // Hospital Login - POST /api/v1/auth/hospital/login
 export interface HTTPHospitalLoginRequest {

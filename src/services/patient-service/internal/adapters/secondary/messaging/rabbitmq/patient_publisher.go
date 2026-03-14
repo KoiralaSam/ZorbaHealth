@@ -1,4 +1,4 @@
-package events
+package rabbitmq
 
 import (
 	"context"
@@ -56,13 +56,14 @@ func (p *PatientPublisher) PublishPatientNotRegistered(ctx context.Context, pati
 	})
 }
 
-func (p *PatientPublisher) PublishPatientChached(ctx context.Context, patientRegisterRequest *models.RegisterPatientRequest, token string) error {
+func (p *PatientPublisher) PublishPatientChached(ctx context.Context, patientRegisterRequest *models.RegisterPatientRequest, token string, otp string) error {
 	payload := events.PatientEventData{
 		RegisterRequest: &events.PendingRegistrationData{
 			Email:       patientRegisterRequest.Email,
 			PhoneNumber: patientRegisterRequest.PhoneNumber,
 			FullName:    patientRegisterRequest.FullName,
 			DateOfBirth: patientRegisterRequest.DateOfBirth.Format(time.RFC3339),
+			Otp:         otp,
 		},
 	}
 	jsonData, err := json.Marshal(payload)

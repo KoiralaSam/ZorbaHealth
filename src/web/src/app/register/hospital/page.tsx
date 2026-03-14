@@ -39,19 +39,39 @@ export default function HospitalRegister() {
     <main className="min-h-screen bg-gradient-to-b from-blue-50 to-white">
       <div className="flex flex-col items-center justify-center min-h-screen gap-6 px-4 py-8">
         <div className="bg-white p-8 rounded-2xl shadow-lg max-w-2xl w-full">
-          <div className="mb-6">
+          <div className="mb-4 flex items-center justify-between">
             <button
-              onClick={() => router.back()}
-              className="text-gray-500 hover:text-gray-700 mb-4"
+              onClick={() => router.push("/")}
+              className="text-gray-500 hover:text-gray-700 text-sm"
+              type="button"
             >
-              ← Back
+              ← Back to home
             </button>
+            <nav className="flex items-center gap-3 text-xs sm:text-sm">
+              <button
+                type="button"
+                onClick={() => router.push("/login/hospital")}
+                className="text-gray-600 hover:text-gray-900"
+              >
+                Hospital login
+              </button>
+              <button
+                type="button"
+                onClick={() => router.push("/login/patient")}
+                className="text-gray-600 hover:text-gray-900"
+              >
+                Patient login
+              </button>
+            </nav>
+          </div>
+
+          <div className="mb-6">
             <h2 className="text-2xl font-bold text-gray-900 mb-2">
               Hospital Registration
             </h2>
             <p className="text-gray-600 text-sm">
               Register your healthcare facility to manage patient records and
-              analytics
+              analytics.
             </p>
           </div>
 
@@ -201,7 +221,7 @@ export default function HospitalRegister() {
                     })
                   }
                   placeholder="Re-enter password"
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus-border-transparent"
                   required
                   minLength={8}
                 />

@@ -6,18 +6,24 @@ import (
 	"net/url"
 	"strings"
 
+	"github.com/KoiralaSam/ZorbaHealth/services/notification-service/internal/core/ports/inbound"
 	outbound "github.com/KoiralaSam/ZorbaHealth/services/notification-service/internal/core/ports/outbound"
 	"github.com/KoiralaSam/ZorbaHealth/shared/events"
 )
 
 type NotificationService struct {
 	email         outbound.EmailSender
+	sms           outbound.SMSSender
+	inbound       inbound.SMSReceiver
 	publicWebBase string
 }
 
-func NewNotificationService(email outbound.EmailSender, publicWebBase string) *NotificationService {
+func NewNotificationService(email outbound.EmailSender, sms outbound.SMSSender, inbound inbound.SMSReceiver, publicWebBase string) *NotificationService {
 	return &NotificationService{
+
 		email:         email,
+		sms:           sms,
+		inbound:       inbound,
 		publicWebBase: strings.TrimRight(publicWebBase, "/"),
 	}
 }
@@ -107,4 +113,16 @@ func (s *NotificationService) SendPendingVerificationEmail(ctx context.Context, 
 		displayName = "there"
 	}
 	return s.email.Send(ctx, req.Email, displayName, subject, plain, html)
+}
+
+// SendOTP sends the OTP to the given phone number via SMS.
+func (s *NotificationService) SendOTP(ctx context.Context, phone string, otp string) error {
+	if phone == "" {
+		return fmt.Errorf("phone number is empty")
+	}
+	if otp == "" {
+		return fmt.Errorf("otp is empty")
+	}
+	message := fmt.Sprintf("Your Zorba Health verification code is: %s", otp)
+	return s.sms.SendSMS(ctx, phone, message)
 }

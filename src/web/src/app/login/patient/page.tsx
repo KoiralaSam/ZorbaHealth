@@ -45,25 +45,61 @@ export default function PatientLogin() {
 
   return (
     <main className="min-h-screen bg-gradient-to-b from-blue-50 to-white">
-      <div className="flex flex-col items-center justify-center h-screen gap-6 px-4">
-        <div className="bg-white p-8 rounded-2xl shadow-lg max-w-md w-full">
-          <div className="mb-6">
+      <div className="flex min-h-screen flex-col">
+        <header className="w-full border-b border-blue-100 bg-white/70 backdrop-blur">
+          <div className="mx-auto flex max-w-5xl items-center justify-between px-4 py-4">
             <button
-              onClick={() => router.back()}
-              className="text-gray-500 hover:text-gray-700 mb-4"
+              type="button"
+              onClick={() => router.push("/")}
+              className="flex items-center gap-2"
             >
-              ← Back
+              <div className="flex h-9 w-9 items-center justify-center rounded-full bg-blue-100">
+                <span className="text-base font-semibold text-blue-700">Z</span>
+              </div>
+              <span className="text-lg font-semibold text-gray-900">
+                Zorba Health
+              </span>
             </button>
-            <h2 className="text-2xl font-bold text-gray-900 mb-2">
-              Patient Login
-            </h2>
-            <p className="text-gray-600 text-sm">
-              Enter your phone number to access your health records and voice
-              assistant
-            </p>
-          </div>
 
-          <form onSubmit={handleLogin} className="space-y-4">
+            <nav className="flex items-center gap-3 text-sm">
+              <button
+                type="button"
+                onClick={() => router.push("/register/patient")}
+                className="text-gray-600 hover:text-gray-900"
+              >
+                Patient sign up
+              </button>
+              <button
+                type="button"
+                onClick={() => router.push("/login/hospital")}
+                className="text-gray-600 hover:text-gray-900"
+              >
+                Hospital login
+              </button>
+            </nav>
+          </div>
+        </header>
+
+        <div className="flex flex-1 items-center justify-center px-4 py-8">
+          <div className="bg-white p-8 rounded-2xl shadow-lg max-w-md w-full">
+            <div className="mb-6">
+              <button
+                onClick={() => router.push("/")}
+                className="text-gray-500 hover:text-gray-700 mb-4 text-sm"
+                type="button"
+              >
+                ← Back to home
+              </button>
+              <h2 className="text-2xl font-bold text-gray-900 mb-2">
+                Patient Login
+              </h2>
+              <p className="text-gray-600 text-sm">
+                Enter your phone number and password to access your health
+                records and voice assistant.
+              </p>
+            </div>
+
+            <form onSubmit={handleLogin} className="space-y-4">
             <div>
               <label
                 htmlFor="phone"
@@ -100,25 +136,27 @@ export default function PatientLogin() {
               />
             </div>
 
-            <Button
-              type="submit"
-              className="w-full text-lg py-6 bg-blue-600 hover:bg-blue-700 text-white"
-              disabled={isLoading}
-            >
-              {isLoading ? "Logging in..." : "Continue"}
-            </Button>
-          </form>
-
-          <div className="mt-6 text-center">
-            <p className="text-sm text-gray-500">
-              New patient?{" "}
-              <button
-                onClick={() => router.push("/register/patient")}
-                className="text-blue-600 hover:text-blue-700 font-medium"
+              <Button
+                type="submit"
+                className="w-full text-lg py-6 bg-blue-600 hover:bg-blue-700 text-white"
+                disabled={isLoading}
               >
-                Register here
-              </button>
-            </p>
+                {isLoading ? "Logging in..." : "Continue"}
+              </Button>
+            </form>
+
+            <div className="mt-6 text-center">
+              <p className="text-sm text-gray-500">
+                New patient?{" "}
+                <button
+                  onClick={() => router.push("/register/patient")}
+                  className="text-blue-600 hover:text-blue-700 font-medium"
+                  type="button"
+                >
+                  Register here
+                </button>
+              </p>
+            </div>
           </div>
         </div>
       </div>

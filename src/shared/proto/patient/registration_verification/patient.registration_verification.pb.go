@@ -142,6 +142,102 @@ func (x *StartRegistrationResponse) GetMessage() string {
 	return ""
 }
 
+type VerifyPhoneOTPRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	PhoneNumber   string                 `protobuf:"bytes,1,opt,name=phone_number,json=phoneNumber,proto3" json:"phone_number,omitempty"`
+	Otp           string                 `protobuf:"bytes,2,opt,name=otp,proto3" json:"otp,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *VerifyPhoneOTPRequest) Reset() {
+	*x = VerifyPhoneOTPRequest{}
+	mi := &file_patient_registration_verification_proto_msgTypes[2]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *VerifyPhoneOTPRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*VerifyPhoneOTPRequest) ProtoMessage() {}
+
+func (x *VerifyPhoneOTPRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_patient_registration_verification_proto_msgTypes[2]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use VerifyPhoneOTPRequest.ProtoReflect.Descriptor instead.
+func (*VerifyPhoneOTPRequest) Descriptor() ([]byte, []int) {
+	return file_patient_registration_verification_proto_rawDescGZIP(), []int{2}
+}
+
+func (x *VerifyPhoneOTPRequest) GetPhoneNumber() string {
+	if x != nil {
+		return x.PhoneNumber
+	}
+	return ""
+}
+
+func (x *VerifyPhoneOTPRequest) GetOtp() string {
+	if x != nil {
+		return x.Otp
+	}
+	return ""
+}
+
+type VerifyPhoneOTPResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Message       string                 `protobuf:"bytes,1,opt,name=message,proto3" json:"message,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *VerifyPhoneOTPResponse) Reset() {
+	*x = VerifyPhoneOTPResponse{}
+	mi := &file_patient_registration_verification_proto_msgTypes[3]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *VerifyPhoneOTPResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*VerifyPhoneOTPResponse) ProtoMessage() {}
+
+func (x *VerifyPhoneOTPResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_patient_registration_verification_proto_msgTypes[3]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use VerifyPhoneOTPResponse.ProtoReflect.Descriptor instead.
+func (*VerifyPhoneOTPResponse) Descriptor() ([]byte, []int) {
+	return file_patient_registration_verification_proto_rawDescGZIP(), []int{3}
+}
+
+func (x *VerifyPhoneOTPResponse) GetMessage() string {
+	if x != nil {
+		return x.Message
+	}
+	return ""
+}
+
 type VerifyEmailRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Token         string                 `protobuf:"bytes,1,opt,name=token,proto3" json:"token,omitempty"` // token from verification link
@@ -151,7 +247,7 @@ type VerifyEmailRequest struct {
 
 func (x *VerifyEmailRequest) Reset() {
 	*x = VerifyEmailRequest{}
-	mi := &file_patient_registration_verification_proto_msgTypes[2]
+	mi := &file_patient_registration_verification_proto_msgTypes[4]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -163,7 +259,7 @@ func (x *VerifyEmailRequest) String() string {
 func (*VerifyEmailRequest) ProtoMessage() {}
 
 func (x *VerifyEmailRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_patient_registration_verification_proto_msgTypes[2]
+	mi := &file_patient_registration_verification_proto_msgTypes[4]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -176,7 +272,7 @@ func (x *VerifyEmailRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use VerifyEmailRequest.ProtoReflect.Descriptor instead.
 func (*VerifyEmailRequest) Descriptor() ([]byte, []int) {
-	return file_patient_registration_verification_proto_rawDescGZIP(), []int{2}
+	return file_patient_registration_verification_proto_rawDescGZIP(), []int{4}
 }
 
 func (x *VerifyEmailRequest) GetToken() string {
@@ -197,7 +293,7 @@ type VerifyEmailResponse struct {
 
 func (x *VerifyEmailResponse) Reset() {
 	*x = VerifyEmailResponse{}
-	mi := &file_patient_registration_verification_proto_msgTypes[3]
+	mi := &file_patient_registration_verification_proto_msgTypes[5]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -209,7 +305,7 @@ func (x *VerifyEmailResponse) String() string {
 func (*VerifyEmailResponse) ProtoMessage() {}
 
 func (x *VerifyEmailResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_patient_registration_verification_proto_msgTypes[3]
+	mi := &file_patient_registration_verification_proto_msgTypes[5]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -222,7 +318,7 @@ func (x *VerifyEmailResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use VerifyEmailResponse.ProtoReflect.Descriptor instead.
 func (*VerifyEmailResponse) Descriptor() ([]byte, []int) {
-	return file_patient_registration_verification_proto_rawDescGZIP(), []int{3}
+	return file_patient_registration_verification_proto_rawDescGZIP(), []int{5}
 }
 
 func (x *VerifyEmailResponse) GetMessage() string {
@@ -258,6 +354,11 @@ const file_patient_registration_verification_proto_rawDesc = "" +
 	"\tfull_name\x18\x04 \x01(\tR\bfullName\x12>\n" +
 	"\rdate_of_birth\x18\x05 \x01(\v2\x1a.google.protobuf.TimestampR\vdateOfBirth\"5\n" +
 	"\x19StartRegistrationResponse\x12\x18\n" +
+	"\amessage\x18\x01 \x01(\tR\amessage\"L\n" +
+	"\x15VerifyPhoneOTPRequest\x12!\n" +
+	"\fphone_number\x18\x01 \x01(\tR\vphoneNumber\x12\x10\n" +
+	"\x03otp\x18\x02 \x01(\tR\x03otp\"2\n" +
+	"\x16VerifyPhoneOTPResponse\x12\x18\n" +
 	"\amessage\x18\x01 \x01(\tR\amessage\"*\n" +
 	"\x12VerifyEmailRequest\x12\x14\n" +
 	"\x05token\x18\x01 \x01(\tR\x05token\"g\n" +
@@ -265,9 +366,10 @@ const file_patient_registration_verification_proto_rawDesc = "" +
 	"\amessage\x18\x01 \x01(\tR\amessage\x12\x1d\n" +
 	"\n" +
 	"patient_id\x18\x02 \x01(\tR\tpatientId\x12\x17\n" +
-	"\auser_id\x18\x03 \x01(\tR\x06userId2\xb0\x02\n" +
+	"\auser_id\x18\x03 \x01(\tR\x06userId2\xb8\x03\n" +
 	"\x1fRegistrationVerificationService\x12\x8e\x01\n" +
-	"\x11StartRegistration\x12;.patient.registration_verification.StartRegistrationRequest\x1a<.patient.registration_verification.StartRegistrationResponse\x12|\n" +
+	"\x11StartRegistration\x12;.patient.registration_verification.StartRegistrationRequest\x1a<.patient.registration_verification.StartRegistrationResponse\x12\x85\x01\n" +
+	"\x0eVerifyPhoneOTP\x128.patient.registration_verification.VerifyPhoneOTPRequest\x1a9.patient.registration_verification.VerifyPhoneOTPResponse\x12|\n" +
 	"\vVerifyEmail\x125.patient.registration_verification.VerifyEmailRequest\x1a6.patient.registration_verification.VerifyEmailResponseBJZHshared/proto/patient/registration_verification;registration_verificationb\x06proto3"
 
 var (
@@ -282,22 +384,26 @@ func file_patient_registration_verification_proto_rawDescGZIP() []byte {
 	return file_patient_registration_verification_proto_rawDescData
 }
 
-var file_patient_registration_verification_proto_msgTypes = make([]protoimpl.MessageInfo, 4)
+var file_patient_registration_verification_proto_msgTypes = make([]protoimpl.MessageInfo, 6)
 var file_patient_registration_verification_proto_goTypes = []any{
 	(*StartRegistrationRequest)(nil),  // 0: patient.registration_verification.StartRegistrationRequest
 	(*StartRegistrationResponse)(nil), // 1: patient.registration_verification.StartRegistrationResponse
-	(*VerifyEmailRequest)(nil),        // 2: patient.registration_verification.VerifyEmailRequest
-	(*VerifyEmailResponse)(nil),       // 3: patient.registration_verification.VerifyEmailResponse
-	(*timestamppb.Timestamp)(nil),     // 4: google.protobuf.Timestamp
+	(*VerifyPhoneOTPRequest)(nil),     // 2: patient.registration_verification.VerifyPhoneOTPRequest
+	(*VerifyPhoneOTPResponse)(nil),    // 3: patient.registration_verification.VerifyPhoneOTPResponse
+	(*VerifyEmailRequest)(nil),        // 4: patient.registration_verification.VerifyEmailRequest
+	(*VerifyEmailResponse)(nil),       // 5: patient.registration_verification.VerifyEmailResponse
+	(*timestamppb.Timestamp)(nil),     // 6: google.protobuf.Timestamp
 }
 var file_patient_registration_verification_proto_depIdxs = []int32{
-	4, // 0: patient.registration_verification.StartRegistrationRequest.date_of_birth:type_name -> google.protobuf.Timestamp
+	6, // 0: patient.registration_verification.StartRegistrationRequest.date_of_birth:type_name -> google.protobuf.Timestamp
 	0, // 1: patient.registration_verification.RegistrationVerificationService.StartRegistration:input_type -> patient.registration_verification.StartRegistrationRequest
-	2, // 2: patient.registration_verification.RegistrationVerificationService.VerifyEmail:input_type -> patient.registration_verification.VerifyEmailRequest
-	1, // 3: patient.registration_verification.RegistrationVerificationService.StartRegistration:output_type -> patient.registration_verification.StartRegistrationResponse
-	3, // 4: patient.registration_verification.RegistrationVerificationService.VerifyEmail:output_type -> patient.registration_verification.VerifyEmailResponse
-	3, // [3:5] is the sub-list for method output_type
-	1, // [1:3] is the sub-list for method input_type
+	2, // 2: patient.registration_verification.RegistrationVerificationService.VerifyPhoneOTP:input_type -> patient.registration_verification.VerifyPhoneOTPRequest
+	4, // 3: patient.registration_verification.RegistrationVerificationService.VerifyEmail:input_type -> patient.registration_verification.VerifyEmailRequest
+	1, // 4: patient.registration_verification.RegistrationVerificationService.StartRegistration:output_type -> patient.registration_verification.StartRegistrationResponse
+	3, // 5: patient.registration_verification.RegistrationVerificationService.VerifyPhoneOTP:output_type -> patient.registration_verification.VerifyPhoneOTPResponse
+	5, // 6: patient.registration_verification.RegistrationVerificationService.VerifyEmail:output_type -> patient.registration_verification.VerifyEmailResponse
+	4, // [4:7] is the sub-list for method output_type
+	1, // [1:4] is the sub-list for method input_type
 	1, // [1:1] is the sub-list for extension type_name
 	1, // [1:1] is the sub-list for extension extendee
 	0, // [0:1] is the sub-list for field type_name
@@ -314,7 +420,7 @@ func file_patient_registration_verification_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_patient_registration_verification_proto_rawDesc), len(file_patient_registration_verification_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   4,
+			NumMessages:   6,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

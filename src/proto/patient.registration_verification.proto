@@ -12,6 +12,8 @@ service RegistrationVerificationService {
   // StartRegistration stores pending registration and sends verification email.
   // Client should direct the user to check email and use the link (token) in VerifyEmail.
   rpc StartRegistration(StartRegistrationRequest) returns (StartRegistrationResponse);
+  // VerifyPhoneOTP verifies the OTP sent to the user's phone number.
+  rpc VerifyPhoneOTP(VerifyPhoneOTPRequest) returns (VerifyPhoneOTPResponse);
   // VerifyEmail consumes the token from the verification link, creates user and patient, returns ids.
   rpc VerifyEmail(VerifyEmailRequest) returns (VerifyEmailResponse);
 }
@@ -26,6 +28,15 @@ message StartRegistrationRequest {
 
 message StartRegistrationResponse {
   string message = 1;  // e.g. "Verification email sent. Please check your inbox."
+}
+
+message VerifyPhoneOTPRequest {
+  string phone_number = 1;
+  string otp = 2;
+}
+
+message VerifyPhoneOTPResponse {
+  string message = 1;
 }
 
 message VerifyEmailRequest {

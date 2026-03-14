@@ -20,10 +20,12 @@ type Patient struct {
 
 // PendingRegistration is stored in Redis until the user verifies. Do not persist password in plain text in production; hash before storing or use short TTL.
 type PendingRegistration struct {
-	Email       string    `json:"email"`
-	PhoneNumber string    `json:"phone_number"`
-	Password    string    `json:"password"` // prefer hashed; or omit and require reset on first login
-	FullName    string    `json:"full_name"`
-	DateOfBirth time.Time `json:"date_of_birth"`
-	CreatedAt   time.Time `json:"created_at"`
+	Email          string    `json:"email"`
+	PhoneNumber    string    `json:"phone_number"`
+	Password       string    `json:"password"` // prefer hashed; or omit and require reset on first login
+	FullName       string    `json:"full_name"`
+	DateOfBirth    time.Time `json:"date_of_birth"`
+	CreatedAt      time.Time `json:"created_at"`
+	PhoneVerified  bool      `json:"phone_verified"`
+	EmailVerified  bool      `json:"email_verified"`
 }

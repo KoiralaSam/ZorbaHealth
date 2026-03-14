@@ -18,6 +18,8 @@ spec:
           ports:
             - containerPort: 50056
               name: grpc
+            - containerPort: 3001
+              name: http
           resources:
             requests:
               memory: "128Mi"
@@ -56,6 +58,42 @@ spec:
                 configMapKeyRef:
                   key: PUBLIC_WEB_BASE_URL
                   name: app-config
+            - name: HTTP_ADDR
+              valueFrom:
+                secretKeyRef:
+                  key: http_addr
+                  name: voipms-credentials
+            - name: VOIPMS_DID
+              valueFrom:
+                secretKeyRef:
+                  key: did
+                  name: voipms-credentials
+            - name: VOIPMS_API_USERNAME
+              valueFrom:
+                secretKeyRef:
+                  key: username
+                  name: voipms-credentials
+            - name: VOIPMS_API_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  key: password
+                  name: voipms-credentials
+            - name: VOIPMS_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  key: key
+                  name: voipms-credentials
+            - name: VOIPMS_API_BASEURL
+              valueFrom:
+                secretKeyRef:
+                  key: voipms_baseurl
+                  name: voipms-credentials
+            - name: NROK_API_BASEURL
+              valueFrom:
+                secretKeyRef:
+                  key: ngrok_baseurl
+                  name: voipms-credentials
+
 ---
 apiVersion: v1
 kind: Service
@@ -67,5 +105,8 @@ spec:
     - port: 50056
       targetPort: 50056
       name: grpc
+    - port: 3000
+      targetPort: 3000
+      name: http
   selector:
     app: notification-service

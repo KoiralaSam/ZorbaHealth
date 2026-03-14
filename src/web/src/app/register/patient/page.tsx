@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "../../../components/ui/button";
 import { API_URL } from "../../../constants";
@@ -21,12 +21,42 @@ export default function PatientRegister() {
     confirmPassword: "",
   });
   const [isLoading, setIsLoading] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    try {
+      const saved = window.sessionStorage.getItem("patientRegistration");
+      if (!saved) return;
+
+      const parsed = JSON.parse(saved) as HTTPPatientRegisterRequest;
+
+      setFormData((prev) => ({
+        ...prev,
+        phoneNumber: parsed.phone_number || prev.phoneNumber,
+        email: parsed.email || prev.email,
+        fullName: parsed.full_name || prev.fullName,
+        // date_of_birth is stored as RFC3339 string; convert back to YYYY-MM-DD if present
+        dateOfBirth: parsed.date_of_birth
+          ? parsed.date_of_birth.split("T")[0] ?? prev.dateOfBirth
+          : prev.dateOfBirth,
+        // we deliberately do NOT restore password fields for security reasons
+        password: prev.password,
+        confirmPassword: prev.confirmPassword,
+      }));
+    } catch {
+      // If parsing fails, ignore and continue with empty form
+    }
+  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
+    setErrorMessage(null);
+
     if (formData.password !== formData.confirmPassword) {
-      alert("Passwords do not match!");
+      setErrorMessage("Passwords do not match.");
       return;
     }
 
@@ -62,12 +92,24 @@ export default function PatientRegister() {
       const data: HTTPPatientRegisterResponse = await response.json();
 
       if (response.ok) {
-        router.push("/register/patient/verify");
+        if (typeof window !== "undefined") {
+          window.sessionStorage.setItem(
+            "patientRegistration",
+            JSON.stringify(patientRegisterRequest)
+          );
+        }
+
+        router.push(
+          `/register/patient/otp?phone=${encodeURIComponent(formData.phoneNumber)}`
+        );
       } else {
-        alert(`Registration failed: ${data.error?.message || "Unknown error"}`);
+        setErrorMessage(
+          data.error?.message ||
+            "Registration failed. Please check your details and try again."
+        );
       }
     } catch {
-      alert("Network error - Please try again");
+      setErrorMessage("Network error. Please try again.");
     } finally {
       setIsLoading(false);
     }
@@ -75,24 +117,66 @@ export default function PatientRegister() {
 
   return (
     <main className="min-h-screen bg-gradient-to-b from-blue-50 to-white">
-      <div className="flex flex-col items-center justify-center min-h-screen gap-6 px-4 py-8">
-        <div className="bg-white p-8 rounded-2xl shadow-lg max-w-md w-full">
-          <div className="mb-6">
+      <div className="flex min-h-screen flex-col">
+        <header className="w-full border-b border-blue-100 bg-white/70 backdrop-blur">
+          <div className="mx-auto flex max-w-5xl items-center justify-between px-4 py-4">
             <button
-              onClick={() => router.back()}
-              className="text-gray-500 hover:text-gray-700 mb-4"
+              type="button"
+              onClick={() => router.push("/")}
+              className="flex items-center gap-2"
             >
-              ← Back
+              <div className="flex h-9 w-9 items-center justify-center rounded-full bg-blue-100">
+                <span className="text-base font-semibold text-blue-700">Z</span>
+              </div>
+              <span className="text-lg font-semibold text-gray-900">
+                Zorba Health
+              </span>
             </button>
-            <h2 className="text-2xl font-bold text-gray-900 mb-2">
-              Patient Registration
-            </h2>
-            <p className="text-gray-600 text-sm">
-              Create your account to access AI-powered health assistance
-            </p>
-          </div>
 
-          <form onSubmit={handleSubmit} className="space-y-4">
+            <nav className="flex items-center gap-3 text-sm">
+              <button
+                type="button"
+                onClick={() => router.push("/login/patient")}
+                className="text-gray-600 hover:text-gray-900"
+              >
+                Patient login
+              </button>
+              <button
+                type="button"
+                onClick={() => router.push("/login/hospital")}
+                className="text-gray-600 hover:text-gray-900"
+              >
+                Hospital login
+              </button>
+            </nav>
+          </div>
+        </header>
+
+        <div className="flex flex-1 items-center justify-center px-4 py-8">
+          <div className="bg-white p-8 rounded-2xl shadow-lg max-w-md w-full">
+            <div className="mb-6">
+              <button
+                onClick={() => router.push("/")}
+                className="text-gray-500 hover:text-gray-700 mb-4 text-sm"
+                type="button"
+              >
+                ← Back to home
+              </button>
+              <h2 className="text-2xl font-bold text-gray-900 mb-2">
+                Patient Registration
+              </h2>
+              <p className="text-gray-600 text-sm">
+                Create your account to access AI-powered health assistance.
+              </p>
+            </div>
+
+            {errorMessage && (
+              <div className="mb-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+                {errorMessage}
+              </div>
+            )}
+
+            <form onSubmit={handleSubmit} className="space-y-4">
             <div>
               <label
                 htmlFor="fullName"
@@ -216,25 +300,27 @@ export default function PatientRegister() {
               />
             </div>
 
-            <Button
-              type="submit"
-              className="w-full text-lg py-6 bg-blue-600 hover:bg-blue-700 text-white"
-              disabled={isLoading}
-            >
-              {isLoading ? "Creating Account..." : "Register"}
-            </Button>
-          </form>
-
-          <div className="mt-6 text-center">
-            <p className="text-sm text-gray-500">
-              Already have an account?{" "}
-              <button
-                onClick={() => router.push("/login/patient")}
-                className="text-blue-600 hover:text-blue-700 font-medium"
+              <Button
+                type="submit"
+                className="w-full text-lg py-6 bg-blue-600 hover:bg-blue-700 text-white"
+                disabled={isLoading}
               >
-                Login here
-              </button>
-            </p>
+                {isLoading ? "Creating Account..." : "Register"}
+              </Button>
+            </form>
+
+            <div className="mt-6 text-center">
+              <p className="text-sm text-gray-500">
+                Already have an account?{" "}
+                <button
+                  onClick={() => router.push("/login/patient")}
+                  className="text-blue-600 hover:text-blue-700 font-medium"
+                  type="button"
+                >
+                  Login here
+                </button>
+              </p>
+            </div>
           </div>
         </div>
       </div>
