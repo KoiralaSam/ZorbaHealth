@@ -1,0 +1,62 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: health-records-service
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: health-records-service
+  template:
+    metadata:
+      labels:
+        app: health-records-service
+    spec:
+      containers:
+        - name: health-records-service
+          image: zorba-health/health-records-service
+          ports:
+            - containerPort: 50054
+              name: grpc
+          resources:
+            requests:
+              memory: "128Mi"
+              cpu: "125m"
+            limits:
+              memory: "256Mi"
+              cpu: "250m"
+          env:
+            - name: MEDICAL_RECORDS_SERVICE_GRPC_ADDR
+              valueFrom:
+                configMapKeyRef:
+                  key: MEDICAL_RECORDS_SERVICE_GRPC_ADDR
+                  name: app-config
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  key: DATABASE_URL
+                  name: app-secrets
+            - name: OPENAI_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  key: OPENAI_API_KEY
+                  name: openai-credentials
+            - name: INTERNAL_SERVICE_SECRET
+              valueFrom:
+                secretKeyRef:
+                  key: INTERNAL_SERVICE_SECRET
+                  name: app-secrets
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: health-records-service
+spec:
+  type: ClusterIP
+  ports:
+    - port: 50054
+      targetPort: 50054
+      name: grpc
+  selector:
+    app: health-records-service
+

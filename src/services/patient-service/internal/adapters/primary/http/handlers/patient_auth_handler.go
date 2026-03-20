@@ -4,16 +4,13 @@ import (
 	"encoding/json"
 	"net/http"
 
-	"github.com/KoiralaSam/ZorbaHealth/services/patient-service/internal/adapters/secondary/messaging/rabbitmq"
 	"github.com/KoiralaSam/ZorbaHealth/services/patient-service/internal/core/domain/models"
-	"github.com/KoiralaSam/ZorbaHealth/services/patient-service/internal/core/services"
+	"github.com/KoiralaSam/ZorbaHealth/services/patient-service/internal/core/ports/inbound"
 	"github.com/KoiralaSam/ZorbaHealth/shared/contracts"
 )
 
 type HttpHandler struct {
-	Service *services.PatientService
-	// Publisher optional: when set, registration publishes to notification service (email + OTP SMS)
-	Publisher *rabbitmq.PatientPublisher
+	Service inbound.PatientService
 }
 
 func (h *HttpHandler) PatientRegisterHandler(w http.ResponseWriter, r *http.Request) {
@@ -37,16 +34,8 @@ func (h *HttpHandler) PatientRegisterHandler(w http.ResponseWriter, r *http.Requ
 		})
 		return
 	}
-
-	if h.Publisher != nil {
-		if err := h.Publisher.PublishPatientChached(ctx, reqBody, token, otp); err != nil {
-			writeJson(w, http.StatusInternalServerError, nil, &contracts.APIError{
-				Code:    "INTERNAL_SERVER_ERROR",
-				Message: "Failed to publish verification event: " + err.Error(),
-			})
-			return
-		}
-	}
+	_ = token
+	_ = otp
 
 	writeJson(w, http.StatusOK, map[string]string{"message": "Verification email sent. Please check your inbox."}, nil)
 }

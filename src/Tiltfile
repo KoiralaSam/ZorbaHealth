@@ -119,6 +119,17 @@ k8s_yaml('./infra/development/k8s/notification-service-deployment.yaml')
 k8s_resource('notification-service', resource_deps=['rabbitmq'], port_forwards=[50056, 3001], labels="services")
 ### End of Notification Service ###
 
+### Health Records Service ###
+docker_build(
+  'zorba-health/health-records-service',
+  '.',
+  dockerfile='./infra/development/docker/health-records-service.Dockerfile',
+)
+
+k8s_yaml('./infra/development/k8s/health-records-service-deployment.yaml')
+k8s_resource('health-records-service', resource_deps=['db-migrate'], port_forwards='50054:50054', labels="services")
+### End of Health Records Service ###
+
 
 docker_build(
   'zorba-health/web',

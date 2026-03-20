@@ -1,0 +1,38 @@
+syntax = "proto3";
+package analytics;
+option go_package = "shared/proto/analytics;analytics";
+
+service AnalyticsService {
+    // Hospital admin: summary stats for their consented patient population
+    rpc GetHospitalSummary(HospitalSummaryRequest) returns (HospitalSummaryResponse);
+
+    // Hospital admin: recent activity feed
+    rpc GetRecentActivity(RecentActivityRequest) returns (RecentActivityResponse);
+}
+
+message HospitalSummaryRequest {
+    string hospital_id = 1;
+}
+
+message HospitalSummaryResponse {
+    int32  total_consented_patients = 1;
+    int32  active_sessions_today    = 2;
+    int32  records_indexed          = 3;
+    int32  emergency_events_30d     = 4;
+}
+
+message RecentActivityRequest {
+    string hospital_id = 1;
+    int32  limit       = 2;
+}
+
+message RecentActivityResponse {
+    repeated ActivityEvent events = 1;
+}
+
+message ActivityEvent {
+    string timestamp   = 1;
+    string event_type  = 2;
+    string patient_id  = 3;
+    string description = 4;
+}

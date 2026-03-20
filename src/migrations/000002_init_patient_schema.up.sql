@@ -1,5 +1,6 @@
 CREATE TABLE "patients" (
   "id" uuid PRIMARY KEY DEFAULT (gen_random_uuid()),
+  "user_id" uuid UNIQUE,
   "phone_number" varchar(25) NOT NULL,
   "email" varchar(255),
   "full_name" varchar(255),
@@ -10,7 +11,7 @@ CREATE TABLE "patients" (
 );
 
 CREATE TABLE "calls" (
-  "id" bigserial PRIMARY KEY,
+  "id" BIGSERIAL PRIMARY KEY,
   "patient_id" uuid NOT NULL,
   "livekit_room_id" varchar(100) UNIQUE,
   "status" varchar(20),
@@ -20,28 +21,18 @@ CREATE TABLE "calls" (
   "summary" text
 );
 
-CREATE TABLE "action_items" (
-  "id" bigserial PRIMARY KEY,
-  "call_id" bigserial NOT NULL,
-  "task_description" text,
-  "is_completed" boolean DEFAULT false,
-  "due_date" timestamp,
-  "created_at" timestamp DEFAULT (now())
-);
+CREATE INDEX "patients_phone_number_idx" ON "patients" ("phone_number");
+CREATE INDEX "patients_medical_notes_idx" ON "patients" ("medical_notes");
+CREATE INDEX "patients_user_id_idx" ON "patients" ("user_id");
+CREATE INDEX "calls_patient_id_idx" ON "calls" ("patient_id");
+CREATE INDEX "calls_livekit_room_id_idx" ON "calls" ("livekit_room_id");
+CREATE INDEX "calls_summary_idx" ON "calls" ("summary");
 
-CREATE INDEX ON "patients" ("phone_number");
-CREATE INDEX ON "patients" ("medical_notes");
-CREATE INDEX ON "calls" ("patient_id");
-CREATE INDEX ON "calls" ("livekit_room_id");
-CREATE INDEX ON "calls" ("summary");
-CREATE INDEX ON "action_items" ("call_id");
-CREATE INDEX ON "action_items" ("due_date");
-CREATE INDEX ON "action_items" ("call_id", "due_date");
+COMMENT ON COLUMN "patients"."user_id" IS 'linked after registration — added in migration 000003';
+COMMENT ON COLUMN "patients"."phone_number" IS 'Matched against SIP Caller ID';
+COMMENT ON COLUMN "patients"."medical_notes" IS 'Brief summary for the AI prompt';
+COMMENT ON COLUMN "calls"."livekit_room_id" IS 'maps to livekit SIP room id';
+COMMENT ON COLUMN "calls"."status" IS 'active | ended | failed';
 
-COMMENT ON COLUMN "patients"."phone_number" IS '-- Matched against SIP Caller ID';
-COMMENT ON COLUMN "patients"."medical_notes" IS '-- Brief summary for the AI prompt';
-COMMENT ON COLUMN "calls"."livekit_room_id" IS '-- maps to livekit SIP room id';
-COMMENT ON COLUMN "action_items"."task_description" IS 'Description of the action item from the related call.';
-
-ALTER TABLE "calls" ADD FOREIGN KEY ("patient_id") REFERENCES "patients" ("id");
-ALTER TABLE "action_items" ADD FOREIGN KEY ("call_id") REFERENCES "calls" ("id");
+ALTER TABLE "patients" ADD FOREIGN KEY ("user_id") REFERENCES "users" ("id") DEFERRABLE INITIALLY IMMEDIATE;
+ALTER TABLE "calls" ADD FOREIGN KEY ("patient_id") REFERENCES "patients" ("id") DEFERRABLE INITIALLY IMMEDIATE;

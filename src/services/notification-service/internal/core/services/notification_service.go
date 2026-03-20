@@ -126,3 +126,8 @@ func (s *NotificationService) SendOTP(ctx context.Context, phone string, otp str
 	message := fmt.Sprintf("Your Zorba Health verification code is: %s", otp)
 	return s.sms.SendSMS(ctx, phone, message)
 }
+
+// ReceiveSMS forwards inbound SMS messages (webhook) to the configured inbound receiver.
+func (s *NotificationService) ReceiveSMS(ctx context.Context, phoneNumber, message string) error {
+	return s.inbound.ReceiveSMS(ctx, phoneNumber, message)
+}

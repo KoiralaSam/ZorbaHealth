@@ -1,0 +1,32 @@
+syntax = "proto3";
+package location;
+option go_package = "shared/proto/location;location";
+
+service LocationService {
+    rpc GetLocation(GetLocationRequest) returns (GetLocationResponse);
+    rpc FindNearestHospital(FindHospitalRequest) returns (FindHospitalResponse);
+}
+
+message GetLocationRequest {
+    string session_id = 1;
+}
+
+message GetLocationResponse {
+    double lat      = 1;
+    double lng      = 2;
+    string method   = 3;  // "gps" | "ip-approximate"
+    string accuracy = 4;  // "precise" | "city-level"
+}
+
+message FindHospitalRequest {
+    double lat        = 1;
+    double lng        = 2;
+    string place_type = 3;  // "hospital" | "urgent_care" | "pharmacy"
+}
+
+message FindHospitalResponse {
+    string name           = 1;
+    string address        = 2;
+    string directions_url = 3;
+    string phone          = 4;
+}

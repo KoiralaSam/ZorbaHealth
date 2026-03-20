@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"log"
 
-	"github.com/KoiralaSam/ZorbaHealth/services/notification-service/internal/core/services"
+	"github.com/KoiralaSam/ZorbaHealth/services/notification-service/internal/core/ports/inbound"
 	"github.com/KoiralaSam/ZorbaHealth/shared/contracts"
 	"github.com/KoiralaSam/ZorbaHealth/shared/events"
 	messaging "github.com/KoiralaSam/ZorbaHealth/shared/messaging"
@@ -15,10 +15,10 @@ import (
 
 type PatientConsumer struct {
 	rabbitmq *messaging.RabbitMQ
-	svc      *services.NotificationService
+	svc      inbound.NotificationService
 }
 
-func NewPatientConsumer(rabbitmq *messaging.RabbitMQ, svc *services.NotificationService) *PatientConsumer {
+func NewPatientConsumer(rabbitmq *messaging.RabbitMQ, svc inbound.NotificationService) *PatientConsumer {
 	return &PatientConsumer{rabbitmq: rabbitmq, svc: svc}
 }
 

@@ -21,10 +21,21 @@ type PatientService struct {
 	repo                    outbound.PatientRepository
 	authService             outbound.AuthRepository
 	pendingRegistrationRepo outbound.PendingRegistrationRepository
+	publisher               outbound.PatientPublisher
 }
 
-func NewPatientService(repo outbound.PatientRepository, authService outbound.AuthRepository, pendingRegistrationRepo outbound.PendingRegistrationRepository) *PatientService {
-	return &PatientService{repo: repo, authService: authService, pendingRegistrationRepo: pendingRegistrationRepo}
+func NewPatientService(
+	repo outbound.PatientRepository,
+	authService outbound.AuthRepository,
+	pendingRegistrationRepo outbound.PendingRegistrationRepository,
+	publisher outbound.PatientPublisher,
+) *PatientService {
+	return &PatientService{
+		repo:                    repo,
+		authService:             authService,
+		pendingRegistrationRepo: pendingRegistrationRepo,
+		publisher:               publisher,
+	}
 }
 
 func (s *PatientService) StartRegistrationWithVerification(ctx context.Context, req *models.RegisterPatientRequest) (verificationToken string, otp string, err error) {
@@ -64,6 +75,11 @@ func (s *PatientService) StartRegistrationWithVerification(ctx context.Context, 
 	otpTTL := 5 * time.Minute
 	if err := s.pendingRegistrationRepo.SetOTP(ctx, req.PhoneNumber, token, otp, otpTTL); err != nil {
 		return "", "", errors.New("failed to set OTP: " + err.Error())
+	}
+	if s.publisher != nil {
+		if err := s.publisher.PublishPatientChached(ctx, req, token, otp); err != nil {
+			return "", "", errors.New("failed to publish patient cached event: " + err.Error())
+		}
 	}
 	return token, otp, nil
 }
@@ -127,6 +143,11 @@ func (s *PatientService) VerifyEmailAndCreatePatient(ctx context.Context, token 
 	patient, err = s.repo.CreatePatient(ctx, patient)
 	if err != nil {
 		return nil, errors.New("failed to create patient: " + err.Error())
+	}
+	if s.publisher != nil {
+		if err := s.publisher.PublishPatientRegistered(ctx, patient); err != nil {
+			return nil, errors.New("failed to publish patient registered event: " + err.Error())
+		}
 	}
 	return patient, nil
 }

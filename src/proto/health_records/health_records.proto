@@ -1,0 +1,115 @@
+syntax = "proto3";
+package healthrecords;
+option go_package = "shared/proto/health_records;health_records";
+
+service HealthRecordService {
+    // Called by MCP tool: search_health_records (patient)
+    rpc SearchRecords(SearchRequest) returns (SearchResponse);
+
+    // Called by MCP tool: summarize_patient_record (hospital staff)
+    rpc SummarizeRecords(SummarizeRequest) returns (SummarizeResponse);
+
+    // Called by MCP tool: hospital_search_patient_records (hospital staff)
+    rpc HospitalSearchRecords(HospitalSearchRequest) returns (SearchResponse);
+
+    // Called by records-processor after document upload (PDF/image)
+    rpc IngestDocument(IngestRequest) returns (IngestResponse);
+
+    // Called by patient-service after FHIR bundle import from hospital EHR
+    rpc IngestFHIRBundle(FHIRBundleRequest) returns (IngestResponse);
+
+    // Called by MCP tool: get_patient_resources (structured FHIR query)
+    rpc GetPatientResources(ResourceRequest) returns (ResourceResponse);
+
+    // Called by agent-worker to save conversation turns
+    rpc SaveConversationTurn(SaveTurnRequest) returns (SaveTurnResponse);
+
+    // Called by agent-worker on session start to load recent context
+    rpc LoadRecentContext(LoadContextRequest) returns (LoadContextResponse);
+}
+
+message SearchRequest {
+    string patient_id = 1;  // validated by MCP server from JWT — never from user input
+    string query      = 2;
+    int32  top_k      = 3;
+}
+
+message HospitalSearchRequest {
+    string patient_id  = 1;  // safe: MCP server already verified consent for this pair
+    string hospital_id = 2;  // from JWT claim
+    string query       = 3;
+    int32  top_k       = 4;
+}
+
+message SearchResponse {
+    repeated RecordChunk chunks = 1;
+}
+
+message RecordChunk {
+    string text        = 1;
+    string source_file = 2;
+    float  score       = 3;
+}
+
+message SummarizeRequest {
+    string patient_id  = 1;
+    string hospital_id = 2;
+    string focus       = 3;  // "medications" | "allergies" | "diagnoses" | "full"
+}
+
+message SummarizeResponse {
+    string summary = 1;
+}
+
+message IngestRequest {
+    string patient_id = 1;
+    string file_url   = 2;
+    string file_type  = 3;  // "pdf" | "image" | "fhir"
+}
+
+message IngestResponse {
+    int32  chunks_stored = 1;
+    string status        = 2;
+}
+
+message FHIRBundleRequest {
+    string patient_id   = 1;
+    string bundle_json  = 2;  // raw FHIR R4 Bundle JSON string from hospital EHR
+    string source       = 3;  // "epic" | "cerner" | "manual-upload"
+}
+
+// GetPatientResources — structured query by FHIR resource type
+// Returns raw FHIR JSON for each matching resource.
+// Used by the get_patient_resources MCP tool for typed queries
+// (e.g. "all active medications") as opposed to semantic vector search.
+message ResourceRequest {
+    string patient_id     = 1;
+    string resource_type  = 2;  // "Condition" | "MedicationStatement" | "AllergyIntolerance" | "Observation"
+    string status_filter  = 3;  // optional: "active" | "completed" | "" for all
+}
+
+message ResourceResponse {
+    repeated string resources_json = 1;  // array of FHIR resource JSON strings
+    string          resource_type  = 2;
+    int32           total          = 3;
+}
+
+message SaveTurnRequest {
+    string patient_id  = 1;
+    string session_id  = 2;
+    string role        = 3;  // "user" | "assistant"
+    string content     = 4;
+}
+
+message SaveTurnResponse {
+    bool ok = 1;
+}
+
+message LoadContextRequest {
+    string patient_id = 1;
+    int32  limit      = 2;
+}
+
+message LoadContextResponse {
+    string context_text = 1;  // pre-formatted for LLM system prompt injection
+}

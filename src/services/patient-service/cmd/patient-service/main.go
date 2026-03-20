@@ -61,9 +61,6 @@ func main() {
 		log.Fatalf("Failed to create pending registration repository: %v", err)
 	}
 
-	// --- Core service ---
-	svc := services.NewPatientService(postgresRepo, authRepo, pendingRegRepo)
-
 	// --- Shutdown: cancel context on SIGINT/SIGTERM ---
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -90,9 +87,12 @@ func main() {
 	log.Println("Starting RabbitMQ connection")
 	patientPublisher := rmqadapter.NewPatientPublisher(rabbitmq)
 
+	// --- Core service ---
+	svc := services.NewPatientService(postgresRepo, authRepo, pendingRegRepo, patientPublisher)
+
 	// --- gRPC server: register handlers and serve ---
 	grpcServer := grpcserver.NewServer()
-	grpc.NewGRPCHandler(grpcServer, svc, patientPublisher)
+	grpc.NewGRPCHandler(grpcServer, svc)
 	log.Printf("Starting gRPC server patient service on port %s", grpcAddr)
 	go func() {
 		if err := grpcServer.Serve(lis); err != nil {

@@ -5,7 +5,7 @@ import (
 	"errors"
 	"strings"
 
-	"github.com/KoiralaSam/ZorbaHealth/services/auth-service/internal/core/services"
+	"github.com/KoiralaSam/ZorbaHealth/services/auth-service/internal/core/ports/inbound"
 	pb "github.com/KoiralaSam/ZorbaHealth/shared/proto/auth"
 	"github.com/jackc/pgx/v5/pgconn"
 	"google.golang.org/grpc"
@@ -20,11 +20,11 @@ type AuthGRPCHandler struct {
 	pb.UnimplementedRegisterHealthProviderServiceServer
 	pb.UnimplementedVerifyTokenServiceServer
 	pb.UnimplementedLogoutServiceServer
-	svc *services.AuthService
+	svc inbound.AuthService
 }
 
 // NewAuthGRPCHandler registers all auth gRPC services on the given server.
-func NewAuthGRPCHandler(server *grpc.Server, svc *services.AuthService) *AuthGRPCHandler {
+func NewAuthGRPCHandler(server *grpc.Server, svc inbound.AuthService) *AuthGRPCHandler {
 	h := &AuthGRPCHandler{svc: svc}
 	pb.RegisterLoginServiceServer(server, h)
 	pb.RegisterRegisterPatientServiceServer(server, h)

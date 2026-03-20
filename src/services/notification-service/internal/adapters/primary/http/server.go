@@ -4,19 +4,19 @@ import (
 	"log"
 	"net/http"
 
-	"github.com/KoiralaSam/ZorbaHealth/services/notification-service/internal/core/services"
+	"github.com/KoiralaSam/ZorbaHealth/services/notification-service/internal/core/ports/inbound"
 )
 
 // Server is the primary HTTP adapter for the notification service (e.g. webhooks).
 type Server struct {
 	addr          string
 	webhookAPIKey string
-	svc           *services.NotificationService
+	svc           inbound.NotificationService
 }
 
 // NewServer creates an HTTP server that serves POST /sms (VoIP.ms incoming SMS webhook).
 // webhookAPIKey is validated on each request via the api_key query parameter.
-func NewServer(addr, webhookAPIKey string, svc *services.NotificationService) *Server {
+func NewServer(addr, webhookAPIKey string, svc inbound.NotificationService) *Server {
 	return &Server{
 		addr:          addr,
 		webhookAPIKey: webhookAPIKey,

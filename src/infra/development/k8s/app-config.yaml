@@ -17,7 +17,7 @@ data:
   # RAG Service
   RAG_SERVICE_GRPC_ADDR: "rag-service:50053"
   # Medical Records Service
-  MEDICAL_RECORDS_SERVICE_GRPC_ADDR: "medical-records-service:50054"
+  MEDICAL_RECORDS_SERVICE_GRPC_ADDR: "health-records-service:50054"
   # Analytics Service
   ANALYTICS_SERVICE_GRPC_ADDR: "analytics-service:50055"
   # Notification Service

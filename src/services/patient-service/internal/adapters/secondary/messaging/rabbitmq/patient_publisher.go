@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/KoiralaSam/ZorbaHealth/services/patient-service/internal/core/domain/models"
+	outbound "github.com/KoiralaSam/ZorbaHealth/services/patient-service/internal/core/ports/outbound"
 	"github.com/KoiralaSam/ZorbaHealth/shared/contracts"
 	"github.com/KoiralaSam/ZorbaHealth/shared/events"
 	"github.com/KoiralaSam/ZorbaHealth/shared/messaging"
@@ -15,7 +16,7 @@ type PatientPublisher struct {
 	rabbitmq *messaging.RabbitMQ
 }
 
-func NewPatientPublisher(rmq *messaging.RabbitMQ) *PatientPublisher {
+func NewPatientPublisher(rmq *messaging.RabbitMQ) outbound.PatientPublisher {
 	return &PatientPublisher{rabbitmq: rmq}
 }
 

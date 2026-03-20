@@ -5,9 +5,8 @@ import (
 	"errors"
 	"time"
 
-	"github.com/KoiralaSam/ZorbaHealth/services/patient-service/internal/adapters/secondary/messaging/rabbitmq"
 	"github.com/KoiralaSam/ZorbaHealth/services/patient-service/internal/core/domain/models"
-	"github.com/KoiralaSam/ZorbaHealth/services/patient-service/internal/core/services"
+	"github.com/KoiralaSam/ZorbaHealth/services/patient-service/internal/core/ports/inbound"
 	pb "github.com/KoiralaSam/ZorbaHealth/shared/proto/patient"
 	"github.com/KoiralaSam/ZorbaHealth/shared/proto/patient/registration_verification"
 	"github.com/jackc/pgx/v5"
@@ -19,14 +18,12 @@ import (
 type gRPCHandler struct {
 	pb.UnimplementedLoginServiceServer
 	registration_verification.UnimplementedRegistrationVerificationServiceServer
-	svc              *services.PatientService
-	patientPublisher *rabbitmq.PatientPublisher
+	svc inbound.PatientService
 }
 
-func NewGRPCHandler(server *grpc.Server, svc *services.PatientService, patientPublisher *rabbitmq.PatientPublisher) *gRPCHandler {
+func NewGRPCHandler(server *grpc.Server, svc inbound.PatientService) *gRPCHandler {
 	handler := &gRPCHandler{
-		svc:              svc,
-		patientPublisher: patientPublisher,
+		svc: svc,
 	}
 	pb.RegisterLoginServiceServer(server, handler)
 	registration_verification.RegisterRegistrationVerificationServiceServer(server, handler)
@@ -70,9 +67,8 @@ func (h *gRPCHandler) StartRegistration(ctx context.Context, req *registration_v
 	if err != nil {
 		return nil, status.Error(codes.Internal, "Failed to start registration with verification: "+err.Error())
 	}
-	if err := h.patientPublisher.PublishPatientChached(ctx, registerReq, token, otp); err != nil {
-		return nil, status.Error(codes.Internal, "Failed to publish patient registered event: "+err.Error())
-	}
+	_ = token
+	_ = otp
 	return &registration_verification.StartRegistrationResponse{Message: "Verification email sent. Please check your inbox."}, nil
 }
 
@@ -81,9 +77,6 @@ func (h *gRPCHandler) VerifyEmail(ctx context.Context, req *registration_verific
 	if err != nil {
 		//must send a not registered event message to ensure user is not registered in the system
 		return nil, status.Error(codes.Internal, "Failed to verify email and create patient: "+err.Error())
-	}
-	if err := h.patientPublisher.PublishPatientRegistered(ctx, patient); err != nil {
-		return nil, status.Error(codes.Internal, "Failed to publish patient registered event: "+err.Error())
 	}
 	return &registration_verification.VerifyEmailResponse{Message: "Email verified successfully", PatientId: patient.ID.String(), UserId: patient.UserID.String()}, nil
 }
