@@ -8,6 +8,7 @@ import (
 
 	"github.com/google/uuid"
 
+	domainErrors "github.com/KoiralaSam/ZorbaHealth/services/health-records-service/internal/core/domain/errors"
 	"github.com/KoiralaSam/ZorbaHealth/services/health-records-service/internal/core/domain/models"
 	"github.com/KoiralaSam/ZorbaHealth/services/health-records-service/internal/core/ports/inbound"
 	"github.com/KoiralaSam/ZorbaHealth/services/health-records-service/internal/core/ports/outbound"
@@ -37,10 +38,10 @@ func NewHealthRecordsService(
 
 func (s *HealthRecordsService) SearchRecords(ctx context.Context, patientID, query string, topK int32) ([]models.ScoredChunk, error) {
 	if strings.TrimSpace(patientID) == "" {
-		return nil, fmt.Errorf("patient_id required")
+		return nil, domainErrors.ErrPatientIDRequired
 	}
 	if strings.TrimSpace(query) == "" {
-		return nil, fmt.Errorf("query required")
+		return nil, domainErrors.ErrQueryRequired
 	}
 	if topK <= 0 {
 		topK = 5
@@ -48,12 +49,12 @@ func (s *HealthRecordsService) SearchRecords(ctx context.Context, patientID, que
 
 	pid, err := uuid.Parse(patientID)
 	if err != nil {
-		return nil, fmt.Errorf("invalid patient_id: %w", err)
+		return nil, domainErrors.ErrInvalidPatientID
 	}
 
 	embedding, err := s.embedder.Embed(ctx, query)
 	if err != nil {
-		return nil, fmt.Errorf("embed query: %w", err)
+		return nil, domainErrors.ErrEmbedQueryFailed
 	}
 
 	return s.store.SearchRecordChunks(ctx, pid, embedding, topK)
@@ -61,13 +62,13 @@ func (s *HealthRecordsService) SearchRecords(ctx context.Context, patientID, que
 
 func (s *HealthRecordsService) HospitalSearchRecords(ctx context.Context, patientID, hospitalID, query string, topK int32) ([]models.ScoredChunk, error) {
 	if strings.TrimSpace(patientID) == "" {
-		return nil, fmt.Errorf("patient_id required")
+		return nil, domainErrors.ErrPatientIDRequired
 	}
 	if strings.TrimSpace(hospitalID) == "" {
-		return nil, fmt.Errorf("hospital_id required")
+		return nil, domainErrors.ErrHospitalIDRequired
 	}
 	if strings.TrimSpace(query) == "" {
-		return nil, fmt.Errorf("query required")
+		return nil, domainErrors.ErrQueryRequired
 	}
 	if topK <= 0 {
 		topK = 5
@@ -75,16 +76,16 @@ func (s *HealthRecordsService) HospitalSearchRecords(ctx context.Context, patien
 
 	pid, err := uuid.Parse(patientID)
 	if err != nil {
-		return nil, fmt.Errorf("invalid patient_id: %w", err)
+		return nil, domainErrors.ErrInvalidPatientID
 	}
 	hid, err := uuid.Parse(hospitalID)
 	if err != nil {
-		return nil, fmt.Errorf("invalid hospital_id: %w", err)
+		return nil, domainErrors.ErrInvalidHospitalID
 	}
 
 	embedding, err := s.embedder.Embed(ctx, query)
 	if err != nil {
-		return nil, fmt.Errorf("embed query: %w", err)
+		return nil, domainErrors.ErrEmbedQueryFailed
 	}
 
 	return s.store.HospitalSearchRecordChunks(ctx, pid, hid, embedding, topK)
@@ -92,21 +93,21 @@ func (s *HealthRecordsService) HospitalSearchRecords(ctx context.Context, patien
 
 func (s *HealthRecordsService) SummarizeRecords(ctx context.Context, patientID, focus string) (string, error) {
 	if strings.TrimSpace(patientID) == "" {
-		return "", fmt.Errorf("patient_id required")
+		return "", domainErrors.ErrPatientIDRequired
 	}
 
 	pid, err := uuid.Parse(patientID)
 	if err != nil {
-		return "", fmt.Errorf("invalid patient_id: %w", err)
+		return "", domainErrors.ErrInvalidPatientID
 	}
 
 	// Keep in sync with the existing adapter query/limit.
 	chunks, err := s.store.FetchChunksForSummary(ctx, pid, focus, 50)
 	if err != nil {
-		return "", fmt.Errorf("fetch chunks: %w", err)
+		return "", domainErrors.ErrFetchChunksFailed
 	}
 	if len(chunks) == 0 {
-		return "", fmt.Errorf("no records found")
+		return "", domainErrors.ErrNoRecordsFound
 	}
 
 	return s.summarizer.Summarize(ctx, chunks, focus)
@@ -114,18 +115,18 @@ func (s *HealthRecordsService) SummarizeRecords(ctx context.Context, patientID, 
 
 func (s *HealthRecordsService) IngestText(ctx context.Context, patientID, sourceFile, text string) (int32, error) {
 	if strings.TrimSpace(patientID) == "" {
-		return 0, fmt.Errorf("patient_id required")
+		return 0, domainErrors.ErrPatientIDRequired
 	}
 	if strings.TrimSpace(sourceFile) == "" {
-		return 0, fmt.Errorf("source_file required")
+		return 0, domainErrors.ErrSourceFileRequired
 	}
 	if strings.TrimSpace(text) == "" {
-		return 0, fmt.Errorf("text required")
+		return 0, domainErrors.ErrTextRequired
 	}
 
 	pid, err := uuid.Parse(patientID)
 	if err != nil {
-		return 0, fmt.Errorf("invalid patient_id: %w", err)
+		return 0, domainErrors.ErrInvalidPatientID
 	}
 
 	// Word-based chunking is sufficient here; embeddings will enforce semantic boundaries.
@@ -139,11 +140,11 @@ func (s *HealthRecordsService) IngestText(ctx context.Context, patientID, source
 
 		embedding, err := s.embedder.Embed(ctx, chunk)
 		if err != nil {
-			return stored, fmt.Errorf("embed chunk %d: %w", i, err)
+			return stored, domainErrors.ErrEmbedChunkFailed
 		}
 
 		if err := s.store.CreateRecordChunk(ctx, pid, sourceFile, int32(i), chunk, embedding); err != nil {
-			return stored, fmt.Errorf("store chunk %d: %w", i, err)
+			return stored, domainErrors.ErrStoreChunkFailed
 		}
 		stored++
 	}
@@ -153,26 +154,26 @@ func (s *HealthRecordsService) IngestText(ctx context.Context, patientID, source
 
 func (s *HealthRecordsService) SaveConversationTurn(ctx context.Context, patientID, sessionID, role, content string) error {
 	if strings.TrimSpace(patientID) == "" {
-		return fmt.Errorf("patient_id required")
+		return domainErrors.ErrPatientIDRequired
 	}
 	if strings.TrimSpace(sessionID) == "" {
-		return fmt.Errorf("session_id required")
+		return domainErrors.ErrSessionIDRequired
 	}
 	if strings.TrimSpace(role) == "" {
-		return fmt.Errorf("role required")
+		return domainErrors.ErrRoleRequired
 	}
 	if strings.TrimSpace(content) == "" {
-		return fmt.Errorf("content required")
+		return domainErrors.ErrContentRequired
 	}
 
 	pid, err := uuid.Parse(patientID)
 	if err != nil {
-		return fmt.Errorf("invalid patient_id: %w", err)
+		return domainErrors.ErrInvalidPatientID
 	}
 
 	embedding, err := s.embedder.Embed(ctx, content)
 	if err != nil {
-		return fmt.Errorf("embed: %w", err)
+		return domainErrors.ErrEmbedFailed
 	}
 
 	return s.store.SaveTurn(ctx, pid, sessionID, role, content, embedding)
@@ -180,7 +181,7 @@ func (s *HealthRecordsService) SaveConversationTurn(ctx context.Context, patient
 
 func (s *HealthRecordsService) LoadRecentContext(ctx context.Context, patientID string, limit int32) (string, error) {
 	if strings.TrimSpace(patientID) == "" {
-		return "", fmt.Errorf("patient_id required")
+		return "", domainErrors.ErrPatientIDRequired
 	}
 	if limit <= 0 {
 		limit = 10
@@ -188,12 +189,12 @@ func (s *HealthRecordsService) LoadRecentContext(ctx context.Context, patientID 
 
 	pid, err := uuid.Parse(patientID)
 	if err != nil {
-		return "", fmt.Errorf("invalid patient_id: %w", err)
+		return "", domainErrors.ErrInvalidPatientID
 	}
 
 	turns, err := s.store.LoadRecentTurns(ctx, pid, limit)
 	if err != nil {
-		return "", fmt.Errorf("load turns: %w", err)
+		return "", domainErrors.ErrLoadTurnsFailed
 	}
 
 	// Create a simple plain-text context that your agent-worker can inject.
@@ -216,10 +217,10 @@ func (s *HealthRecordsService) GetPatientResources(
 	offset int32,
 ) ([]json.RawMessage, error) {
 	if strings.TrimSpace(patientID) == "" {
-		return nil, fmt.Errorf("patient_id required")
+		return nil, domainErrors.ErrPatientIDRequired
 	}
 	if strings.TrimSpace(resourceType) == "" {
-		return nil, fmt.Errorf("resource_type required")
+		return nil, domainErrors.ErrResourceTypeRequired
 	}
 	if limit <= 0 {
 		limit = 50
@@ -227,12 +228,12 @@ func (s *HealthRecordsService) GetPatientResources(
 
 	pid, err := uuid.Parse(patientID)
 	if err != nil {
-		return nil, fmt.Errorf("invalid patient_id: %w", err)
+		return nil, domainErrors.ErrInvalidPatientID
 	}
 
 	resources, err := s.store.ListResourcesByTypeAndStatus(ctx, pid, resourceType, status, limit, offset)
 	if err != nil {
-		return nil, fmt.Errorf("list resources: %w", err)
+		return nil, domainErrors.ErrListResourcesFailed
 	}
 
 	out := make([]json.RawMessage, 0, len(resources))

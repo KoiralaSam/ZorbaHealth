@@ -32,7 +32,7 @@ func (p *PatientPublisher) PublishPatientRegistered(ctx context.Context, patient
 	if err != nil {
 		return err
 	}
-	return p.rabbitmq.PublishMessage(ctx, messaging.PatientExchange, contracts.PatientEventRegistered, contracts.AmqpMessage{
+	return p.rabbitmq.PublishMessage(ctx, events.PatientExchange, contracts.PatientEventRegistered, contracts.AmqpMessage{
 		OwnerID: patient.ID.String(),
 		Data:    jsonData,
 	})
@@ -51,7 +51,7 @@ func (p *PatientPublisher) PublishPatientNotRegistered(ctx context.Context, pati
 	if err != nil {
 		return err
 	}
-	return p.rabbitmq.PublishMessage(ctx, messaging.PatientExchange, contracts.PatientEventNotRegistered, contracts.AmqpMessage{
+	return p.rabbitmq.PublishMessage(ctx, events.PatientExchange, contracts.PatientEventNotRegistered, contracts.AmqpMessage{
 		OwnerID: patientRegisterRequest.PhoneNumber,
 		Data:    jsonData,
 	})
@@ -71,8 +71,26 @@ func (p *PatientPublisher) PublishPatientChached(ctx context.Context, patientReg
 	if err != nil {
 		return err
 	}
-	return p.rabbitmq.PublishMessage(ctx, messaging.PatientExchange, contracts.PatientEventChached, contracts.AmqpMessage{
+	return p.rabbitmq.PublishMessage(ctx, events.PatientExchange, contracts.PatientEventChached, contracts.AmqpMessage{
 		OwnerID: token,
+		Data:    jsonData,
+	})
+}
+
+func (p *PatientPublisher) PublishPhoneVerificationCode(ctx context.Context, phone, fullName, otp string) error {
+	payload := events.PatientEventData{
+		PhoneVerification: &events.PhoneVerificationData{
+			PhoneNumber: phone,
+			FullName:    fullName,
+			Otp:         otp,
+		},
+	}
+	jsonData, err := json.Marshal(payload)
+	if err != nil {
+		return err
+	}
+	return p.rabbitmq.PublishMessage(ctx, events.PatientExchange, contracts.PatientEventVerificationCodeRequested, contracts.AmqpMessage{
+		OwnerID: phone,
 		Data:    jsonData,
 	})
 }

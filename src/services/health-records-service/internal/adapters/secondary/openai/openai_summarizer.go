@@ -9,6 +9,7 @@ import (
 	"github.com/openai/openai-go/v3/option"
 	"github.com/openai/openai-go/v3/responses"
 
+	domainErrors "github.com/KoiralaSam/ZorbaHealth/services/health-records-service/internal/core/domain/errors"
 	"github.com/KoiralaSam/ZorbaHealth/services/health-records-service/internal/core/ports/outbound"
 )
 
@@ -27,7 +28,7 @@ func NewSummarizerClient(apiKey string) outbound.Summarizer {
 
 func (c *SummarizerClient) Summarize(ctx context.Context, chunks []string, focus string) (string, error) {
 	if len(chunks) == 0 {
-		return "", fmt.Errorf("summarize: no chunks provided")
+		return "", domainErrors.ErrSummarizeNoChunksProvided
 	}
 
 	// Join chunks into a single context string; in a real impl you might truncate to a token budget.
@@ -41,7 +42,7 @@ func (c *SummarizerClient) Summarize(ctx context.Context, chunks []string, focus
 		sb.WriteString("\n")
 	}
 	if sb.Len() == 0 {
-		return "", fmt.Errorf("summarize: all chunks empty")
+		return "", domainErrors.ErrSummarizeAllChunksEmpty
 	}
 
 	focusText := "overall clinical summary"
@@ -63,7 +64,7 @@ func (c *SummarizerClient) Summarize(ctx context.Context, chunks []string, focus
 		Model: openai.ChatModelGPT4oMini,
 	})
 	if err != nil {
-		return "", fmt.Errorf("summarize: %w", err)
+		return "", domainErrors.ErrSummarizeFailed
 	}
 	return resp.OutputText(), nil
 }

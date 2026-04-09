@@ -5,10 +5,12 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/KoiralaSam/ZorbaHealth/services/patient-service/internal/adapters/secondary/repositories/postgres/sqlc"
+	domainErrors "github.com/KoiralaSam/ZorbaHealth/services/patient-service/internal/core/domain/errors"
 	"github.com/KoiralaSam/ZorbaHealth/services/patient-service/internal/core/domain/models"
 	"github.com/KoiralaSam/ZorbaHealth/services/patient-service/internal/core/ports/outbound"
 )
@@ -62,12 +64,46 @@ func (r *PatientRepository) GetPatientByID(ctx context.Context, id string) (*mod
 
 // GetPatientByPhoneNumber retrieves a patient by phone number
 func (r *PatientRepository) GetPatientByPhoneNumber(ctx context.Context, phoneNumber string) (*models.Patient, error) {
-	dbPatient, err := r.queries.GetPatientByPhoneNumber(ctx, phoneNumber)
+	rows, err := r.db.Query(ctx, `
+		SELECT id, user_id, phone_number, email, full_name, date_of_birth, medical_notes, created_at, updated_at
+		FROM patients
+		WHERE regexp_replace(phone_number, '[^0-9]', '', 'g') = $1
+		LIMIT 2
+	`, phoneNumber)
 	if err != nil {
 		return nil, err
 	}
+	defer rows.Close()
 
-	return r.toDomainPatient(&dbPatient), nil
+	results := make([]sqlc.Patient, 0, 2)
+	for rows.Next() {
+		var patient sqlc.Patient
+		if err := rows.Scan(
+			&patient.ID,
+			&patient.UserID,
+			&patient.PhoneNumber,
+			&patient.Email,
+			&patient.FullName,
+			&patient.DateOfBirth,
+			&patient.MedicalNotes,
+			&patient.CreatedAt,
+			&patient.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		results = append(results, patient)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	if len(results) == 0 {
+		return nil, pgx.ErrNoRows
+	}
+	if len(results) > 1 {
+		return nil, domainErrors.ErrAmbiguousPhoneNumber
+	}
+
+	return r.toDomainPatient(&results[0]), nil
 }
 
 // GetPatientByEmail retrieves a patient by email

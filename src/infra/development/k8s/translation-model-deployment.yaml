@@ -1,0 +1,133 @@
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: translation-model-cache
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 12Gi
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: translation-model
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: translation-model
+  template:
+    metadata:
+      labels:
+        app: translation-model
+    spec:
+      initContainers:
+        - name: download-model
+          image: curlimages/curl:8.12.1
+          securityContext:
+            runAsUser: 0
+            runAsGroup: 0
+          command:
+            - sh
+            - -c
+            - |
+              set -eu
+              # Smaller model for local dev stability.
+              # Source repo: bartowski/gemma-1.1-7b-it-GGUF
+              MODEL_PATH="/models/gemma-1.1-7b-it-IQ4_XS.gguf"
+              TMP_PATH="${MODEL_PATH}.partial"
+              MIN_BYTES=4500000000
+
+              # Clean up the old 12B model if present to avoid filling the PVC.
+              rm -f /models/translategemma-12b-it.Q4_K_H.gguf /models/translategemma-12b-it.Q6_K_H.gguf /models/translategemma-12b-it.mmproj.gguf || true
+              if [ -f "$MODEL_PATH" ]; then
+                SIZE=$(stat -c %s "$MODEL_PATH")
+                if [ "$SIZE" -ge "$MIN_BYTES" ]; then
+                  echo "GGUF already present at $MODEL_PATH ($SIZE bytes)"
+                  exit 0
+                fi
+                echo "Existing GGUF is too small ($SIZE bytes), removing corrupted file"
+                rm -f "$MODEL_PATH"
+              fi
+              echo "Downloading Gemma 7B GGUF..."
+              rm -f "$TMP_PATH"
+              curl -L --fail --retry 5 --retry-delay 5 \
+                "https://huggingface.co/bartowski/gemma-1.1-7b-it-GGUF/resolve/main/gemma-1.1-7b-it-IQ4_XS.gguf" \
+                -o "$TMP_PATH"
+              SIZE=$(stat -c %s "$TMP_PATH")
+              if [ "$SIZE" -lt "$MIN_BYTES" ]; then
+                echo "Downloaded GGUF is too small ($SIZE bytes)"
+                rm -f "$TMP_PATH"
+                exit 1
+              fi
+              mv "$TMP_PATH" "$MODEL_PATH"
+          volumeMounts:
+            - name: model-cache
+              mountPath: /models
+      containers:
+        - name: translation-model
+          image: ghcr.io/ggml-org/llama.cpp:server
+          imagePullPolicy: IfNotPresent
+          args:
+            - -m
+            - /models/gemma-1.1-7b-it-IQ4_XS.gguf
+            - --host
+            - 0.0.0.0
+            - --port
+            - "8080"
+            - --ctx-size
+            - "2048"
+            - --parallel
+            - "1"
+            - --batch-size
+            - "128"
+            - --ubatch-size
+            - "128"
+            - --no-jinja
+            - --chat-template
+            - gemma
+            - --swa-full
+          ports:
+            - containerPort: 8080
+              name: http
+          readinessProbe:
+            tcpSocket:
+              port: http
+            initialDelaySeconds: 10
+            periodSeconds: 10
+          livenessProbe:
+            tcpSocket:
+              port: http
+            initialDelaySeconds: 30
+            periodSeconds: 20
+          resources:
+            requests:
+              memory: "1Gi"
+              cpu: "500m"
+            limits:
+              memory: "6Gi"
+              cpu: "2000m"
+          volumeMounts:
+            - name: model-cache
+              mountPath: /models
+      volumes:
+        - name: model-cache
+          persistentVolumeClaim:
+            claimName: translation-model-cache
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: translation-model
+spec:
+  type: ClusterIP
+  ports:
+    - port: 8080
+      targetPort: 8080
+      name: http
+  selector:
+    app: translation-model

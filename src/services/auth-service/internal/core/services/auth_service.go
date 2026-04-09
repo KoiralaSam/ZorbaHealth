@@ -78,7 +78,15 @@ func (s *AuthService) CreateSession(ctx context.Context, userID string, _ string
 	if err != nil {
 		return "", nil, err
 	}
-	token, err := jwt.GenerateToken(auth)
+	user, err := s.userRepo.GetUserByID(ctx, userID)
+	if err != nil {
+		return "", nil, err
+	}
+	actor, err := s.userRepo.ResolveSessionActor(ctx, user.ID, user.Role, auth.AuthUUID)
+	if err != nil {
+		return "", nil, err
+	}
+	token, err := jwt.GenerateToken(auth, actor)
 	if err != nil {
 		return "", nil, err
 	}

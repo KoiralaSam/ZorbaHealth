@@ -4,14 +4,15 @@ import (
 	"context"
 	"crypto/rand"
 	"errors"
-	"fmt"
 	"regexp"
 	"strings"
 	"time"
 
+	domainErrors "github.com/KoiralaSam/ZorbaHealth/services/patient-service/internal/core/domain/errors"
 	"github.com/KoiralaSam/ZorbaHealth/services/patient-service/internal/core/domain/models"
 	"github.com/KoiralaSam/ZorbaHealth/services/patient-service/internal/core/ports/outbound"
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
 )
 
 // E.164-ish: optional +, then 10–15 digits.
@@ -40,21 +41,22 @@ func NewPatientService(
 
 func (s *PatientService) StartRegistrationWithVerification(ctx context.Context, req *models.RegisterPatientRequest) (verificationToken string, otp string, err error) {
 	if req == nil {
-		return "", "", errors.New("registration request is required")
+		return "", "", domainErrors.ErrRegistrationRequestRequired
 	}
 	if !phoneRegex.MatchString(req.PhoneNumber) {
-		return "", "", errors.New("invalid phone number: must be 10–15 digits, optional leading +")
+		return "", "", domainErrors.ErrInvalidPhoneNumber
 	}
+	req.PhoneNumber = normalizePhone(req.PhoneNumber)
 	if req.DateOfBirth.IsZero() {
-		return "", "", errors.New("date of birth is required")
+		return "", "", domainErrors.ErrDateOfBirthRequired
 	}
 	if req.DateOfBirth.After(time.Now()) {
-		return "", "", errors.New("date of birth cannot be in the future")
+		return "", "", domainErrors.ErrDateOfBirthInFuture
 	}
 
 	otp, err = generateOTP(6)
 	if err != nil {
-		return "", "", fmt.Errorf("failed to generate OTP: %w", err)
+		return "", "", domainErrors.ErrGenerateOTPFailed
 	}
 
 	token := uuid.New().String()
@@ -70,18 +72,51 @@ func (s *PatientService) StartRegistrationWithVerification(ctx context.Context, 
 	}
 	ttl := 15 * time.Minute
 	if err := s.pendingRegistrationRepo.Set(ctx, token, pendingRegistration, ttl); err != nil {
-		return "", "", errors.New("failed to set pending registration: " + err.Error())
+		return "", "", domainErrors.ErrPendingRegistrationSetFailed
 	}
 	otpTTL := 5 * time.Minute
 	if err := s.pendingRegistrationRepo.SetOTP(ctx, req.PhoneNumber, token, otp, otpTTL); err != nil {
-		return "", "", errors.New("failed to set OTP: " + err.Error())
+		return "", "", domainErrors.ErrOTPSetFailed
 	}
 	if s.publisher != nil {
 		if err := s.publisher.PublishPatientChached(ctx, req, token, otp); err != nil {
-			return "", "", errors.New("failed to publish patient cached event: " + err.Error())
+			return "", "", domainErrors.ErrPublishPatientCachedEventFailed
 		}
 	}
 	return token, otp, nil
+}
+
+func (s *PatientService) StartExistingPhoneVerification(ctx context.Context, phone string) error {
+	normalized := normalizePhone(phone)
+	if normalized == "" {
+		return domainErrors.ErrInvalidPhoneNumberNoDigits
+	}
+
+	patient, err := s.repo.GetPatientByPhoneNumber(ctx, normalized)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return domainErrors.ErrExistingPatientNotFound
+		}
+		return err
+	}
+
+	otp, err := generateOTP(6)
+	if err != nil {
+		return domainErrors.ErrGenerateOTPFailed
+	}
+
+	otpTTL := 5 * time.Minute
+	if err := s.pendingRegistrationRepo.SetOTP(ctx, normalized, "existing:"+patient.ID.String(), otp, otpTTL); err != nil {
+		return domainErrors.ErrOTPSetFailed
+	}
+
+	if s.publisher != nil {
+		if err := s.publisher.PublishPhoneVerificationCode(ctx, normalized, patient.FullName, otp); err != nil {
+			return domainErrors.ErrPublishPatientCachedEventFailed
+		}
+	}
+
+	return nil
 }
 
 func generateOTP(digits int) (string, error) {
@@ -99,18 +134,18 @@ func generateOTP(digits int) (string, error) {
 func (s *PatientService) VerifyEmailAndCreatePatient(ctx context.Context, token string) (*models.Patient, error) {
 	pending, err := s.pendingRegistrationRepo.Get(ctx, token)
 	if err != nil {
-		return nil, errors.New("invalid or expired verification link: " + err.Error())
+		return nil, domainErrors.ErrInvalidOrExpiredVerificationLink
 	}
 
 	// Mark email as verified (user clicked the email link)
 	pending.EmailVerified = true
 	ttl := 15 * time.Minute
 	if err := s.pendingRegistrationRepo.Set(ctx, token, pending, ttl); err != nil {
-		return nil, errors.New("failed to update pending registration: " + err.Error())
+		return nil, domainErrors.ErrPendingRegistrationUpdateFailed
 	}
 
 	if !pending.PhoneVerified {
-		return nil, errors.New("verify your phone to complete registration")
+		return nil, domainErrors.ErrPhoneVerificationRequired
 	}
 
 	// Both verified: create patient and clean up
@@ -125,12 +160,12 @@ func (s *PatientService) VerifyEmailAndCreatePatient(ctx context.Context, token 
 
 	authResult, err := s.authService.RegisterPatient(ctx, req)
 	if err != nil {
-		return nil, errors.New("failed to create user in auth service: " + err.Error())
+		return nil, domainErrors.ErrAuthServiceRegisterPatientFailed
 	}
 
 	userID, err := uuid.Parse(authResult.UserID)
 	if err != nil {
-		return nil, errors.New("invalid user_id from auth service: " + err.Error())
+		return nil, domainErrors.ErrAuthServiceInvalidUserID
 	}
 
 	patient := &models.Patient{
@@ -142,11 +177,11 @@ func (s *PatientService) VerifyEmailAndCreatePatient(ctx context.Context, token 
 	}
 	patient, err = s.repo.CreatePatient(ctx, patient)
 	if err != nil {
-		return nil, errors.New("failed to create patient: " + err.Error())
+		return nil, domainErrors.ErrPatientCreationFailed
 	}
 	if s.publisher != nil {
 		if err := s.publisher.PublishPatientRegistered(ctx, patient); err != nil {
-			return nil, errors.New("failed to publish patient registered event: " + err.Error())
+			return nil, domainErrors.ErrPublishPatientRegisteredEventFailed
 		}
 	}
 	return patient, nil
@@ -154,25 +189,98 @@ func (s *PatientService) VerifyEmailAndCreatePatient(ctx context.Context, token 
 
 // VerifyPhoneOTP verifies the OTP for the given phone and sets PhoneVerified on the pending registration.
 func (s *PatientService) VerifyPhoneOTP(ctx context.Context, phone string, code string) error {
-	storedToken, storedCode, err := s.pendingRegistrationRepo.GetOTP(ctx, phone)
+	normalized := normalizePhone(phone)
+	if normalized == "" {
+		return domainErrors.ErrInvalidPhoneNumberNoDigits
+	}
+
+	storedToken, storedCode, err := s.pendingRegistrationRepo.GetOTP(ctx, normalized)
 	if err != nil {
-		return errors.New("invalid or expired OTP")
+		return domainErrors.ErrInvalidOrExpiredOTP
 	}
 	if storedCode != code {
-		return errors.New("invalid OTP code")
+		return domainErrors.ErrInvalidOTPCode
+	}
+	if strings.HasPrefix(storedToken, "existing:") {
+		return domainErrors.ErrExistingPatientVerificationState
 	}
 
 	pending, err := s.pendingRegistrationRepo.Get(ctx, storedToken)
 	if err != nil {
-		return errors.New("pending registration not found or expired")
+		return domainErrors.ErrPendingRegistrationNotFoundOrExpired
 	}
 	pending.PhoneVerified = true
 	ttl := 15 * time.Minute
 	if err := s.pendingRegistrationRepo.Set(ctx, storedToken, pending, ttl); err != nil {
-		return errors.New("failed to update pending registration: " + err.Error())
+		return domainErrors.ErrPendingRegistrationUpdateFailed
 	}
-	_ = s.pendingRegistrationRepo.DeleteOTP(ctx, phone)
+	_ = s.pendingRegistrationRepo.DeleteOTP(ctx, normalized)
 	return nil
+}
+
+func (s *PatientService) VerifyExistingPhoneOTP(ctx context.Context, phone string, code string) (*models.Patient, error) {
+	normalized := normalizePhone(phone)
+	if normalized == "" {
+		return nil, domainErrors.ErrInvalidPhoneNumberNoDigits
+	}
+
+	storedToken, storedCode, err := s.pendingRegistrationRepo.GetOTP(ctx, normalized)
+	if err != nil {
+		return nil, domainErrors.ErrInvalidOrExpiredOTP
+	}
+	if storedCode != code {
+		return nil, domainErrors.ErrInvalidOTPCode
+	}
+	if !strings.HasPrefix(storedToken, "existing:") {
+		return nil, domainErrors.ErrExistingPatientVerificationState
+	}
+
+	patientID := strings.TrimPrefix(storedToken, "existing:")
+	if patientID == "" {
+		return nil, domainErrors.ErrExistingPatientVerificationState
+	}
+
+	_ = s.pendingRegistrationRepo.DeleteOTP(ctx, normalized)
+	return s.repo.GetPatientByID(ctx, patientID)
+}
+
+func (s *PatientService) CompletePhoneRegistration(ctx context.Context, token string) (*models.Patient, error) {
+	pending, err := s.pendingRegistrationRepo.Get(ctx, token)
+	if err != nil {
+		return nil, domainErrors.ErrInvalidOrExpiredVerificationLink
+	}
+	if !pending.PhoneVerified {
+		return nil, domainErrors.ErrPhoneVerificationRequired
+	}
+
+	normalizedPhone := normalizePhone(pending.PhoneNumber)
+	if normalizedPhone == "" {
+		return nil, domainErrors.ErrInvalidPhoneNumberNoDigits
+	}
+
+	if _, err := s.repo.GetPatientByPhoneNumber(ctx, normalizedPhone); err == nil {
+		return nil, domainErrors.ErrPhoneNumberAlreadyRegistered
+	} else if err != nil && !errors.Is(err, pgx.ErrNoRows) {
+		return nil, err
+	}
+
+	defer s.pendingRegistrationRepo.Delete(ctx, token)
+	patient := &models.Patient{
+		PhoneNumber: normalizedPhone,
+		Email:       strings.TrimSpace(strings.ToLower(pending.Email)),
+		FullName:    pending.FullName,
+		DateOfBirth: pending.DateOfBirth,
+	}
+	patient, err = s.repo.CreatePatient(ctx, patient)
+	if err != nil {
+		return nil, domainErrors.ErrPatientCreationFailed
+	}
+	if s.publisher != nil {
+		if err := s.publisher.PublishPatientRegistered(ctx, patient); err != nil {
+			return nil, domainErrors.ErrPublishPatientRegisteredEventFailed
+		}
+	}
+	return patient, nil
 }
 
 func (s *PatientService) LoginPatient(
@@ -209,7 +317,7 @@ func (s *PatientService) GetPatientByPhoneNumber(
 ) (*models.Patient, error) {
 	normalized := normalizePhone(phoneNumber)
 	if normalized == "" {
-		return nil, errors.New("invalid phone number: no digits")
+		return nil, domainErrors.ErrInvalidPhoneNumberNoDigits
 	}
 	return s.repo.GetPatientByPhoneNumber(ctx, normalized)
 }
@@ -220,7 +328,7 @@ func (s *PatientService) GetPatientByEmail(
 ) (*models.Patient, error) {
 	normalized := strings.TrimSpace(strings.ToLower(email))
 	if normalized == "" {
-		return nil, errors.New("email is required")
+		return nil, domainErrors.ErrEmailRequired
 	}
 	return s.repo.GetPatientByEmail(ctx, normalized)
 }

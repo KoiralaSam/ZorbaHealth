@@ -1,24 +1,18 @@
-FROM golang:1.24-alpine AS builder
+FROM golang:1.25-alpine AS builder
 WORKDIR /app
 
-# Copy go mod files
 COPY go.mod go.sum ./
-COPY shared/go.mod shared/go.sum ./shared/
-
-# Download dependencies
 RUN go mod download
 
-# Copy source code
-COPY services/analytics-service ./services/analytics-service
-COPY shared ./shared
+COPY . .
+RUN CGO_ENABLED=0 GOOS=linux go build -o /app/build/analytics-service ./services/analytics-service/cmd/analytics-service
 
-# Build the application
-WORKDIR /app/services/analytics-service
-RUN CGO_ENABLED=0 GOOS=linux go build -o /app/build/analytics-service ./cmd/analytics-service
-
-FROM alpine:latest
+FROM alpine:3.19
 RUN apk --no-cache add ca-certificates
-WORKDIR /root/
+WORKDIR /app
 
-COPY --from=builder /app/build/analytics-service .
+COPY --from=builder /app/build/analytics-service ./analytics-service
+
+EXPOSE 50054
+
 CMD ["./analytics-service"]

@@ -68,9 +68,11 @@ func (x *HospitalSummaryRequest) GetHospitalId() string {
 type HospitalSummaryResponse struct {
 	state                  protoimpl.MessageState `protogen:"open.v1"`
 	TotalConsentedPatients int32                  `protobuf:"varint,1,opt,name=total_consented_patients,json=totalConsentedPatients,proto3" json:"total_consented_patients,omitempty"`
-	ActiveSessionsToday    int32                  `protobuf:"varint,2,opt,name=active_sessions_today,json=activeSessionsToday,proto3" json:"active_sessions_today,omitempty"`
-	RecordsIndexed         int32                  `protobuf:"varint,3,opt,name=records_indexed,json=recordsIndexed,proto3" json:"records_indexed,omitempty"`
-	EmergencyEvents_30D    int32                  `protobuf:"varint,4,opt,name=emergency_events_30d,json=emergencyEvents30d,proto3" json:"emergency_events_30d,omitempty"`
+	TotalCalls_30D         int32                  `protobuf:"varint,2,opt,name=total_calls_30d,json=totalCalls30d,proto3" json:"total_calls_30d,omitempty"`
+	EmergencyEvents_30D    int32                  `protobuf:"varint,3,opt,name=emergency_events_30d,json=emergencyEvents30d,proto3" json:"emergency_events_30d,omitempty"`
+	AvgCallDurationSeconds float64                `protobuf:"fixed64,4,opt,name=avg_call_duration_seconds,json=avgCallDurationSeconds,proto3" json:"avg_call_duration_seconds,omitempty"`
+	RecordsIndexed         int32                  `protobuf:"varint,5,opt,name=records_indexed,json=recordsIndexed,proto3" json:"records_indexed,omitempty"`
+	ActivePatients_7D      int32                  `protobuf:"varint,6,opt,name=active_patients_7d,json=activePatients7d,proto3" json:"active_patients_7d,omitempty"` // patients who called in last 7 days
 	unknownFields          protoimpl.UnknownFields
 	sizeCache              protoimpl.SizeCache
 }
@@ -112,9 +114,23 @@ func (x *HospitalSummaryResponse) GetTotalConsentedPatients() int32 {
 	return 0
 }
 
-func (x *HospitalSummaryResponse) GetActiveSessionsToday() int32 {
+func (x *HospitalSummaryResponse) GetTotalCalls_30D() int32 {
 	if x != nil {
-		return x.ActiveSessionsToday
+		return x.TotalCalls_30D
+	}
+	return 0
+}
+
+func (x *HospitalSummaryResponse) GetEmergencyEvents_30D() int32 {
+	if x != nil {
+		return x.EmergencyEvents_30D
+	}
+	return 0
+}
+
+func (x *HospitalSummaryResponse) GetAvgCallDurationSeconds() float64 {
+	if x != nil {
+		return x.AvgCallDurationSeconds
 	}
 	return 0
 }
@@ -126,9 +142,517 @@ func (x *HospitalSummaryResponse) GetRecordsIndexed() int32 {
 	return 0
 }
 
-func (x *HospitalSummaryResponse) GetEmergencyEvents_30D() int32 {
+func (x *HospitalSummaryResponse) GetActivePatients_7D() int32 {
 	if x != nil {
-		return x.EmergencyEvents_30D
+		return x.ActivePatients_7D
+	}
+	return 0
+}
+
+type CallVolumeRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	HospitalId    string                 `protobuf:"bytes,1,opt,name=hospital_id,json=hospitalId,proto3" json:"hospital_id,omitempty"`
+	Period        string                 `protobuf:"bytes,2,opt,name=period,proto3" json:"period,omitempty"`           // "7d" | "30d" | "90d"
+	Granularity   string                 `protobuf:"bytes,3,opt,name=granularity,proto3" json:"granularity,omitempty"` // "day" | "week"
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *CallVolumeRequest) Reset() {
+	*x = CallVolumeRequest{}
+	mi := &file_analytics_analytics_proto_msgTypes[2]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *CallVolumeRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*CallVolumeRequest) ProtoMessage() {}
+
+func (x *CallVolumeRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_analytics_analytics_proto_msgTypes[2]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use CallVolumeRequest.ProtoReflect.Descriptor instead.
+func (*CallVolumeRequest) Descriptor() ([]byte, []int) {
+	return file_analytics_analytics_proto_rawDescGZIP(), []int{2}
+}
+
+func (x *CallVolumeRequest) GetHospitalId() string {
+	if x != nil {
+		return x.HospitalId
+	}
+	return ""
+}
+
+func (x *CallVolumeRequest) GetPeriod() string {
+	if x != nil {
+		return x.Period
+	}
+	return ""
+}
+
+func (x *CallVolumeRequest) GetGranularity() string {
+	if x != nil {
+		return x.Granularity
+	}
+	return ""
+}
+
+type CallVolumeResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Points        []*CallVolumePoint     `protobuf:"bytes,1,rep,name=points,proto3" json:"points,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *CallVolumeResponse) Reset() {
+	*x = CallVolumeResponse{}
+	mi := &file_analytics_analytics_proto_msgTypes[3]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *CallVolumeResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*CallVolumeResponse) ProtoMessage() {}
+
+func (x *CallVolumeResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_analytics_analytics_proto_msgTypes[3]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use CallVolumeResponse.ProtoReflect.Descriptor instead.
+func (*CallVolumeResponse) Descriptor() ([]byte, []int) {
+	return file_analytics_analytics_proto_rawDescGZIP(), []int{3}
+}
+
+func (x *CallVolumeResponse) GetPoints() []*CallVolumePoint {
+	if x != nil {
+		return x.Points
+	}
+	return nil
+}
+
+type CallVolumePoint struct {
+	state          protoimpl.MessageState `protogen:"open.v1"`
+	Date           string                 `protobuf:"bytes,1,opt,name=date,proto3" json:"date,omitempty"` // ISO 8601
+	TotalCalls     int32                  `protobuf:"varint,2,opt,name=total_calls,json=totalCalls,proto3" json:"total_calls,omitempty"`
+	CompletedCalls int32                  `protobuf:"varint,3,opt,name=completed_calls,json=completedCalls,proto3" json:"completed_calls,omitempty"`
+	EmergencyCalls int32                  `protobuf:"varint,4,opt,name=emergency_calls,json=emergencyCalls,proto3" json:"emergency_calls,omitempty"`
+	AvgDurationSec float64                `protobuf:"fixed64,5,opt,name=avg_duration_sec,json=avgDurationSec,proto3" json:"avg_duration_sec,omitempty"`
+	unknownFields  protoimpl.UnknownFields
+	sizeCache      protoimpl.SizeCache
+}
+
+func (x *CallVolumePoint) Reset() {
+	*x = CallVolumePoint{}
+	mi := &file_analytics_analytics_proto_msgTypes[4]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *CallVolumePoint) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*CallVolumePoint) ProtoMessage() {}
+
+func (x *CallVolumePoint) ProtoReflect() protoreflect.Message {
+	mi := &file_analytics_analytics_proto_msgTypes[4]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use CallVolumePoint.ProtoReflect.Descriptor instead.
+func (*CallVolumePoint) Descriptor() ([]byte, []int) {
+	return file_analytics_analytics_proto_rawDescGZIP(), []int{4}
+}
+
+func (x *CallVolumePoint) GetDate() string {
+	if x != nil {
+		return x.Date
+	}
+	return ""
+}
+
+func (x *CallVolumePoint) GetTotalCalls() int32 {
+	if x != nil {
+		return x.TotalCalls
+	}
+	return 0
+}
+
+func (x *CallVolumePoint) GetCompletedCalls() int32 {
+	if x != nil {
+		return x.CompletedCalls
+	}
+	return 0
+}
+
+func (x *CallVolumePoint) GetEmergencyCalls() int32 {
+	if x != nil {
+		return x.EmergencyCalls
+	}
+	return 0
+}
+
+func (x *CallVolumePoint) GetAvgDurationSec() float64 {
+	if x != nil {
+		return x.AvgDurationSec
+	}
+	return 0
+}
+
+type TopConditionsRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	HospitalId    string                 `protobuf:"bytes,1,opt,name=hospital_id,json=hospitalId,proto3" json:"hospital_id,omitempty"`
+	Limit         int32                  `protobuf:"varint,2,opt,name=limit,proto3" json:"limit,omitempty"` // default 10
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *TopConditionsRequest) Reset() {
+	*x = TopConditionsRequest{}
+	mi := &file_analytics_analytics_proto_msgTypes[5]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *TopConditionsRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*TopConditionsRequest) ProtoMessage() {}
+
+func (x *TopConditionsRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_analytics_analytics_proto_msgTypes[5]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use TopConditionsRequest.ProtoReflect.Descriptor instead.
+func (*TopConditionsRequest) Descriptor() ([]byte, []int) {
+	return file_analytics_analytics_proto_rawDescGZIP(), []int{5}
+}
+
+func (x *TopConditionsRequest) GetHospitalId() string {
+	if x != nil {
+		return x.HospitalId
+	}
+	return ""
+}
+
+func (x *TopConditionsRequest) GetLimit() int32 {
+	if x != nil {
+		return x.Limit
+	}
+	return 0
+}
+
+type TopConditionsResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Conditions    []*ConditionCount      `protobuf:"bytes,1,rep,name=conditions,proto3" json:"conditions,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *TopConditionsResponse) Reset() {
+	*x = TopConditionsResponse{}
+	mi := &file_analytics_analytics_proto_msgTypes[6]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *TopConditionsResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*TopConditionsResponse) ProtoMessage() {}
+
+func (x *TopConditionsResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_analytics_analytics_proto_msgTypes[6]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use TopConditionsResponse.ProtoReflect.Descriptor instead.
+func (*TopConditionsResponse) Descriptor() ([]byte, []int) {
+	return file_analytics_analytics_proto_rawDescGZIP(), []int{6}
+}
+
+func (x *TopConditionsResponse) GetConditions() []*ConditionCount {
+	if x != nil {
+		return x.Conditions
+	}
+	return nil
+}
+
+type ConditionCount struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	ConditionName string                 `protobuf:"bytes,1,opt,name=condition_name,json=conditionName,proto3" json:"condition_name,omitempty"`
+	PatientCount  int32                  `protobuf:"varint,2,opt,name=patient_count,json=patientCount,proto3" json:"patient_count,omitempty"`
+	Percentage    float64                `protobuf:"fixed64,3,opt,name=percentage,proto3" json:"percentage,omitempty"` // of total consented patients
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ConditionCount) Reset() {
+	*x = ConditionCount{}
+	mi := &file_analytics_analytics_proto_msgTypes[7]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ConditionCount) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ConditionCount) ProtoMessage() {}
+
+func (x *ConditionCount) ProtoReflect() protoreflect.Message {
+	mi := &file_analytics_analytics_proto_msgTypes[7]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ConditionCount.ProtoReflect.Descriptor instead.
+func (*ConditionCount) Descriptor() ([]byte, []int) {
+	return file_analytics_analytics_proto_rawDescGZIP(), []int{7}
+}
+
+func (x *ConditionCount) GetConditionName() string {
+	if x != nil {
+		return x.ConditionName
+	}
+	return ""
+}
+
+func (x *ConditionCount) GetPatientCount() int32 {
+	if x != nil {
+		return x.PatientCount
+	}
+	return 0
+}
+
+func (x *ConditionCount) GetPercentage() float64 {
+	if x != nil {
+		return x.Percentage
+	}
+	return 0
+}
+
+type ToolUsageRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	HospitalId    string                 `protobuf:"bytes,1,opt,name=hospital_id,json=hospitalId,proto3" json:"hospital_id,omitempty"`
+	Period        string                 `protobuf:"bytes,2,opt,name=period,proto3" json:"period,omitempty"` // "7d" | "30d"
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ToolUsageRequest) Reset() {
+	*x = ToolUsageRequest{}
+	mi := &file_analytics_analytics_proto_msgTypes[8]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ToolUsageRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ToolUsageRequest) ProtoMessage() {}
+
+func (x *ToolUsageRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_analytics_analytics_proto_msgTypes[8]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ToolUsageRequest.ProtoReflect.Descriptor instead.
+func (*ToolUsageRequest) Descriptor() ([]byte, []int) {
+	return file_analytics_analytics_proto_rawDescGZIP(), []int{8}
+}
+
+func (x *ToolUsageRequest) GetHospitalId() string {
+	if x != nil {
+		return x.HospitalId
+	}
+	return ""
+}
+
+func (x *ToolUsageRequest) GetPeriod() string {
+	if x != nil {
+		return x.Period
+	}
+	return ""
+}
+
+type ToolUsageResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Stats         []*ToolUsageStat       `protobuf:"bytes,1,rep,name=stats,proto3" json:"stats,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ToolUsageResponse) Reset() {
+	*x = ToolUsageResponse{}
+	mi := &file_analytics_analytics_proto_msgTypes[9]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ToolUsageResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ToolUsageResponse) ProtoMessage() {}
+
+func (x *ToolUsageResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_analytics_analytics_proto_msgTypes[9]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ToolUsageResponse.ProtoReflect.Descriptor instead.
+func (*ToolUsageResponse) Descriptor() ([]byte, []int) {
+	return file_analytics_analytics_proto_rawDescGZIP(), []int{9}
+}
+
+func (x *ToolUsageResponse) GetStats() []*ToolUsageStat {
+	if x != nil {
+		return x.Stats
+	}
+	return nil
+}
+
+type ToolUsageStat struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Tool          string                 `protobuf:"bytes,1,opt,name=tool,proto3" json:"tool,omitempty"`
+	SuccessCount  int32                  `protobuf:"varint,2,opt,name=success_count,json=successCount,proto3" json:"success_count,omitempty"`
+	ErrorCount    int32                  `protobuf:"varint,3,opt,name=error_count,json=errorCount,proto3" json:"error_count,omitempty"`
+	DeniedCount   int32                  `protobuf:"varint,4,opt,name=denied_count,json=deniedCount,proto3" json:"denied_count,omitempty"`
+	SuccessRate   float64                `protobuf:"fixed64,5,opt,name=success_rate,json=successRate,proto3" json:"success_rate,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ToolUsageStat) Reset() {
+	*x = ToolUsageStat{}
+	mi := &file_analytics_analytics_proto_msgTypes[10]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ToolUsageStat) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ToolUsageStat) ProtoMessage() {}
+
+func (x *ToolUsageStat) ProtoReflect() protoreflect.Message {
+	mi := &file_analytics_analytics_proto_msgTypes[10]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ToolUsageStat.ProtoReflect.Descriptor instead.
+func (*ToolUsageStat) Descriptor() ([]byte, []int) {
+	return file_analytics_analytics_proto_rawDescGZIP(), []int{10}
+}
+
+func (x *ToolUsageStat) GetTool() string {
+	if x != nil {
+		return x.Tool
+	}
+	return ""
+}
+
+func (x *ToolUsageStat) GetSuccessCount() int32 {
+	if x != nil {
+		return x.SuccessCount
+	}
+	return 0
+}
+
+func (x *ToolUsageStat) GetErrorCount() int32 {
+	if x != nil {
+		return x.ErrorCount
+	}
+	return 0
+}
+
+func (x *ToolUsageStat) GetDeniedCount() int32 {
+	if x != nil {
+		return x.DeniedCount
+	}
+	return 0
+}
+
+func (x *ToolUsageStat) GetSuccessRate() float64 {
+	if x != nil {
+		return x.SuccessRate
 	}
 	return 0
 }
@@ -143,7 +667,7 @@ type RecentActivityRequest struct {
 
 func (x *RecentActivityRequest) Reset() {
 	*x = RecentActivityRequest{}
-	mi := &file_analytics_analytics_proto_msgTypes[2]
+	mi := &file_analytics_analytics_proto_msgTypes[11]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -155,7 +679,7 @@ func (x *RecentActivityRequest) String() string {
 func (*RecentActivityRequest) ProtoMessage() {}
 
 func (x *RecentActivityRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_analytics_analytics_proto_msgTypes[2]
+	mi := &file_analytics_analytics_proto_msgTypes[11]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -168,7 +692,7 @@ func (x *RecentActivityRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RecentActivityRequest.ProtoReflect.Descriptor instead.
 func (*RecentActivityRequest) Descriptor() ([]byte, []int) {
-	return file_analytics_analytics_proto_rawDescGZIP(), []int{2}
+	return file_analytics_analytics_proto_rawDescGZIP(), []int{11}
 }
 
 func (x *RecentActivityRequest) GetHospitalId() string {
@@ -194,7 +718,7 @@ type RecentActivityResponse struct {
 
 func (x *RecentActivityResponse) Reset() {
 	*x = RecentActivityResponse{}
-	mi := &file_analytics_analytics_proto_msgTypes[3]
+	mi := &file_analytics_analytics_proto_msgTypes[12]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -206,7 +730,7 @@ func (x *RecentActivityResponse) String() string {
 func (*RecentActivityResponse) ProtoMessage() {}
 
 func (x *RecentActivityResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_analytics_analytics_proto_msgTypes[3]
+	mi := &file_analytics_analytics_proto_msgTypes[12]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -219,7 +743,7 @@ func (x *RecentActivityResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RecentActivityResponse.ProtoReflect.Descriptor instead.
 func (*RecentActivityResponse) Descriptor() ([]byte, []int) {
-	return file_analytics_analytics_proto_rawDescGZIP(), []int{3}
+	return file_analytics_analytics_proto_rawDescGZIP(), []int{12}
 }
 
 func (x *RecentActivityResponse) GetEvents() []*ActivityEvent {
@@ -232,16 +756,17 @@ func (x *RecentActivityResponse) GetEvents() []*ActivityEvent {
 type ActivityEvent struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Timestamp     string                 `protobuf:"bytes,1,opt,name=timestamp,proto3" json:"timestamp,omitempty"`
-	EventType     string                 `protobuf:"bytes,2,opt,name=event_type,json=eventType,proto3" json:"event_type,omitempty"`
-	PatientId     string                 `protobuf:"bytes,3,opt,name=patient_id,json=patientId,proto3" json:"patient_id,omitempty"`
-	Description   string                 `protobuf:"bytes,4,opt,name=description,proto3" json:"description,omitempty"`
+	Tool          string                 `protobuf:"bytes,2,opt,name=tool,proto3" json:"tool,omitempty"`
+	ActorType     string                 `protobuf:"bytes,3,opt,name=actor_type,json=actorType,proto3" json:"actor_type,omitempty"` // "patient" | "staff"
+	Outcome       string                 `protobuf:"bytes,4,opt,name=outcome,proto3" json:"outcome,omitempty"`
+	SessionId     string                 `protobuf:"bytes,5,opt,name=session_id,json=sessionId,proto3" json:"session_id,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
 func (x *ActivityEvent) Reset() {
 	*x = ActivityEvent{}
-	mi := &file_analytics_analytics_proto_msgTypes[4]
+	mi := &file_analytics_analytics_proto_msgTypes[13]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -253,7 +778,7 @@ func (x *ActivityEvent) String() string {
 func (*ActivityEvent) ProtoMessage() {}
 
 func (x *ActivityEvent) ProtoReflect() protoreflect.Message {
-	mi := &file_analytics_analytics_proto_msgTypes[4]
+	mi := &file_analytics_analytics_proto_msgTypes[13]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -266,7 +791,7 @@ func (x *ActivityEvent) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ActivityEvent.ProtoReflect.Descriptor instead.
 func (*ActivityEvent) Descriptor() ([]byte, []int) {
-	return file_analytics_analytics_proto_rawDescGZIP(), []int{4}
+	return file_analytics_analytics_proto_rawDescGZIP(), []int{13}
 }
 
 func (x *ActivityEvent) GetTimestamp() string {
@@ -276,25 +801,496 @@ func (x *ActivityEvent) GetTimestamp() string {
 	return ""
 }
 
-func (x *ActivityEvent) GetEventType() string {
+func (x *ActivityEvent) GetTool() string {
 	if x != nil {
-		return x.EventType
+		return x.Tool
 	}
 	return ""
 }
 
-func (x *ActivityEvent) GetPatientId() string {
+func (x *ActivityEvent) GetActorType() string {
+	if x != nil {
+		return x.ActorType
+	}
+	return ""
+}
+
+func (x *ActivityEvent) GetOutcome() string {
+	if x != nil {
+		return x.Outcome
+	}
+	return ""
+}
+
+func (x *ActivityEvent) GetSessionId() string {
+	if x != nil {
+		return x.SessionId
+	}
+	return ""
+}
+
+type PlatformSummaryRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *PlatformSummaryRequest) Reset() {
+	*x = PlatformSummaryRequest{}
+	mi := &file_analytics_analytics_proto_msgTypes[14]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *PlatformSummaryRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*PlatformSummaryRequest) ProtoMessage() {}
+
+func (x *PlatformSummaryRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_analytics_analytics_proto_msgTypes[14]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use PlatformSummaryRequest.ProtoReflect.Descriptor instead.
+func (*PlatformSummaryRequest) Descriptor() ([]byte, []int) {
+	return file_analytics_analytics_proto_rawDescGZIP(), []int{14}
+}
+
+type PlatformSummaryResponse struct {
+	state                protoimpl.MessageState `protogen:"open.v1"`
+	TotalHospitals       int32                  `protobuf:"varint,1,opt,name=total_hospitals,json=totalHospitals,proto3" json:"total_hospitals,omitempty"`
+	TotalPatients        int32                  `protobuf:"varint,2,opt,name=total_patients,json=totalPatients,proto3" json:"total_patients,omitempty"`
+	TotalCalls_30D       int32                  `protobuf:"varint,3,opt,name=total_calls_30d,json=totalCalls30d,proto3" json:"total_calls_30d,omitempty"`
+	TotalEmergencies_30D int32                  `protobuf:"varint,4,opt,name=total_emergencies_30d,json=totalEmergencies30d,proto3" json:"total_emergencies_30d,omitempty"`
+	AvgCallDurationSec   float64                `protobuf:"fixed64,5,opt,name=avg_call_duration_sec,json=avgCallDurationSec,proto3" json:"avg_call_duration_sec,omitempty"`
+	ActiveHospitals_7D   int32                  `protobuf:"varint,6,opt,name=active_hospitals_7d,json=activeHospitals7d,proto3" json:"active_hospitals_7d,omitempty"`
+	unknownFields        protoimpl.UnknownFields
+	sizeCache            protoimpl.SizeCache
+}
+
+func (x *PlatformSummaryResponse) Reset() {
+	*x = PlatformSummaryResponse{}
+	mi := &file_analytics_analytics_proto_msgTypes[15]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *PlatformSummaryResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*PlatformSummaryResponse) ProtoMessage() {}
+
+func (x *PlatformSummaryResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_analytics_analytics_proto_msgTypes[15]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use PlatformSummaryResponse.ProtoReflect.Descriptor instead.
+func (*PlatformSummaryResponse) Descriptor() ([]byte, []int) {
+	return file_analytics_analytics_proto_rawDescGZIP(), []int{15}
+}
+
+func (x *PlatformSummaryResponse) GetTotalHospitals() int32 {
+	if x != nil {
+		return x.TotalHospitals
+	}
+	return 0
+}
+
+func (x *PlatformSummaryResponse) GetTotalPatients() int32 {
+	if x != nil {
+		return x.TotalPatients
+	}
+	return 0
+}
+
+func (x *PlatformSummaryResponse) GetTotalCalls_30D() int32 {
+	if x != nil {
+		return x.TotalCalls_30D
+	}
+	return 0
+}
+
+func (x *PlatformSummaryResponse) GetTotalEmergencies_30D() int32 {
+	if x != nil {
+		return x.TotalEmergencies_30D
+	}
+	return 0
+}
+
+func (x *PlatformSummaryResponse) GetAvgCallDurationSec() float64 {
+	if x != nil {
+		return x.AvgCallDurationSec
+	}
+	return 0
+}
+
+func (x *PlatformSummaryResponse) GetActiveHospitals_7D() int32 {
+	if x != nil {
+		return x.ActiveHospitals_7D
+	}
+	return 0
+}
+
+type HospitalBreakdownRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Limit         int32                  `protobuf:"varint,1,opt,name=limit,proto3" json:"limit,omitempty"`
+	Sort          string                 `protobuf:"bytes,2,opt,name=sort,proto3" json:"sort,omitempty"` // "calls" | "patients" | "emergencies"
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *HospitalBreakdownRequest) Reset() {
+	*x = HospitalBreakdownRequest{}
+	mi := &file_analytics_analytics_proto_msgTypes[16]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *HospitalBreakdownRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*HospitalBreakdownRequest) ProtoMessage() {}
+
+func (x *HospitalBreakdownRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_analytics_analytics_proto_msgTypes[16]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use HospitalBreakdownRequest.ProtoReflect.Descriptor instead.
+func (*HospitalBreakdownRequest) Descriptor() ([]byte, []int) {
+	return file_analytics_analytics_proto_rawDescGZIP(), []int{16}
+}
+
+func (x *HospitalBreakdownRequest) GetLimit() int32 {
+	if x != nil {
+		return x.Limit
+	}
+	return 0
+}
+
+func (x *HospitalBreakdownRequest) GetSort() string {
+	if x != nil {
+		return x.Sort
+	}
+	return ""
+}
+
+type HospitalBreakdownResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Hospitals     []*HospitalStat        `protobuf:"bytes,1,rep,name=hospitals,proto3" json:"hospitals,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *HospitalBreakdownResponse) Reset() {
+	*x = HospitalBreakdownResponse{}
+	mi := &file_analytics_analytics_proto_msgTypes[17]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *HospitalBreakdownResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*HospitalBreakdownResponse) ProtoMessage() {}
+
+func (x *HospitalBreakdownResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_analytics_analytics_proto_msgTypes[17]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use HospitalBreakdownResponse.ProtoReflect.Descriptor instead.
+func (*HospitalBreakdownResponse) Descriptor() ([]byte, []int) {
+	return file_analytics_analytics_proto_rawDescGZIP(), []int{17}
+}
+
+func (x *HospitalBreakdownResponse) GetHospitals() []*HospitalStat {
+	if x != nil {
+		return x.Hospitals
+	}
+	return nil
+}
+
+type HospitalStat struct {
+	state          protoimpl.MessageState `protogen:"open.v1"`
+	HospitalId     string                 `protobuf:"bytes,1,opt,name=hospital_id,json=hospitalId,proto3" json:"hospital_id,omitempty"`
+	HospitalName   string                 `protobuf:"bytes,2,opt,name=hospital_name,json=hospitalName,proto3" json:"hospital_name,omitempty"`
+	PatientCount   int32                  `protobuf:"varint,3,opt,name=patient_count,json=patientCount,proto3" json:"patient_count,omitempty"`
+	CallCount      int32                  `protobuf:"varint,4,opt,name=call_count,json=callCount,proto3" json:"call_count,omitempty"`
+	EmergencyCount int32                  `protobuf:"varint,5,opt,name=emergency_count,json=emergencyCount,proto3" json:"emergency_count,omitempty"`
+	unknownFields  protoimpl.UnknownFields
+	sizeCache      protoimpl.SizeCache
+}
+
+func (x *HospitalStat) Reset() {
+	*x = HospitalStat{}
+	mi := &file_analytics_analytics_proto_msgTypes[18]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *HospitalStat) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*HospitalStat) ProtoMessage() {}
+
+func (x *HospitalStat) ProtoReflect() protoreflect.Message {
+	mi := &file_analytics_analytics_proto_msgTypes[18]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use HospitalStat.ProtoReflect.Descriptor instead.
+func (*HospitalStat) Descriptor() ([]byte, []int) {
+	return file_analytics_analytics_proto_rawDescGZIP(), []int{18}
+}
+
+func (x *HospitalStat) GetHospitalId() string {
+	if x != nil {
+		return x.HospitalId
+	}
+	return ""
+}
+
+func (x *HospitalStat) GetHospitalName() string {
+	if x != nil {
+		return x.HospitalName
+	}
+	return ""
+}
+
+func (x *HospitalStat) GetPatientCount() int32 {
+	if x != nil {
+		return x.PatientCount
+	}
+	return 0
+}
+
+func (x *HospitalStat) GetCallCount() int32 {
+	if x != nil {
+		return x.CallCount
+	}
+	return 0
+}
+
+func (x *HospitalStat) GetEmergencyCount() int32 {
+	if x != nil {
+		return x.EmergencyCount
+	}
+	return 0
+}
+
+type PatientCallHistoryRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	PatientId     string                 `protobuf:"bytes,1,opt,name=patient_id,json=patientId,proto3" json:"patient_id,omitempty"`
+	Limit         int32                  `protobuf:"varint,2,opt,name=limit,proto3" json:"limit,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *PatientCallHistoryRequest) Reset() {
+	*x = PatientCallHistoryRequest{}
+	mi := &file_analytics_analytics_proto_msgTypes[19]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *PatientCallHistoryRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*PatientCallHistoryRequest) ProtoMessage() {}
+
+func (x *PatientCallHistoryRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_analytics_analytics_proto_msgTypes[19]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use PatientCallHistoryRequest.ProtoReflect.Descriptor instead.
+func (*PatientCallHistoryRequest) Descriptor() ([]byte, []int) {
+	return file_analytics_analytics_proto_rawDescGZIP(), []int{19}
+}
+
+func (x *PatientCallHistoryRequest) GetPatientId() string {
 	if x != nil {
 		return x.PatientId
 	}
 	return ""
 }
 
-func (x *ActivityEvent) GetDescription() string {
+func (x *PatientCallHistoryRequest) GetLimit() int32 {
 	if x != nil {
-		return x.Description
+		return x.Limit
+	}
+	return 0
+}
+
+type PatientCallHistoryResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	TotalCalls    int32                  `protobuf:"varint,1,opt,name=total_calls,json=totalCalls,proto3" json:"total_calls,omitempty"`
+	Calls         []*PatientCall         `protobuf:"bytes,2,rep,name=calls,proto3" json:"calls,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *PatientCallHistoryResponse) Reset() {
+	*x = PatientCallHistoryResponse{}
+	mi := &file_analytics_analytics_proto_msgTypes[20]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *PatientCallHistoryResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*PatientCallHistoryResponse) ProtoMessage() {}
+
+func (x *PatientCallHistoryResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_analytics_analytics_proto_msgTypes[20]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use PatientCallHistoryResponse.ProtoReflect.Descriptor instead.
+func (*PatientCallHistoryResponse) Descriptor() ([]byte, []int) {
+	return file_analytics_analytics_proto_rawDescGZIP(), []int{20}
+}
+
+func (x *PatientCallHistoryResponse) GetTotalCalls() int32 {
+	if x != nil {
+		return x.TotalCalls
+	}
+	return 0
+}
+
+func (x *PatientCallHistoryResponse) GetCalls() []*PatientCall {
+	if x != nil {
+		return x.Calls
+	}
+	return nil
+}
+
+type PatientCall struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	StartedAt     string                 `protobuf:"bytes,1,opt,name=started_at,json=startedAt,proto3" json:"started_at,omitempty"`
+	Duration      string                 `protobuf:"bytes,2,opt,name=duration,proto3" json:"duration,omitempty"` // human readable "12 min 30 sec"
+	Summary       string                 `protobuf:"bytes,3,opt,name=summary,proto3" json:"summary,omitempty"`   // from calls.summary
+	HadEmergency  bool                   `protobuf:"varint,4,opt,name=had_emergency,json=hadEmergency,proto3" json:"had_emergency,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *PatientCall) Reset() {
+	*x = PatientCall{}
+	mi := &file_analytics_analytics_proto_msgTypes[21]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *PatientCall) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*PatientCall) ProtoMessage() {}
+
+func (x *PatientCall) ProtoReflect() protoreflect.Message {
+	mi := &file_analytics_analytics_proto_msgTypes[21]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use PatientCall.ProtoReflect.Descriptor instead.
+func (*PatientCall) Descriptor() ([]byte, []int) {
+	return file_analytics_analytics_proto_rawDescGZIP(), []int{21}
+}
+
+func (x *PatientCall) GetStartedAt() string {
+	if x != nil {
+		return x.StartedAt
 	}
 	return ""
+}
+
+func (x *PatientCall) GetDuration() string {
+	if x != nil {
+		return x.Duration
+	}
+	return ""
+}
+
+func (x *PatientCall) GetSummary() string {
+	if x != nil {
+		return x.Summary
+	}
+	return ""
+}
+
+func (x *PatientCall) GetHadEmergency() bool {
+	if x != nil {
+		return x.HadEmergency
+	}
+	return false
 }
 
 var File_analytics_analytics_proto protoreflect.FileDescriptor
@@ -304,28 +1300,113 @@ const file_analytics_analytics_proto_rawDesc = "" +
 	"\x19analytics/analytics.proto\x12\tanalytics\"9\n" +
 	"\x16HospitalSummaryRequest\x12\x1f\n" +
 	"\vhospital_id\x18\x01 \x01(\tR\n" +
-	"hospitalId\"\xe2\x01\n" +
+	"hospitalId\"\xbf\x02\n" +
 	"\x17HospitalSummaryResponse\x128\n" +
-	"\x18total_consented_patients\x18\x01 \x01(\x05R\x16totalConsentedPatients\x122\n" +
-	"\x15active_sessions_today\x18\x02 \x01(\x05R\x13activeSessionsToday\x12'\n" +
-	"\x0frecords_indexed\x18\x03 \x01(\x05R\x0erecordsIndexed\x120\n" +
-	"\x14emergency_events_30d\x18\x04 \x01(\x05R\x12emergencyEvents30d\"N\n" +
+	"\x18total_consented_patients\x18\x01 \x01(\x05R\x16totalConsentedPatients\x12&\n" +
+	"\x0ftotal_calls_30d\x18\x02 \x01(\x05R\rtotalCalls30d\x120\n" +
+	"\x14emergency_events_30d\x18\x03 \x01(\x05R\x12emergencyEvents30d\x129\n" +
+	"\x19avg_call_duration_seconds\x18\x04 \x01(\x01R\x16avgCallDurationSeconds\x12'\n" +
+	"\x0frecords_indexed\x18\x05 \x01(\x05R\x0erecordsIndexed\x12,\n" +
+	"\x12active_patients_7d\x18\x06 \x01(\x05R\x10activePatients7d\"n\n" +
+	"\x11CallVolumeRequest\x12\x1f\n" +
+	"\vhospital_id\x18\x01 \x01(\tR\n" +
+	"hospitalId\x12\x16\n" +
+	"\x06period\x18\x02 \x01(\tR\x06period\x12 \n" +
+	"\vgranularity\x18\x03 \x01(\tR\vgranularity\"H\n" +
+	"\x12CallVolumeResponse\x122\n" +
+	"\x06points\x18\x01 \x03(\v2\x1a.analytics.CallVolumePointR\x06points\"\xc2\x01\n" +
+	"\x0fCallVolumePoint\x12\x12\n" +
+	"\x04date\x18\x01 \x01(\tR\x04date\x12\x1f\n" +
+	"\vtotal_calls\x18\x02 \x01(\x05R\n" +
+	"totalCalls\x12'\n" +
+	"\x0fcompleted_calls\x18\x03 \x01(\x05R\x0ecompletedCalls\x12'\n" +
+	"\x0femergency_calls\x18\x04 \x01(\x05R\x0eemergencyCalls\x12(\n" +
+	"\x10avg_duration_sec\x18\x05 \x01(\x01R\x0eavgDurationSec\"M\n" +
+	"\x14TopConditionsRequest\x12\x1f\n" +
+	"\vhospital_id\x18\x01 \x01(\tR\n" +
+	"hospitalId\x12\x14\n" +
+	"\x05limit\x18\x02 \x01(\x05R\x05limit\"R\n" +
+	"\x15TopConditionsResponse\x129\n" +
+	"\n" +
+	"conditions\x18\x01 \x03(\v2\x19.analytics.ConditionCountR\n" +
+	"conditions\"|\n" +
+	"\x0eConditionCount\x12%\n" +
+	"\x0econdition_name\x18\x01 \x01(\tR\rconditionName\x12#\n" +
+	"\rpatient_count\x18\x02 \x01(\x05R\fpatientCount\x12\x1e\n" +
+	"\n" +
+	"percentage\x18\x03 \x01(\x01R\n" +
+	"percentage\"K\n" +
+	"\x10ToolUsageRequest\x12\x1f\n" +
+	"\vhospital_id\x18\x01 \x01(\tR\n" +
+	"hospitalId\x12\x16\n" +
+	"\x06period\x18\x02 \x01(\tR\x06period\"C\n" +
+	"\x11ToolUsageResponse\x12.\n" +
+	"\x05stats\x18\x01 \x03(\v2\x18.analytics.ToolUsageStatR\x05stats\"\xaf\x01\n" +
+	"\rToolUsageStat\x12\x12\n" +
+	"\x04tool\x18\x01 \x01(\tR\x04tool\x12#\n" +
+	"\rsuccess_count\x18\x02 \x01(\x05R\fsuccessCount\x12\x1f\n" +
+	"\verror_count\x18\x03 \x01(\x05R\n" +
+	"errorCount\x12!\n" +
+	"\fdenied_count\x18\x04 \x01(\x05R\vdeniedCount\x12!\n" +
+	"\fsuccess_rate\x18\x05 \x01(\x01R\vsuccessRate\"N\n" +
 	"\x15RecentActivityRequest\x12\x1f\n" +
 	"\vhospital_id\x18\x01 \x01(\tR\n" +
 	"hospitalId\x12\x14\n" +
 	"\x05limit\x18\x02 \x01(\x05R\x05limit\"J\n" +
 	"\x16RecentActivityResponse\x120\n" +
-	"\x06events\x18\x01 \x03(\v2\x18.analytics.ActivityEventR\x06events\"\x8d\x01\n" +
+	"\x06events\x18\x01 \x03(\v2\x18.analytics.ActivityEventR\x06events\"\x99\x01\n" +
 	"\rActivityEvent\x12\x1c\n" +
-	"\ttimestamp\x18\x01 \x01(\tR\ttimestamp\x12\x1d\n" +
+	"\ttimestamp\x18\x01 \x01(\tR\ttimestamp\x12\x12\n" +
+	"\x04tool\x18\x02 \x01(\tR\x04tool\x12\x1d\n" +
 	"\n" +
-	"event_type\x18\x02 \x01(\tR\teventType\x12\x1d\n" +
+	"actor_type\x18\x03 \x01(\tR\tactorType\x12\x18\n" +
+	"\aoutcome\x18\x04 \x01(\tR\aoutcome\x12\x1d\n" +
 	"\n" +
-	"patient_id\x18\x03 \x01(\tR\tpatientId\x12 \n" +
-	"\vdescription\x18\x04 \x01(\tR\vdescription2\xc9\x01\n" +
+	"session_id\x18\x05 \x01(\tR\tsessionId\"\x18\n" +
+	"\x16PlatformSummaryRequest\"\xa8\x02\n" +
+	"\x17PlatformSummaryResponse\x12'\n" +
+	"\x0ftotal_hospitals\x18\x01 \x01(\x05R\x0etotalHospitals\x12%\n" +
+	"\x0etotal_patients\x18\x02 \x01(\x05R\rtotalPatients\x12&\n" +
+	"\x0ftotal_calls_30d\x18\x03 \x01(\x05R\rtotalCalls30d\x122\n" +
+	"\x15total_emergencies_30d\x18\x04 \x01(\x05R\x13totalEmergencies30d\x121\n" +
+	"\x15avg_call_duration_sec\x18\x05 \x01(\x01R\x12avgCallDurationSec\x12.\n" +
+	"\x13active_hospitals_7d\x18\x06 \x01(\x05R\x11activeHospitals7d\"D\n" +
+	"\x18HospitalBreakdownRequest\x12\x14\n" +
+	"\x05limit\x18\x01 \x01(\x05R\x05limit\x12\x12\n" +
+	"\x04sort\x18\x02 \x01(\tR\x04sort\"R\n" +
+	"\x19HospitalBreakdownResponse\x125\n" +
+	"\thospitals\x18\x01 \x03(\v2\x17.analytics.HospitalStatR\thospitals\"\xc1\x01\n" +
+	"\fHospitalStat\x12\x1f\n" +
+	"\vhospital_id\x18\x01 \x01(\tR\n" +
+	"hospitalId\x12#\n" +
+	"\rhospital_name\x18\x02 \x01(\tR\fhospitalName\x12#\n" +
+	"\rpatient_count\x18\x03 \x01(\x05R\fpatientCount\x12\x1d\n" +
+	"\n" +
+	"call_count\x18\x04 \x01(\x05R\tcallCount\x12'\n" +
+	"\x0femergency_count\x18\x05 \x01(\x05R\x0eemergencyCount\"P\n" +
+	"\x19PatientCallHistoryRequest\x12\x1d\n" +
+	"\n" +
+	"patient_id\x18\x01 \x01(\tR\tpatientId\x12\x14\n" +
+	"\x05limit\x18\x02 \x01(\x05R\x05limit\"k\n" +
+	"\x1aPatientCallHistoryResponse\x12\x1f\n" +
+	"\vtotal_calls\x18\x01 \x01(\x05R\n" +
+	"totalCalls\x12,\n" +
+	"\x05calls\x18\x02 \x03(\v2\x16.analytics.PatientCallR\x05calls\"\x87\x01\n" +
+	"\vPatientCall\x12\x1d\n" +
+	"\n" +
+	"started_at\x18\x01 \x01(\tR\tstartedAt\x12\x1a\n" +
+	"\bduration\x18\x02 \x01(\tR\bduration\x12\x18\n" +
+	"\asummary\x18\x03 \x01(\tR\asummary\x12#\n" +
+	"\rhad_emergency\x18\x04 \x01(\bR\fhadEmergency2\xdf\x05\n" +
 	"\x10AnalyticsService\x12[\n" +
-	"\x12GetHospitalSummary\x12!.analytics.HospitalSummaryRequest\x1a\".analytics.HospitalSummaryResponse\x12X\n" +
-	"\x11GetRecentActivity\x12 .analytics.RecentActivityRequest\x1a!.analytics.RecentActivityResponseB\"Z shared/proto/analytics;analyticsb\x06proto3"
+	"\x12GetHospitalSummary\x12!.analytics.HospitalSummaryRequest\x1a\".analytics.HospitalSummaryResponse\x12L\n" +
+	"\rGetCallVolume\x12\x1c.analytics.CallVolumeRequest\x1a\x1d.analytics.CallVolumeResponse\x12U\n" +
+	"\x10GetTopConditions\x12\x1f.analytics.TopConditionsRequest\x1a .analytics.TopConditionsResponse\x12I\n" +
+	"\fGetToolUsage\x12\x1b.analytics.ToolUsageRequest\x1a\x1c.analytics.ToolUsageResponse\x12X\n" +
+	"\x11GetRecentActivity\x12 .analytics.RecentActivityRequest\x1a!.analytics.RecentActivityResponse\x12[\n" +
+	"\x12GetPlatformSummary\x12!.analytics.PlatformSummaryRequest\x1a\".analytics.PlatformSummaryResponse\x12a\n" +
+	"\x14GetHospitalBreakdown\x12#.analytics.HospitalBreakdownRequest\x1a$.analytics.HospitalBreakdownResponse\x12d\n" +
+	"\x15GetPatientCallHistory\x12$.analytics.PatientCallHistoryRequest\x1a%.analytics.PatientCallHistoryResponseB\"Z shared/proto/analytics;analyticsb\x06proto3"
 
 var (
 	file_analytics_analytics_proto_rawDescOnce sync.Once
@@ -339,25 +1420,59 @@ func file_analytics_analytics_proto_rawDescGZIP() []byte {
 	return file_analytics_analytics_proto_rawDescData
 }
 
-var file_analytics_analytics_proto_msgTypes = make([]protoimpl.MessageInfo, 5)
+var file_analytics_analytics_proto_msgTypes = make([]protoimpl.MessageInfo, 22)
 var file_analytics_analytics_proto_goTypes = []any{
-	(*HospitalSummaryRequest)(nil),  // 0: analytics.HospitalSummaryRequest
-	(*HospitalSummaryResponse)(nil), // 1: analytics.HospitalSummaryResponse
-	(*RecentActivityRequest)(nil),   // 2: analytics.RecentActivityRequest
-	(*RecentActivityResponse)(nil),  // 3: analytics.RecentActivityResponse
-	(*ActivityEvent)(nil),           // 4: analytics.ActivityEvent
+	(*HospitalSummaryRequest)(nil),     // 0: analytics.HospitalSummaryRequest
+	(*HospitalSummaryResponse)(nil),    // 1: analytics.HospitalSummaryResponse
+	(*CallVolumeRequest)(nil),          // 2: analytics.CallVolumeRequest
+	(*CallVolumeResponse)(nil),         // 3: analytics.CallVolumeResponse
+	(*CallVolumePoint)(nil),            // 4: analytics.CallVolumePoint
+	(*TopConditionsRequest)(nil),       // 5: analytics.TopConditionsRequest
+	(*TopConditionsResponse)(nil),      // 6: analytics.TopConditionsResponse
+	(*ConditionCount)(nil),             // 7: analytics.ConditionCount
+	(*ToolUsageRequest)(nil),           // 8: analytics.ToolUsageRequest
+	(*ToolUsageResponse)(nil),          // 9: analytics.ToolUsageResponse
+	(*ToolUsageStat)(nil),              // 10: analytics.ToolUsageStat
+	(*RecentActivityRequest)(nil),      // 11: analytics.RecentActivityRequest
+	(*RecentActivityResponse)(nil),     // 12: analytics.RecentActivityResponse
+	(*ActivityEvent)(nil),              // 13: analytics.ActivityEvent
+	(*PlatformSummaryRequest)(nil),     // 14: analytics.PlatformSummaryRequest
+	(*PlatformSummaryResponse)(nil),    // 15: analytics.PlatformSummaryResponse
+	(*HospitalBreakdownRequest)(nil),   // 16: analytics.HospitalBreakdownRequest
+	(*HospitalBreakdownResponse)(nil),  // 17: analytics.HospitalBreakdownResponse
+	(*HospitalStat)(nil),               // 18: analytics.HospitalStat
+	(*PatientCallHistoryRequest)(nil),  // 19: analytics.PatientCallHistoryRequest
+	(*PatientCallHistoryResponse)(nil), // 20: analytics.PatientCallHistoryResponse
+	(*PatientCall)(nil),                // 21: analytics.PatientCall
 }
 var file_analytics_analytics_proto_depIdxs = []int32{
-	4, // 0: analytics.RecentActivityResponse.events:type_name -> analytics.ActivityEvent
-	0, // 1: analytics.AnalyticsService.GetHospitalSummary:input_type -> analytics.HospitalSummaryRequest
-	2, // 2: analytics.AnalyticsService.GetRecentActivity:input_type -> analytics.RecentActivityRequest
-	1, // 3: analytics.AnalyticsService.GetHospitalSummary:output_type -> analytics.HospitalSummaryResponse
-	3, // 4: analytics.AnalyticsService.GetRecentActivity:output_type -> analytics.RecentActivityResponse
-	3, // [3:5] is the sub-list for method output_type
-	1, // [1:3] is the sub-list for method input_type
-	1, // [1:1] is the sub-list for extension type_name
-	1, // [1:1] is the sub-list for extension extendee
-	0, // [0:1] is the sub-list for field type_name
+	4,  // 0: analytics.CallVolumeResponse.points:type_name -> analytics.CallVolumePoint
+	7,  // 1: analytics.TopConditionsResponse.conditions:type_name -> analytics.ConditionCount
+	10, // 2: analytics.ToolUsageResponse.stats:type_name -> analytics.ToolUsageStat
+	13, // 3: analytics.RecentActivityResponse.events:type_name -> analytics.ActivityEvent
+	18, // 4: analytics.HospitalBreakdownResponse.hospitals:type_name -> analytics.HospitalStat
+	21, // 5: analytics.PatientCallHistoryResponse.calls:type_name -> analytics.PatientCall
+	0,  // 6: analytics.AnalyticsService.GetHospitalSummary:input_type -> analytics.HospitalSummaryRequest
+	2,  // 7: analytics.AnalyticsService.GetCallVolume:input_type -> analytics.CallVolumeRequest
+	5,  // 8: analytics.AnalyticsService.GetTopConditions:input_type -> analytics.TopConditionsRequest
+	8,  // 9: analytics.AnalyticsService.GetToolUsage:input_type -> analytics.ToolUsageRequest
+	11, // 10: analytics.AnalyticsService.GetRecentActivity:input_type -> analytics.RecentActivityRequest
+	14, // 11: analytics.AnalyticsService.GetPlatformSummary:input_type -> analytics.PlatformSummaryRequest
+	16, // 12: analytics.AnalyticsService.GetHospitalBreakdown:input_type -> analytics.HospitalBreakdownRequest
+	19, // 13: analytics.AnalyticsService.GetPatientCallHistory:input_type -> analytics.PatientCallHistoryRequest
+	1,  // 14: analytics.AnalyticsService.GetHospitalSummary:output_type -> analytics.HospitalSummaryResponse
+	3,  // 15: analytics.AnalyticsService.GetCallVolume:output_type -> analytics.CallVolumeResponse
+	6,  // 16: analytics.AnalyticsService.GetTopConditions:output_type -> analytics.TopConditionsResponse
+	9,  // 17: analytics.AnalyticsService.GetToolUsage:output_type -> analytics.ToolUsageResponse
+	12, // 18: analytics.AnalyticsService.GetRecentActivity:output_type -> analytics.RecentActivityResponse
+	15, // 19: analytics.AnalyticsService.GetPlatformSummary:output_type -> analytics.PlatformSummaryResponse
+	17, // 20: analytics.AnalyticsService.GetHospitalBreakdown:output_type -> analytics.HospitalBreakdownResponse
+	20, // 21: analytics.AnalyticsService.GetPatientCallHistory:output_type -> analytics.PatientCallHistoryResponse
+	14, // [14:22] is the sub-list for method output_type
+	6,  // [6:14] is the sub-list for method input_type
+	6,  // [6:6] is the sub-list for extension type_name
+	6,  // [6:6] is the sub-list for extension extendee
+	0,  // [0:6] is the sub-list for field type_name
 }
 
 func init() { file_analytics_analytics_proto_init() }
@@ -371,7 +1486,7 @@ func file_analytics_analytics_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_analytics_analytics_proto_rawDesc), len(file_analytics_analytics_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   5,
+			NumMessages:   22,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

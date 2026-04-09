@@ -3,11 +3,12 @@ package voipms
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 	"io"
 	"net/http"
 	"net/url"
 	"strings"
+
+	domainErrors "github.com/KoiralaSam/ZorbaHealth/services/notification-service/internal/core/domain/errors"
 )
 
 // Sender sends SMS via VoIP.ms REST/JSON API.
@@ -40,16 +41,16 @@ func NewSender(baseURL, username, password, did string) *Sender {
 // Method and parameters are sent in the URL; content_type=json requests JSON response.
 func (s *Sender) SendSMS(ctx context.Context, toPhoneNumber, message string) error {
 	if s.did == "" {
-		return fmt.Errorf("voipms: VOIPMS_DID is not set")
+		return domainErrors.ErrVoipmsDIDNotSet
 	}
 	if toPhoneNumber == "" {
-		return fmt.Errorf("voipms: to phone number is empty")
+		return domainErrors.ErrVoipmsToPhoneNumberEmpty
 	}
 	if message == "" {
-		return fmt.Errorf("voipms: message is empty")
+		return domainErrors.ErrVoipmsMessageEmpty
 	}
 	if s.username == "" || s.password == "" {
-		return fmt.Errorf("voipms: api_username and api_password are required")
+		return domainErrors.ErrVoipmsAPIUsernameRequired
 	}
 
 	to := normalizePhone(toPhoneNumber)
@@ -69,18 +70,18 @@ func (s *Sender) SendSMS(ctx context.Context, toPhoneNumber, message string) err
 	reqURL := s.baseURL + "?" + params.Encode()
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, reqURL, nil)
 	if err != nil {
-		return fmt.Errorf("voipms: new request: %w", err)
+		return domainErrors.ErrVoipmsNewRequest
 	}
 
 	resp, err := s.client.Do(req)
 	if err != nil {
-		return fmt.Errorf("voipms: do request: %w", err)
+		return domainErrors.ErrVoipmsDoRequest
 	}
 	defer resp.Body.Close()
 
 	bodyBytes, _ := io.ReadAll(resp.Body)
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		return fmt.Errorf("voipms: status=%d body=%s", resp.StatusCode, string(bodyBytes))
+		return domainErrors.ErrVoipmsStatusBody
 	}
 
 	// VoIP.ms commonly returns HTTP 200 even when the request failed; the JSON body contains status=success|error.
@@ -92,7 +93,7 @@ func (s *Sender) SendSMS(ctx context.Context, toPhoneNumber, message string) err
 	if err := json.Unmarshal(bodyBytes, &out); err != nil {
 		// If response isn't JSON for some reason, treat non-empty body as a clue.
 		if len(bodyBytes) > 0 {
-			return fmt.Errorf("voipms: unexpected response: %s", string(bodyBytes))
+			return domainErrors.ErrVoipmsUnexpectedResponse
 		}
 		return nil
 	}
@@ -104,7 +105,7 @@ func (s *Sender) SendSMS(ctx context.Context, toPhoneNumber, message string) err
 		if msg == "" {
 			msg = string(bodyBytes)
 		}
-		return fmt.Errorf("voipms: api status=%s msg=%s", out.Status, msg)
+		return domainErrors.ErrVoipmsAPIStatusMsg
 	}
 	return nil
 }

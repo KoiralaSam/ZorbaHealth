@@ -28,4 +28,3 @@ func InternalAuthInterceptor(
 	}
 	return handler(ctx, req)
 }
-

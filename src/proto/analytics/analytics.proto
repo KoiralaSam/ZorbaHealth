@@ -1,25 +1,112 @@
 syntax = "proto3";
 package analytics;
-option go_package = "shared/proto/analytics;analytics";
+option go_package = "github.com/KoiralaSam/ZorbaHealth/proto/analytics";
 
 service AnalyticsService {
-    // Hospital admin: summary stats for their consented patient population
+
+    // ── Hospital admin ───────────────────────────────────────────────────────
+
+    // Dashboard summary card — total patients, calls, emergencies
     rpc GetHospitalSummary(HospitalSummaryRequest) returns (HospitalSummaryResponse);
 
-    // Hospital admin: recent activity feed
+    // Call volume over time — drives a line/bar chart
+    rpc GetCallVolume(CallVolumeRequest) returns (CallVolumeResponse);
+
+    // Top conditions across consented patient population
+    rpc GetTopConditions(TopConditionsRequest) returns (TopConditionsResponse);
+
+    // Tool usage breakdown — which MCP tools are being called how often
+    rpc GetToolUsage(ToolUsageRequest) returns (ToolUsageResponse);
+
+    // Recent activity feed — last N tool calls for the activity log
     rpc GetRecentActivity(RecentActivityRequest) returns (RecentActivityResponse);
+
+    // ── Platform admin (Zorba internal) ─────────────────────────────────────
+
+    // System-wide metrics across all hospitals
+    rpc GetPlatformSummary(PlatformSummaryRequest) returns (PlatformSummaryResponse);
+
+    // Per-hospital breakdown for Zorba admin
+    rpc GetHospitalBreakdown(HospitalBreakdownRequest) returns (HospitalBreakdownResponse);
+
+    // ── Patient (their own data) ─────────────────────────────────────────────
+
+    // Patient's own call history summary
+    rpc GetPatientCallHistory(PatientCallHistoryRequest) returns (PatientCallHistoryResponse);
 }
+
+// ── Hospital summary ─────────────────────────────────────────────────────────
 
 message HospitalSummaryRequest {
     string hospital_id = 1;
 }
 
 message HospitalSummaryResponse {
-    int32  total_consented_patients = 1;
-    int32  active_sessions_today    = 2;
-    int32  records_indexed          = 3;
-    int32  emergency_events_30d     = 4;
+    int32  total_consented_patients  = 1;
+    int32  total_calls_30d           = 2;
+    int32  emergency_events_30d      = 3;
+    double avg_call_duration_seconds = 4;
+    int32  records_indexed           = 5;
+    int32  active_patients_7d        = 6; // patients who called in last 7 days
 }
+
+// ── Call volume ──────────────────────────────────────────────────────────────
+
+message CallVolumeRequest {
+    string hospital_id = 1;
+    string period      = 2; // "7d" | "30d" | "90d
+    string granularity = 3; // "day" | "week"
+}
+
+message CallVolumeResponse {
+    repeated CallVolumePoint points = 1;
+}
+
+message CallVolumePoint {
+    string date             = 1; // ISO 8601
+    int32  total_calls      = 2;
+    int32  completed_calls  = 3;
+    int32  emergency_calls  = 4;
+    double avg_duration_sec = 5;
+}
+
+// ── Top conditions ───────────────────────────────────────────────────────────
+
+message TopConditionsRequest {
+    string hospital_id = 1;
+    int32  limit       = 2; // default 10
+}
+
+message TopConditionsResponse {
+    repeated ConditionCount conditions = 1;
+}
+
+message ConditionCount {
+    string condition_name  = 1;
+    int32  patient_count   = 2;
+    double percentage      = 3; // of total consented patients
+}
+
+// ── Tool usage ───────────────────────────────────────────────────────────────
+
+message ToolUsageRequest {
+    string hospital_id = 1;
+    string period      = 2; // "7d" | "30d"
+}
+
+message ToolUsageResponse {
+    repeated ToolUsageStat stats = 1;
+}
+
+message ToolUsageStat {
+    string tool          = 1;
+    int32  success_count = 2;
+    int32  error_count   = 3;
+    int32  denied_count  = 4;
+    double success_rate  = 5;
+}
+
+// ── Recent activity ──────────────────────────────────────────────────────────
 
 message RecentActivityRequest {
     string hospital_id = 1;
@@ -32,7 +119,59 @@ message RecentActivityResponse {
 
 message ActivityEvent {
     string timestamp   = 1;
-    string event_type  = 2;
-    string patient_id  = 3;
-    string description = 4;
+    string tool        = 2;
+    string actor_type  = 3; // "patient" | "staff"
+    string outcome     = 4;
+    string session_id  = 5;
+}
+
+// ── Platform summary (admin) ─────────────────────────────────────────────────
+
+message PlatformSummaryRequest {}
+
+message PlatformSummaryResponse {
+    int32  total_hospitals        = 1;
+    int32  total_patients         = 2;
+    int32  total_calls_30d        = 3;
+    int32  total_emergencies_30d  = 4;
+    double avg_call_duration_sec  = 5;
+    int32  active_hospitals_7d    = 6;
+}
+
+// ── Hospital breakdown (admin) ────────────────────────────────────────────────
+
+message HospitalBreakdownRequest {
+    int32  limit  = 1;
+    string sort   = 2; // "calls" | "patients" | "emergencies"
+}
+
+message HospitalBreakdownResponse {
+    repeated HospitalStat hospitals = 1;
+}
+
+message HospitalStat {
+    string hospital_id   = 1;
+    string hospital_name = 2;
+    int32  patient_count = 3;
+    int32  call_count    = 4;
+    int32  emergency_count = 5;
+}
+
+// ── Patient call history ──────────────────────────────────────────────────────
+
+message PatientCallHistoryRequest {
+    string patient_id = 1;
+    int32  limit      = 2;
+}
+
+message PatientCallHistoryResponse {
+    int32                  total_calls = 1;
+    repeated PatientCall   calls       = 2;
+}
+
+message PatientCall {
+    string started_at  = 1;
+    string duration    = 2; // human readable "12 min 30 sec"
+    string summary     = 3; // from calls.summary
+    bool   had_emergency = 4;
 }

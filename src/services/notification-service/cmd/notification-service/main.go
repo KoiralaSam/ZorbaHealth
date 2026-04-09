@@ -13,6 +13,7 @@ import (
 	"github.com/KoiralaSam/ZorbaHealth/services/notification-service/internal/adapters/secondary/sms/voipms"
 	"github.com/KoiralaSam/ZorbaHealth/services/notification-service/internal/core/services"
 	"github.com/KoiralaSam/ZorbaHealth/shared/env"
+	"github.com/KoiralaSam/ZorbaHealth/shared/events"
 	"github.com/KoiralaSam/ZorbaHealth/shared/messaging"
 )
 
@@ -26,7 +27,7 @@ func main() {
 	voipmsPassword := env.GetString("VOIPMS_API_PASSWORD", "")
 	voipmsBaseURL := env.GetString("VOIPMS_API_BASEURL", "")
 
-	rabbitmq, err := messaging.NewRabbitMQ(env.GetString("RABBITMQ_URI", "amqp://guest:guest@rabbitmq:5672/"))
+	rabbitmq, err := messaging.NewRabbitMQ(env.GetString("RABBITMQ_URI", "amqp://guest:guest@rabbitmq:5672/"), events.PatientExchange, events.NotificationServicePatientQueueBindings)
 	if err != nil {
 		log.Fatalf("Failed to connect to RabbitMQ: %v", err)
 		return

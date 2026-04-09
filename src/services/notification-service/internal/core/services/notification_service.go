@@ -6,6 +6,7 @@ import (
 	"net/url"
 	"strings"
 
+	domainErrors "github.com/KoiralaSam/ZorbaHealth/services/notification-service/internal/core/domain/errors"
 	"github.com/KoiralaSam/ZorbaHealth/services/notification-service/internal/core/ports/inbound"
 	outbound "github.com/KoiralaSam/ZorbaHealth/services/notification-service/internal/core/ports/outbound"
 	"github.com/KoiralaSam/ZorbaHealth/shared/events"
@@ -30,16 +31,16 @@ func NewNotificationService(email outbound.EmailSender, sms outbound.SMSSender, 
 
 func (s *NotificationService) SendPendingVerificationEmail(ctx context.Context, req *events.PendingRegistrationData, token string) error {
 	if req == nil {
-		return fmt.Errorf("pending registration request is nil")
+		return domainErrors.ErrPendingRegistrationRequestNil
 	}
 	if req.Email == "" {
-		return fmt.Errorf("pending registration email is empty")
+		return domainErrors.ErrPendingRegistrationEmailEmpty
 	}
 	if token == "" {
-		return fmt.Errorf("verification token is empty")
+		return domainErrors.ErrVerificationTokenEmpty
 	}
 	if s.publicWebBase == "" {
-		return fmt.Errorf("PUBLIC_WEB_BASE_URL is not configured")
+		return domainErrors.ErrPublicWebBaseURLNotConfigured
 	}
 
 	verificationURL := s.publicWebBase + "/verify-email?token=" + url.QueryEscape(token)
@@ -118,10 +119,10 @@ func (s *NotificationService) SendPendingVerificationEmail(ctx context.Context, 
 // SendOTP sends the OTP to the given phone number via SMS.
 func (s *NotificationService) SendOTP(ctx context.Context, phone string, otp string) error {
 	if phone == "" {
-		return fmt.Errorf("phone number is empty")
+		return domainErrors.ErrPhoneNumberEmpty
 	}
 	if otp == "" {
-		return fmt.Errorf("otp is empty")
+		return domainErrors.ErrOTPEmpty
 	}
 	message := fmt.Sprintf("Your Zorba Health verification code is: %s", otp)
 	return s.sms.SendSMS(ctx, phone, message)

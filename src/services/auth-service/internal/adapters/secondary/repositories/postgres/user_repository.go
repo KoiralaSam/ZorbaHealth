@@ -2,9 +2,12 @@ package postgres
 
 import (
 	"context"
+	"errors"
+	"fmt"
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/jackc/pgx/v5/pgxpool"
 
@@ -84,6 +87,57 @@ func (r *UserRepository) UpdateUserPassword(ctx context.Context, id, passwordHas
 		PasswordHash: pgtype.Text{String: passwordHash, Valid: passwordHash != ""},
 	})
 	return err
+}
+
+func (r *UserRepository) ResolveSessionActor(ctx context.Context, userID, userRole, sessionID string) (*domain.SessionActor, error) {
+	uid, err := uuid.Parse(userID)
+	if err != nil {
+		return nil, err
+	}
+
+	pgUID := pgtype.UUID{Bytes: uid, Valid: true}
+
+	if userRole == "patient" {
+		patient, err := r.queries.GetPatientByUserID(ctx, pgUID)
+		if err != nil {
+			return nil, err
+		}
+
+		return &domain.SessionActor{
+			ActorType: "patient",
+			PatientID: uuid.UUID(patient.ID.Bytes).String(),
+			SessionID: sessionID,
+			Scopes:    []string{},
+		}, nil
+	}
+
+	admin, err := r.queries.GetAdminByUserID(ctx, pgUID)
+	if err == nil {
+		return &domain.SessionActor{
+			ActorType: "admin",
+			AdminID:   uuid.UUID(admin.ID.Bytes).String(),
+			Scopes:    []string{},
+		}, nil
+	}
+	if !errors.Is(err, pgx.ErrNoRows) {
+		return nil, err
+	}
+
+	staff, err := r.queries.GetHospitalStaffByUserID(ctx, pgUID)
+	if err == nil {
+		return &domain.SessionActor{
+			ActorType:  "staff",
+			StaffID:    uuid.UUID(staff.ID.Bytes).String(),
+			HospitalID: uuid.UUID(staff.HospitalID.Bytes).String(),
+			Role:       staff.Role,
+			Scopes:     []string{},
+		}, nil
+	}
+	if !errors.Is(err, pgx.ErrNoRows) {
+		return nil, err
+	}
+
+	return nil, fmt.Errorf("unable to resolve actor context for user_id=%s role=%s", userID, userRole)
 }
 
 func (r *UserRepository) ListUsersByRole(ctx context.Context, role string, limit, offset int32) ([]*domain.User, error) {

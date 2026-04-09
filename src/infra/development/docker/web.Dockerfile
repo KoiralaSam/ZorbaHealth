@@ -1,10 +1,12 @@
+## syntax=docker/dockerfile:1.7
 FROM node:20-alpine
 
 WORKDIR /app
 
 COPY web/package*.json ./
 
-RUN npm install
+RUN --mount=type=cache,target=/root/.npm \
+    npm ci
 
 COPY web ./
 

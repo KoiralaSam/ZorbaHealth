@@ -5,6 +5,7 @@ import (
 	"errors"
 	"time"
 
+	domainErrors "github.com/KoiralaSam/ZorbaHealth/services/patient-service/internal/core/domain/errors"
 	"github.com/KoiralaSam/ZorbaHealth/services/patient-service/internal/core/domain/models"
 	"github.com/KoiralaSam/ZorbaHealth/services/patient-service/internal/core/ports/inbound"
 	pb "github.com/KoiralaSam/ZorbaHealth/shared/proto/patient"
@@ -48,8 +49,11 @@ func (h *gRPCHandler) StartRegistration(ctx context.Context, req *registration_v
 	if err == nil {
 		return nil, status.Error(codes.AlreadyExists, "phone number is already in use")
 	}
-	if !errors.Is(err, pgx.ErrNoRows) {
+	if !errors.Is(err, pgx.ErrNoRows) && !errors.Is(err, domainErrors.ErrAmbiguousPhoneNumber) {
 		return nil, status.Error(codes.Internal, "failed to check existing phone number: "+err.Error())
+	}
+	if errors.Is(err, domainErrors.ErrAmbiguousPhoneNumber) {
+		return nil, status.Error(codes.AlreadyExists, "phone number is already in use")
 	}
 
 	// Check if email is already in use
@@ -69,7 +73,49 @@ func (h *gRPCHandler) StartRegistration(ctx context.Context, req *registration_v
 	}
 	_ = token
 	_ = otp
-	return &registration_verification.StartRegistrationResponse{Message: "Verification email sent. Please check your inbox."}, nil
+	return &registration_verification.StartRegistrationResponse{
+		Message:           "Verification started. Ask the caller for the SMS code to continue.",
+		RegistrationToken: token,
+	}, nil
+}
+
+func (h *gRPCHandler) LookupPatientByPhone(ctx context.Context, req *registration_verification.LookupPatientByPhoneRequest) (*registration_verification.LookupPatientByPhoneResponse, error) {
+	if req.PhoneNumber == "" {
+		return nil, status.Error(codes.InvalidArgument, "phone_number is required")
+	}
+	patient, err := h.svc.GetPatientByPhoneNumber(ctx, req.PhoneNumber)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return &registration_verification.LookupPatientByPhoneResponse{Found: false}, nil
+		}
+		if errors.Is(err, domainErrors.ErrAmbiguousPhoneNumber) {
+			return nil, status.Error(codes.FailedPrecondition, "multiple patients found for phone number")
+		}
+		return nil, status.Error(codes.Internal, "failed to lookup patient by phone: "+err.Error())
+	}
+	return &registration_verification.LookupPatientByPhoneResponse{
+		Found:     true,
+		PatientId: patient.ID.String(),
+		FullName:  patient.FullName,
+	}, nil
+}
+
+func (h *gRPCHandler) StartExistingPhoneVerification(ctx context.Context, req *registration_verification.StartExistingPhoneVerificationRequest) (*registration_verification.StartExistingPhoneVerificationResponse, error) {
+	if req.PhoneNumber == "" {
+		return nil, status.Error(codes.InvalidArgument, "phone_number is required")
+	}
+	if err := h.svc.StartExistingPhoneVerification(ctx, req.PhoneNumber); err != nil {
+		if errors.Is(err, pgx.ErrNoRows) || errors.Is(err, domainErrors.ErrExistingPatientNotFound) {
+			return nil, status.Error(codes.NotFound, "patient not found for phone number")
+		}
+		if errors.Is(err, domainErrors.ErrAmbiguousPhoneNumber) {
+			return nil, status.Error(codes.FailedPrecondition, "multiple patients found for phone number")
+		}
+		return nil, status.Error(codes.Internal, "failed to start phone verification: "+err.Error())
+	}
+	return &registration_verification.StartExistingPhoneVerificationResponse{
+		Message: "Verification code sent",
+	}, nil
 }
 
 func (h *gRPCHandler) VerifyEmail(ctx context.Context, req *registration_verification.VerifyEmailRequest) (*registration_verification.VerifyEmailResponse, error) {
@@ -89,6 +135,34 @@ func (h *gRPCHandler) VerifyPhoneOTP(ctx context.Context, req *registration_veri
 		return nil, status.Error(codes.InvalidArgument, "Failed to verify OTP: "+err.Error())
 	}
 	return &registration_verification.VerifyPhoneOTPResponse{Message: "Phone verified successfully"}, nil
+}
+
+func (h *gRPCHandler) VerifyExistingPhoneOTP(ctx context.Context, req *registration_verification.VerifyExistingPhoneOTPRequest) (*registration_verification.VerifyExistingPhoneOTPResponse, error) {
+	if req.PhoneNumber == "" || req.Otp == "" {
+		return nil, status.Error(codes.InvalidArgument, "phone_number and otp are required")
+	}
+	patient, err := h.svc.VerifyExistingPhoneOTP(ctx, req.PhoneNumber, req.Otp)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "Failed to verify OTP: "+err.Error())
+	}
+	return &registration_verification.VerifyExistingPhoneOTPResponse{
+		Message:   "Existing patient verified successfully",
+		PatientId: patient.ID.String(),
+	}, nil
+}
+
+func (h *gRPCHandler) CompletePhoneRegistration(ctx context.Context, req *registration_verification.CompletePhoneRegistrationRequest) (*registration_verification.CompletePhoneRegistrationResponse, error) {
+	if req.RegistrationToken == "" {
+		return nil, status.Error(codes.InvalidArgument, "registration_token is required")
+	}
+	patient, err := h.svc.CompletePhoneRegistration(ctx, req.RegistrationToken)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "Failed to complete phone registration: "+err.Error())
+	}
+	return &registration_verification.CompletePhoneRegistrationResponse{
+		Message:   "Phone registration completed successfully",
+		PatientId: patient.ID.String(),
+	}, nil
 }
 
 func (h *gRPCHandler) Login(ctx context.Context, req *pb.LoginRequest) (*pb.LoginResponse, error) {

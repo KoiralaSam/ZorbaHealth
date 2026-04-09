@@ -12,8 +12,16 @@ service RegistrationVerificationService {
   // StartRegistration stores pending registration and sends verification email.
   // Client should direct the user to check email and use the link (token) in VerifyEmail.
   rpc StartRegistration(StartRegistrationRequest) returns (StartRegistrationResponse);
+  // LookupPatientByPhone returns an existing patient candidate for the phone number, if any.
+  rpc LookupPatientByPhone(LookupPatientByPhoneRequest) returns (LookupPatientByPhoneResponse);
+  // StartExistingPhoneVerification sends an OTP to an existing patient's phone number.
+  rpc StartExistingPhoneVerification(StartExistingPhoneVerificationRequest) returns (StartExistingPhoneVerificationResponse);
   // VerifyPhoneOTP verifies the OTP sent to the user's phone number.
   rpc VerifyPhoneOTP(VerifyPhoneOTPRequest) returns (VerifyPhoneOTPResponse);
+  // VerifyExistingPhoneOTP verifies an OTP for an existing patient and returns the patient id.
+  rpc VerifyExistingPhoneOTP(VerifyExistingPhoneOTPRequest) returns (VerifyExistingPhoneOTPResponse);
+  // CompletePhoneRegistration creates a patient after phone verification for voice-only registration flows.
+  rpc CompletePhoneRegistration(CompletePhoneRegistrationRequest) returns (CompletePhoneRegistrationResponse);
   // VerifyEmail consumes the token from the verification link, creates user and patient, returns ids.
   rpc VerifyEmail(VerifyEmailRequest) returns (VerifyEmailResponse);
 }
@@ -28,6 +36,25 @@ message StartRegistrationRequest {
 
 message StartRegistrationResponse {
   string message = 1;  // e.g. "Verification email sent. Please check your inbox."
+  string registration_token = 2;
+}
+
+message LookupPatientByPhoneRequest {
+  string phone_number = 1;
+}
+
+message LookupPatientByPhoneResponse {
+  bool found = 1;
+  string patient_id = 2;
+  string full_name = 3;
+}
+
+message StartExistingPhoneVerificationRequest {
+  string phone_number = 1;
+}
+
+message StartExistingPhoneVerificationResponse {
+  string message = 1;
 }
 
 message VerifyPhoneOTPRequest {
@@ -37,6 +64,25 @@ message VerifyPhoneOTPRequest {
 
 message VerifyPhoneOTPResponse {
   string message = 1;
+}
+
+message VerifyExistingPhoneOTPRequest {
+  string phone_number = 1;
+  string otp = 2;
+}
+
+message VerifyExistingPhoneOTPResponse {
+  string message = 1;
+  string patient_id = 2;
+}
+
+message CompletePhoneRegistrationRequest {
+  string registration_token = 1;
+}
+
+message CompletePhoneRegistrationResponse {
+  string message = 1;
+  string patient_id = 2;
 }
 
 message VerifyEmailRequest {

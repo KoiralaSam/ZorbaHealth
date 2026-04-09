@@ -16,6 +16,18 @@ local_resource(
   '''
   set -euo pipefail
 
+  DB_PORT=15432
+  PF_PID=""
+
+  cleanup() {
+    if [ -n "${PF_PID}" ] && kill -0 "${PF_PID}" > /dev/null 2>&1; then
+      kill "${PF_PID}" > /dev/null 2>&1 || true
+      wait "${PF_PID}" > /dev/null 2>&1 || true
+    fi
+  }
+
+  trap cleanup EXIT
+
   echo "Waiting for postgres to be ready..."
   # Wait until pg_isready inside the postgres pod reports ready
   until kubectl exec deploy/postgres -- pg_isready -U healthai -d healthai > /dev/null 2>&1; do
@@ -23,10 +35,31 @@ local_resource(
     sleep 2
   done
 
+  DB_USER=$(kubectl get secret postgres-secret -o jsonpath='{.data.POSTGRES_USER}' | base64 --decode)
+  DB_PASSWORD=$(kubectl get secret postgres-secret -o jsonpath='{.data.POSTGRES_PASSWORD}' | base64 --decode)
+  DB_NAME=$(kubectl get secret postgres-secret -o jsonpath='{.data.POSTGRES_DB}' | base64 --decode)
+
+  echo "Starting local port-forward on ${DB_PORT}..."
+  kubectl port-forward svc/postgres ${DB_PORT}:5432 > /tmp/zorba-postgres-port-forward.log 2>&1 &
+  PF_PID=$!
+
+  for _ in $(seq 1 15); do
+    if nc -z 127.0.0.1 "${DB_PORT}" > /dev/null 2>&1; then
+      break
+    fi
+    sleep 1
+  done
+
+  if ! nc -z 127.0.0.1 "${DB_PORT}" > /dev/null 2>&1; then
+    echo "postgres port-forward failed to start"
+    cat /tmp/zorba-postgres-port-forward.log || true
+    exit 1
+  fi
+
   echo "Postgres is ready. Running migrations..."
-  # Adjust -path if your migrations live somewhere else
+  DATABASE_URL="postgres://${DB_USER}:${DB_PASSWORD}@127.0.0.1:${DB_PORT}/${DB_NAME}?sslmode=disable"
   migrate -path ./migrations \
-    -database "postgres://healthai:healthai_dev_pass@localhost:5432/healthai?sslmode=disable" \
+    -database "${DATABASE_URL}" \
     up
 
   echo "Migrations completed."
@@ -130,6 +163,78 @@ k8s_yaml('./infra/development/k8s/health-records-service-deployment.yaml')
 k8s_resource('health-records-service', resource_deps=['db-migrate'], port_forwards='50054:50054', labels="services")
 ### End of Health Records Service ###
 
+### Analytics Service ###
+docker_build(
+  'zorba-health/analytics-service',
+  '.',
+  dockerfile='./infra/development/docker/analytics-service.Dockerfile',
+)
+
+k8s_yaml('./infra/development/k8s/analytics-service-deployment.yaml')
+k8s_resource(
+  'analytics-service',
+  resource_deps=['db-migrate'],
+  port_forwards='50055:50054',
+  labels="services",
+)
+### End of Analytics Service ###
+
+### Location Service ###
+docker_build(
+  'zorba-health/location-service',
+  '.',
+  dockerfile='./infra/development/docker/location-service.Dockerfile',
+)
+
+k8s_yaml('./infra/development/k8s/location-service-deployment.yaml')
+k8s_resource(
+  'location-service',
+  resource_deps=['rabbitmq', 'redis'],
+  port_forwards=['50051:50051', '8090:8090'],
+  labels="services",
+)
+### End of Location Service ###
+
+### Translation Model ###
+k8s_yaml('./infra/development/k8s/translation-model-deployment.yaml')
+k8s_resource(
+  'translation-model',
+  port_forwards=['8080:8080'],
+  labels="infrastructure",
+)
+### End of Translation Model ###
+
+### Translation Service ###
+docker_build(
+  'zorba-health/translation-service',
+  '.',
+  dockerfile='./infra/development/docker/translation-service.Dockerfile',
+)
+
+k8s_yaml('./infra/development/k8s/translation-service-deployment.yaml')
+k8s_resource(
+  'translation-service',
+  resource_deps=['translation-model'],
+  port_forwards='50057:50057',
+  labels="services",
+)
+### End of Translation Service ###
+
+### Agent Worker Service ###
+docker_build(
+  'zorba-health/agent-worker-service',
+  '.',
+  dockerfile='./infra/development/docker/agent-worker-service.Dockerfile',
+)
+
+k8s_yaml('./infra/development/k8s/agent-worker-service-deployment.yaml')
+k8s_resource(
+  'agent-worker-service',
+  resource_deps=['health-records-service', 'location-service', 'translation-service', 'db-migrate'],
+  port_forwards='8091:8090',
+  labels="services",
+)
+### End of Agent Worker Service ###
 
 docker_build(
   'zorba-health/web',

@@ -22,7 +22,7 @@ func (p *SMSPublisher) SendSMS(ctx context.Context) error {
 	// if err != nil {
 	// 	return err
 	// }
-	// return p.rabbitmq.PublishMessage(ctx, messaging.PatientExchange, contracts.PatientEventRegistered, contracts.AmqpMessage{
+	// return p.rabbitmq.PublishMessage(ctx, events.PatientExchange, contracts.PatientEventRegistered, contracts.AmqpMessage{
 	// 	OwnerID: patient.ID.String(),
 	// 	Data:    jsonData,
 	// }

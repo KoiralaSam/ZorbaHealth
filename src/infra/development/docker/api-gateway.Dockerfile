@@ -1,4 +1,5 @@
-FROM golang:1.24-alpine AS builder
+## syntax=docker/dockerfile:1.7
+FROM golang:1.25-alpine AS builder
 
 WORKDIR /app
 
@@ -6,7 +7,8 @@ WORKDIR /app
 COPY go.mod go.sum ./
 
 # Download dependencies
-RUN go mod download
+RUN --mount=type=cache,target=/go/pkg/mod \
+    go mod download
 
 # Copy source code
 COPY services/api-gateway ./services/api-gateway
@@ -14,7 +16,9 @@ COPY shared ./shared
 
 # Build the application
 WORKDIR /app/services/api-gateway
-RUN CGO_ENABLED=0 GOOS=linux go build -o /app/build/api-gateway ./cmd/api-gateway
+RUN --mount=type=cache,target=/root/.cache/go-build \
+    --mount=type=cache,target=/go/pkg/mod \
+    CGO_ENABLED=0 GOOS=linux go build -o /app/build/api-gateway ./cmd/api-gateway
 
 # Final stage
 FROM alpine:latest

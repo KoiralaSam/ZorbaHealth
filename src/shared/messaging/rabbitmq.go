@@ -11,17 +11,14 @@ import (
 	amqp "github.com/rabbitmq/amqp091-go"
 )
 
-const (
-	PatientExchange = "patient"
-)
-
 type RabbitMQ struct {
 	conn    *amqp.Connection
 	Channel *amqp.Channel
 }
 
-// connecting to rabbitmq
-func NewRabbitMQ(uri string) (*RabbitMQ, error) {
+// NewRabbitMQ connects and declares the given topic exchange plus each queue and its routing-key bindings.
+// Pass exchange name and bindings from shared/events (per producer/consumer).
+func NewRabbitMQ(uri string, exchange string, queueBindings []events.QueueBinding) (*RabbitMQ, error) {
 	conn, err := amqp.Dial(uri)
 	if err != nil {
 		return nil, fmt.Errorf("failed to connect to RabbitMQ: %v", err)
@@ -34,7 +31,7 @@ func NewRabbitMQ(uri string) (*RabbitMQ, error) {
 	}
 	rmq := &RabbitMQ{conn: conn, Channel: ch}
 
-	if err := rmq.setupExchangesAndQueues(); err != nil {
+	if err := rmq.setupExchangesAndQueues(exchange, queueBindings); err != nil {
 		rmq.Close()
 		return nil, fmt.Errorf("failed to setup exchanges and queues: %v", err)
 	}
@@ -42,26 +39,24 @@ func NewRabbitMQ(uri string) (*RabbitMQ, error) {
 	return rmq, nil
 }
 
-func (r *RabbitMQ) setupExchangesAndQueues() error {
+func (r *RabbitMQ) setupExchangesAndQueues(exchange string, bindings []events.QueueBinding) error {
 	err := r.Channel.ExchangeDeclare(
-		PatientExchange, // name
-		"topic",         // type
-		true,            // durable
-		false,           // auto-deleted
-		false,           // internal
-		false,           // no-wait
-		nil,             // arguments
+		exchange, // name
+		"topic",  // type
+		true,     // durable
+		false,    // auto-deleted
+		false,    // internal
+		false,    // no-wait
+		nil,      // arguments
 	)
 	if err != nil {
-		return fmt.Errorf("failed to declare exchange: %s: %v", PatientExchange, err)
+		return fmt.Errorf("failed to declare exchange: %s: %v", exchange, err)
 	}
 
-	if err := r.declareAndBindQueue(events.NotifyPatientRegisteredQueue, []string{contracts.PatientEventRegistered, contracts.PatientEventUpdated}, PatientExchange); err != nil {
-		return fmt.Errorf("failed to declare and bind queue: %v", err)
-	}
-
-	if err := r.declareAndBindQueue(events.NotifyPatientPendingVerificationQueue, []string{contracts.PatientEventChached}, PatientExchange); err != nil {
-		return fmt.Errorf("failed to declare and bind queue: %v", err)
+	for _, b := range bindings {
+		if err := r.declareAndBindQueue(b.QueueName, b.RoutingKeys, exchange); err != nil {
+			return fmt.Errorf("failed to declare and bind queue %q: %v", b.QueueName, err)
+		}
 	}
 
 	return nil

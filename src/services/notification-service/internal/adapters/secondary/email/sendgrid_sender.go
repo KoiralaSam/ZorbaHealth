@@ -2,10 +2,11 @@ package email
 
 import (
 	"context"
-	"fmt"
 
 	"github.com/sendgrid/sendgrid-go"
 	"github.com/sendgrid/sendgrid-go/helpers/mail"
+
+	domainErrors "github.com/KoiralaSam/ZorbaHealth/services/notification-service/internal/core/domain/errors"
 )
 
 type SendGridSender struct {
@@ -32,7 +33,7 @@ func (s *SendGridSender) Send(ctx context.Context, toEmail, toName, subject, pla
 		return err
 	}
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		return fmt.Errorf("sendgrid: status=%d body=%s", resp.StatusCode, resp.Body)
+		return domainErrors.ErrSendGridSendFailed
 	}
 	return nil
 }

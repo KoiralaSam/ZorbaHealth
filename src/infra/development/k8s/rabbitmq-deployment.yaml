@@ -19,26 +19,6 @@ spec:
           ports:
             - containerPort: 5672 # AMQP port
             - containerPort: 15672 # Management UI port
-          readinessProbe:
-            exec:
-              command: ["rabbitmq-diagnostics", "check_running"]
-            initialDelaySeconds: 20
-            periodSeconds: 10
-            timeoutSeconds: 15
-            failureThreshold: 3
-          livenessProbe:
-            exec:
-              command: ["rabbitmq-diagnostics", "check_running"]
-            initialDelaySeconds: 60
-            periodSeconds: 30
-            timeoutSeconds: 15
-          resources:
-            requests:
-              memory: "512Mi"
-              cpu: "250m"
-            limits:
-              memory: "512Mi"
-              cpu: "250m"
           env:
             - name: RABBITMQ_DEFAULT_USER
               valueFrom:
@@ -52,6 +32,36 @@ spec:
                   key: password
             - name: RABBITMQ_MNESIA_BASE
               value: /var/lib/rabbitmq/mnesia
+            - name: RABBITMQ_SERVER_ADDITIONAL_ERL_ARGS
+              value: "-rabbit vm_memory_high_watermark 0.4"
+          startupProbe:
+            exec:
+              command: ["rabbitmq-diagnostics", "-q", "ping"]
+            initialDelaySeconds: 20
+            periodSeconds: 10
+            timeoutSeconds: 30
+            failureThreshold: 30
+          readinessProbe:
+            tcpSocket:
+              port: 5672
+            initialDelaySeconds: 5
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 6
+          livenessProbe:
+            exec:
+              command: ["rabbitmq-diagnostics", "-q", "ping"]
+            initialDelaySeconds: 30
+            periodSeconds: 30
+            timeoutSeconds: 30
+            failureThreshold: 6
+          resources:
+            requests:
+              memory: "1Gi"
+              cpu: "250m"
+            limits:
+              memory: "1Gi"
+              cpu: "500m"
           volumeMounts:
             - name: rabbitmq-data
               mountPath: /var/lib/rabbitmq

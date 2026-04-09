@@ -39,7 +39,7 @@ spec:
             - name: OPENAI_API_KEY
               valueFrom:
                 secretKeyRef:
-                  key: OPENAI_API_KEY
+                  key: apiKey
                   name: openai-credentials
             - name: INTERNAL_SERVICE_SECRET
               valueFrom:

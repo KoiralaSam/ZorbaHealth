@@ -5,14 +5,20 @@ metadata:
 data:
   ENVIRONMENT: "production"
   # Agent Worker Service
-  AGENT_WORKER_GRPC_ADDR: ":50051"
+  AGENT_WORKER_HTTP_ADDR: ":8090"
+  LIVEKIT_WS_URL: "wss://livekit.example.com"
   # Patient Service
   PATIENT_SERVICE_GRPC_ADDR: ":50052"
   # RAG Service
   RAG_SERVICE_GRPC_ADDR: ":50053"
   # Medical Records Service
   MEDICAL_RECORDS_SERVICE_GRPC_ADDR: ":50054"
+  HEALTH_RECORDS_SERVICE_GRPC_ADDR: ":50054"
   # Analytics Service
-  ANALYTICS_SERVICE_GRPC_ADDR: ":50055"
+  ANALYTICS_SERVICE_GRPC_ADDR: ":50054"
   # Notification Service
   NOTIFICATION_SERVICE_GRPC_ADDR: ":50056"
+  # Translation Service
+  TRANSLATION_SERVICE_GRPC_ADDR: ":50057"
+  # Location Service
+  LOCATION_SERVICE_GRPC_ADDR: ":50051"

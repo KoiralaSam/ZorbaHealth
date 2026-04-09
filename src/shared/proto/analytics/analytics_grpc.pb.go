@@ -19,18 +19,36 @@ import (
 const _ = grpc.SupportPackageIsVersion9
 
 const (
-	AnalyticsService_GetHospitalSummary_FullMethodName = "/analytics.AnalyticsService/GetHospitalSummary"
-	AnalyticsService_GetRecentActivity_FullMethodName  = "/analytics.AnalyticsService/GetRecentActivity"
+	AnalyticsService_GetHospitalSummary_FullMethodName    = "/analytics.AnalyticsService/GetHospitalSummary"
+	AnalyticsService_GetCallVolume_FullMethodName         = "/analytics.AnalyticsService/GetCallVolume"
+	AnalyticsService_GetTopConditions_FullMethodName      = "/analytics.AnalyticsService/GetTopConditions"
+	AnalyticsService_GetToolUsage_FullMethodName          = "/analytics.AnalyticsService/GetToolUsage"
+	AnalyticsService_GetRecentActivity_FullMethodName     = "/analytics.AnalyticsService/GetRecentActivity"
+	AnalyticsService_GetPlatformSummary_FullMethodName    = "/analytics.AnalyticsService/GetPlatformSummary"
+	AnalyticsService_GetHospitalBreakdown_FullMethodName  = "/analytics.AnalyticsService/GetHospitalBreakdown"
+	AnalyticsService_GetPatientCallHistory_FullMethodName = "/analytics.AnalyticsService/GetPatientCallHistory"
 )
 
 // AnalyticsServiceClient is the client API for AnalyticsService service.
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type AnalyticsServiceClient interface {
-	// Hospital admin: summary stats for their consented patient population
+	// Dashboard summary card — total patients, calls, emergencies
 	GetHospitalSummary(ctx context.Context, in *HospitalSummaryRequest, opts ...grpc.CallOption) (*HospitalSummaryResponse, error)
-	// Hospital admin: recent activity feed
+	// Call volume over time — drives a line/bar chart
+	GetCallVolume(ctx context.Context, in *CallVolumeRequest, opts ...grpc.CallOption) (*CallVolumeResponse, error)
+	// Top conditions across consented patient population
+	GetTopConditions(ctx context.Context, in *TopConditionsRequest, opts ...grpc.CallOption) (*TopConditionsResponse, error)
+	// Tool usage breakdown — which MCP tools are being called how often
+	GetToolUsage(ctx context.Context, in *ToolUsageRequest, opts ...grpc.CallOption) (*ToolUsageResponse, error)
+	// Recent activity feed — last N tool calls for the activity log
 	GetRecentActivity(ctx context.Context, in *RecentActivityRequest, opts ...grpc.CallOption) (*RecentActivityResponse, error)
+	// System-wide metrics across all hospitals
+	GetPlatformSummary(ctx context.Context, in *PlatformSummaryRequest, opts ...grpc.CallOption) (*PlatformSummaryResponse, error)
+	// Per-hospital breakdown for Zorba admin
+	GetHospitalBreakdown(ctx context.Context, in *HospitalBreakdownRequest, opts ...grpc.CallOption) (*HospitalBreakdownResponse, error)
+	// Patient's own call history summary
+	GetPatientCallHistory(ctx context.Context, in *PatientCallHistoryRequest, opts ...grpc.CallOption) (*PatientCallHistoryResponse, error)
 }
 
 type analyticsServiceClient struct {
@@ -51,6 +69,36 @@ func (c *analyticsServiceClient) GetHospitalSummary(ctx context.Context, in *Hos
 	return out, nil
 }
 
+func (c *analyticsServiceClient) GetCallVolume(ctx context.Context, in *CallVolumeRequest, opts ...grpc.CallOption) (*CallVolumeResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(CallVolumeResponse)
+	err := c.cc.Invoke(ctx, AnalyticsService_GetCallVolume_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *analyticsServiceClient) GetTopConditions(ctx context.Context, in *TopConditionsRequest, opts ...grpc.CallOption) (*TopConditionsResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(TopConditionsResponse)
+	err := c.cc.Invoke(ctx, AnalyticsService_GetTopConditions_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *analyticsServiceClient) GetToolUsage(ctx context.Context, in *ToolUsageRequest, opts ...grpc.CallOption) (*ToolUsageResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ToolUsageResponse)
+	err := c.cc.Invoke(ctx, AnalyticsService_GetToolUsage_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 func (c *analyticsServiceClient) GetRecentActivity(ctx context.Context, in *RecentActivityRequest, opts ...grpc.CallOption) (*RecentActivityResponse, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(RecentActivityResponse)
@@ -61,14 +109,56 @@ func (c *analyticsServiceClient) GetRecentActivity(ctx context.Context, in *Rece
 	return out, nil
 }
 
+func (c *analyticsServiceClient) GetPlatformSummary(ctx context.Context, in *PlatformSummaryRequest, opts ...grpc.CallOption) (*PlatformSummaryResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(PlatformSummaryResponse)
+	err := c.cc.Invoke(ctx, AnalyticsService_GetPlatformSummary_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *analyticsServiceClient) GetHospitalBreakdown(ctx context.Context, in *HospitalBreakdownRequest, opts ...grpc.CallOption) (*HospitalBreakdownResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(HospitalBreakdownResponse)
+	err := c.cc.Invoke(ctx, AnalyticsService_GetHospitalBreakdown_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *analyticsServiceClient) GetPatientCallHistory(ctx context.Context, in *PatientCallHistoryRequest, opts ...grpc.CallOption) (*PatientCallHistoryResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(PatientCallHistoryResponse)
+	err := c.cc.Invoke(ctx, AnalyticsService_GetPatientCallHistory_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // AnalyticsServiceServer is the server API for AnalyticsService service.
 // All implementations must embed UnimplementedAnalyticsServiceServer
 // for forward compatibility.
 type AnalyticsServiceServer interface {
-	// Hospital admin: summary stats for their consented patient population
+	// Dashboard summary card — total patients, calls, emergencies
 	GetHospitalSummary(context.Context, *HospitalSummaryRequest) (*HospitalSummaryResponse, error)
-	// Hospital admin: recent activity feed
+	// Call volume over time — drives a line/bar chart
+	GetCallVolume(context.Context, *CallVolumeRequest) (*CallVolumeResponse, error)
+	// Top conditions across consented patient population
+	GetTopConditions(context.Context, *TopConditionsRequest) (*TopConditionsResponse, error)
+	// Tool usage breakdown — which MCP tools are being called how often
+	GetToolUsage(context.Context, *ToolUsageRequest) (*ToolUsageResponse, error)
+	// Recent activity feed — last N tool calls for the activity log
 	GetRecentActivity(context.Context, *RecentActivityRequest) (*RecentActivityResponse, error)
+	// System-wide metrics across all hospitals
+	GetPlatformSummary(context.Context, *PlatformSummaryRequest) (*PlatformSummaryResponse, error)
+	// Per-hospital breakdown for Zorba admin
+	GetHospitalBreakdown(context.Context, *HospitalBreakdownRequest) (*HospitalBreakdownResponse, error)
+	// Patient's own call history summary
+	GetPatientCallHistory(context.Context, *PatientCallHistoryRequest) (*PatientCallHistoryResponse, error)
 	mustEmbedUnimplementedAnalyticsServiceServer()
 }
 
@@ -82,8 +172,26 @@ type UnimplementedAnalyticsServiceServer struct{}
 func (UnimplementedAnalyticsServiceServer) GetHospitalSummary(context.Context, *HospitalSummaryRequest) (*HospitalSummaryResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method GetHospitalSummary not implemented")
 }
+func (UnimplementedAnalyticsServiceServer) GetCallVolume(context.Context, *CallVolumeRequest) (*CallVolumeResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method GetCallVolume not implemented")
+}
+func (UnimplementedAnalyticsServiceServer) GetTopConditions(context.Context, *TopConditionsRequest) (*TopConditionsResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method GetTopConditions not implemented")
+}
+func (UnimplementedAnalyticsServiceServer) GetToolUsage(context.Context, *ToolUsageRequest) (*ToolUsageResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method GetToolUsage not implemented")
+}
 func (UnimplementedAnalyticsServiceServer) GetRecentActivity(context.Context, *RecentActivityRequest) (*RecentActivityResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method GetRecentActivity not implemented")
+}
+func (UnimplementedAnalyticsServiceServer) GetPlatformSummary(context.Context, *PlatformSummaryRequest) (*PlatformSummaryResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method GetPlatformSummary not implemented")
+}
+func (UnimplementedAnalyticsServiceServer) GetHospitalBreakdown(context.Context, *HospitalBreakdownRequest) (*HospitalBreakdownResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method GetHospitalBreakdown not implemented")
+}
+func (UnimplementedAnalyticsServiceServer) GetPatientCallHistory(context.Context, *PatientCallHistoryRequest) (*PatientCallHistoryResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method GetPatientCallHistory not implemented")
 }
 func (UnimplementedAnalyticsServiceServer) mustEmbedUnimplementedAnalyticsServiceServer() {}
 func (UnimplementedAnalyticsServiceServer) testEmbeddedByValue()                          {}
@@ -124,6 +232,60 @@ func _AnalyticsService_GetHospitalSummary_Handler(srv interface{}, ctx context.C
 	return interceptor(ctx, in, info, handler)
 }
 
+func _AnalyticsService_GetCallVolume_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(CallVolumeRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(AnalyticsServiceServer).GetCallVolume(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: AnalyticsService_GetCallVolume_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(AnalyticsServiceServer).GetCallVolume(ctx, req.(*CallVolumeRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _AnalyticsService_GetTopConditions_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(TopConditionsRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(AnalyticsServiceServer).GetTopConditions(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: AnalyticsService_GetTopConditions_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(AnalyticsServiceServer).GetTopConditions(ctx, req.(*TopConditionsRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _AnalyticsService_GetToolUsage_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ToolUsageRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(AnalyticsServiceServer).GetToolUsage(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: AnalyticsService_GetToolUsage_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(AnalyticsServiceServer).GetToolUsage(ctx, req.(*ToolUsageRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 func _AnalyticsService_GetRecentActivity_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(RecentActivityRequest)
 	if err := dec(in); err != nil {
@@ -142,6 +304,60 @@ func _AnalyticsService_GetRecentActivity_Handler(srv interface{}, ctx context.Co
 	return interceptor(ctx, in, info, handler)
 }
 
+func _AnalyticsService_GetPlatformSummary_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(PlatformSummaryRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(AnalyticsServiceServer).GetPlatformSummary(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: AnalyticsService_GetPlatformSummary_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(AnalyticsServiceServer).GetPlatformSummary(ctx, req.(*PlatformSummaryRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _AnalyticsService_GetHospitalBreakdown_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(HospitalBreakdownRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(AnalyticsServiceServer).GetHospitalBreakdown(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: AnalyticsService_GetHospitalBreakdown_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(AnalyticsServiceServer).GetHospitalBreakdown(ctx, req.(*HospitalBreakdownRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _AnalyticsService_GetPatientCallHistory_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(PatientCallHistoryRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(AnalyticsServiceServer).GetPatientCallHistory(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: AnalyticsService_GetPatientCallHistory_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(AnalyticsServiceServer).GetPatientCallHistory(ctx, req.(*PatientCallHistoryRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // AnalyticsService_ServiceDesc is the grpc.ServiceDesc for AnalyticsService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -154,8 +370,32 @@ var AnalyticsService_ServiceDesc = grpc.ServiceDesc{
 			Handler:    _AnalyticsService_GetHospitalSummary_Handler,
 		},
 		{
+			MethodName: "GetCallVolume",
+			Handler:    _AnalyticsService_GetCallVolume_Handler,
+		},
+		{
+			MethodName: "GetTopConditions",
+			Handler:    _AnalyticsService_GetTopConditions_Handler,
+		},
+		{
+			MethodName: "GetToolUsage",
+			Handler:    _AnalyticsService_GetToolUsage_Handler,
+		},
+		{
 			MethodName: "GetRecentActivity",
 			Handler:    _AnalyticsService_GetRecentActivity_Handler,
+		},
+		{
+			MethodName: "GetPlatformSummary",
+			Handler:    _AnalyticsService_GetPlatformSummary_Handler,
+		},
+		{
+			MethodName: "GetHospitalBreakdown",
+			Handler:    _AnalyticsService_GetHospitalBreakdown_Handler,
+		},
+		{
+			MethodName: "GetPatientCallHistory",
+			Handler:    _AnalyticsService_GetPatientCallHistory_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

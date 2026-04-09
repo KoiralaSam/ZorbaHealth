@@ -15,15 +15,36 @@ spec:
       containers:
         - name: analytics-service
           image: europe-west1-docker.pkg.dev/{{PROJECT_ID}}/zorba-health/analytics-service
+          imagePullPolicy: IfNotPresent
           ports:
-            - containerPort: 50055
+            - containerPort: 50054
               name: grpc
           env:
-            - name: GRPC_ADDR
+            - name: ANALYTICS_SERVICE_GRPC_ADDR
               valueFrom:
                 configMapKeyRef:
-                  key: ANALYTICS_SERVICE_GRPC_ADDR
                   name: app-config
+                  key: ANALYTICS_SERVICE_GRPC_ADDR
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: app-secrets
+                  key: DATABASE_URL
+            - name: AUTH_SERVICE_JWT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: app-secrets
+                  key: AUTH_SERVICE_JWT_SECRET
+            - name: PATIENT_SERVICE_JWT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: app-secrets
+                  key: PATIENT_SERVICE_JWT_SECRET
+            - name: INTERNAL_SERVICE_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: app-secrets
+                  key: INTERNAL_SERVICE_SECRET
           resources:
             requests:
               memory: "128Mi"
@@ -39,8 +60,8 @@ metadata:
 spec:
   type: ClusterIP
   ports:
-    - port: 50055
-      targetPort: 50055
+    - port: 50054
+      targetPort: 50054
       name: grpc
   selector:
     app: analytics-service

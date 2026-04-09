@@ -1,29 +1,33 @@
-FROM golang:1.24-alpine AS builder
+## syntax=docker/dockerfile:1.7
+FROM golang:1.25-alpine AS builder
 
 WORKDIR /app
 
-# Copy go mod files
+RUN apk --no-cache add build-base pkgconf opus-dev opusfile-dev soxr-dev
+
 COPY go.mod go.sum ./
-COPY shared/go.mod shared/go.sum ./shared/
+RUN --mount=type=cache,target=/go/pkg/mod \
+    go mod download
 
-# Download dependencies
-RUN go mod download
-
-# Copy source code
-COPY services/agent-worker-service ./services/agent-worker-service
 COPY shared ./shared
+COPY services/agent-worker-service ./services/agent-worker-service
+COPY services/mcp-server ./services/mcp-server
 
-# Build the application
-WORKDIR /app/services/agent-worker-service
-RUN CGO_ENABLED=0 GOOS=linux go build -o /app/build/agent-worker-service ./cmd/agent-worker
+RUN --mount=type=cache,target=/root/.cache/go-build \
+    --mount=type=cache,target=/go/pkg/mod \
+    GOOS=linux go build -o /app/build/agent-worker-service ./services/agent-worker-service/cmd/agent-worker
+RUN --mount=type=cache,target=/root/.cache/go-build \
+    --mount=type=cache,target=/go/pkg/mod \
+    GOOS=linux go build -o /app/build/mcp-server ./services/mcp-server/cmd/mcp-server
 
-# Final stage
 FROM alpine:latest
 WORKDIR /app
 
-RUN apk --no-cache add ca-certificates
+RUN apk --no-cache add ca-certificates opus opusfile soxr
 
-COPY --from=builder /app/build/agent-worker-service ./build/agent-worker-service
-COPY --from=builder /app/shared ./shared
+COPY --from=builder /app/build/agent-worker-service /app/agent-worker-service
+COPY --from=builder /app/build/mcp-server /app/mcp-server
 
-ENTRYPOINT ["./build/agent-worker-service"]
+ENV MCP_SERVER_BINARY=/app/mcp-server
+
+ENTRYPOINT ["/app/agent-worker-service"]

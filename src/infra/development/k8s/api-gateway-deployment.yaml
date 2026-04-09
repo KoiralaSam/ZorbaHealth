@@ -31,11 +31,6 @@ spec:
                 configMapKeyRef:
                   key: API_GATEWAY_HTTP_ADDR
                   name: app-config
-            - name: AGENT_WORKER_GRPC_ADDR
-              valueFrom:
-                configMapKeyRef:
-                  key: AGENT_WORKER_GRPC_ADDR
-                  name: app-config
             - name: PATIENT_SERVICE_GRPC_ADDR
               valueFrom:
                 configMapKeyRef:

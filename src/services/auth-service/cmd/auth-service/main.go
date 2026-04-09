@@ -14,6 +14,7 @@ import (
 	"github.com/KoiralaSam/ZorbaHealth/services/auth-service/internal/core/services"
 	"github.com/KoiralaSam/ZorbaHealth/shared/db"
 	"github.com/KoiralaSam/ZorbaHealth/shared/env"
+	"github.com/KoiralaSam/ZorbaHealth/shared/events"
 	"github.com/KoiralaSam/ZorbaHealth/shared/messaging"
 	grpcserver "google.golang.org/grpc"
 )
@@ -44,7 +45,7 @@ func main() {
 	svc := services.NewAuthService(userRepo, authRepo)
 
 	//connecting to rabbitmq
-	rabbitmq, err := messaging.NewRabbitMQ(env.GetString("RABBITMQ_URI", "amqp://guest:guest@rabbitmq:5672/"))
+	rabbitmq, err := messaging.NewRabbitMQ(env.GetString("RABBITMQ_URI", "amqp://guest:guest@rabbitmq:5672/"), events.PatientExchange, events.AuthServicePatientQueueBindings)
 	if err != nil {
 		log.Fatalf("Failed to connect to RabbitMQ: %v", err)
 		return

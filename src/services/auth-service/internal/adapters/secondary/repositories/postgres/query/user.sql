@@ -36,3 +36,21 @@ LIMIT $2 OFFSET $3;
 -- name: DeleteUser :exec
 DELETE FROM users
 WHERE id = $1;
+
+-- name: GetPatientByUserID :one
+SELECT id, user_id
+FROM patients
+WHERE user_id = $1
+LIMIT 1;
+
+-- name: GetHospitalStaffByUserID :one
+SELECT id, hospital_id, user_id, role
+FROM hospital_staff
+WHERE user_id = $1
+LIMIT 1;
+
+-- name: GetAdminByUserID :one
+SELECT id, user_id
+FROM admins
+WHERE user_id = $1
+LIMIT 1;

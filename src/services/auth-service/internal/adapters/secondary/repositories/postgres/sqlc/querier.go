@@ -17,7 +17,10 @@ type Querier interface {
 	DeleteAuthByUserIDAndAuthUUID(ctx context.Context, arg DeleteAuthByUserIDAndAuthUUIDParams) error
 	DeleteUser(ctx context.Context, id pgtype.UUID) error
 	FetchAuth(ctx context.Context, arg FetchAuthParams) (Auth, error)
+	GetAdminByUserID(ctx context.Context, userID pgtype.UUID) (GetAdminByUserIDRow, error)
 	GetAuthByUserIDAndAuthUUID(ctx context.Context, arg GetAuthByUserIDAndAuthUUIDParams) (Auth, error)
+	GetHospitalStaffByUserID(ctx context.Context, userID pgtype.UUID) (GetHospitalStaffByUserIDRow, error)
+	GetPatientByUserID(ctx context.Context, userID pgtype.UUID) (GetPatientByUserIDRow, error)
 	GetUserByEmail(ctx context.Context, email pgtype.Text) (User, error)
 	GetUserByID(ctx context.Context, id pgtype.UUID) (User, error)
 	GetUserByPhoneNumber(ctx context.Context, phoneNumber pgtype.Text) (User, error)

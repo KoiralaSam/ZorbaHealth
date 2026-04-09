@@ -1,24 +1,23 @@
-FROM golang:1.24-alpine AS builder
+FROM golang:1.25-alpine AS builder
 WORKDIR /app
 
-# Copy go mod files
-COPY go.mod go.sum ./
-COPY shared/go.mod shared/go.sum ./shared/
+RUN apk --no-cache add build-base pkgconf opus-dev opusfile-dev soxr-dev
 
-# Download dependencies
+COPY go.mod go.sum ./
 RUN go mod download
 
-# Copy source code
-COPY services/agent-worker-service ./services/agent-worker-service
-COPY shared ./shared
+COPY . .
 
-# Build the application
-WORKDIR /app/services/agent-worker-service
-RUN CGO_ENABLED=0 GOOS=linux go build -o /app/build/agent-worker-service ./cmd/agent-worker
+RUN GOOS=linux go build -o /app/build/agent-worker-service ./services/agent-worker-service/cmd/agent-worker
+RUN GOOS=linux go build -o /app/build/mcp-server ./services/mcp-server/cmd/mcp-server
 
 FROM alpine:latest
-RUN apk --no-cache add ca-certificates
-WORKDIR /root/
+RUN apk --no-cache add ca-certificates opus opusfile soxr
+WORKDIR /app
 
-COPY --from=builder /app/build/agent-worker-service .
-CMD ["./agent-worker-service"]
+COPY --from=builder /app/build/agent-worker-service /app/agent-worker-service
+COPY --from=builder /app/build/mcp-server /app/mcp-server
+
+ENV MCP_SERVER_BINARY=/app/mcp-server
+
+CMD ["/app/agent-worker-service"]

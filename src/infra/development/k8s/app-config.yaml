@@ -13,23 +13,33 @@ data:
   AUTH_SERVICE_HTTP_ADDR: ":8082"
   AUTH_SERVICE_GRPC_ADDR: "auth-service:9092"
   # Agent Worker Service
-  AGENT_WORKER_GRPC_ADDR: "agent-worker:50051"
+  AGENT_WORKER_HTTP_ADDR: ":8090"
+  LIVEKIT_WS_URL: "ws://34.198.147.82:7880"
   # RAG Service
   RAG_SERVICE_GRPC_ADDR: "rag-service:50053"
   # Medical Records Service
   MEDICAL_RECORDS_SERVICE_GRPC_ADDR: "health-records-service:50054"
+  HEALTH_RECORDS_SERVICE_GRPC_ADDR: "health-records-service:50054"
   # Analytics Service
-  ANALYTICS_SERVICE_GRPC_ADDR: "analytics-service:50055"
+  ANALYTICS_SERVICE_GRPC_ADDR: "analytics-service:50054"
   # Notification Service
   NOTIFICATION_SERVICE_GRPC_ADDR: "notification-service:50056"
+  # Translation Service
+  TRANSLATION_SERVICE_GRPC_ADDR: "translation-service:50057"
+  TRANSLATION_MODEL_BASE_URL: "http://translation-model:8080"
+  # Location Service
+  LOCATION_SERVICE_HTTP_ADDR: ":8090"
+  LOCATION_SERVICE_GRPC_ADDR: "location-service:50051"
+  LOCATION_REDIS_DB: "0"
+  LOCATION_REDIS_KEY_PREFIX: "location:session:"
+  LOCATION_REDIS_SESSION_TTL_SEC: "0"
+  IP_GEOLOCATION_TIMEOUT_SEC: "5"
   # OTP HTTP server (SMS via VoIP.ms) — credentials in voipms-credentials secret
   HTTP_ADDR: ":3000"
   VOIPMS_DID: "3185162690"
-  # SendGrid sender (non-secret; API key stays in sendgrid-credentials secret)
-  SENDGRID_FROM_EMAIL: "zorbahealth@samarpankoirala.tech"
-  SENDGRID_FROM_NAME: "ZorbaHealth"
   # Public web base URL used to generate verification links in emails
   PUBLIC_WEB_BASE_URL: "http://localhost:3000"
+
   # PostgreSQL (host/port/db name only; credentials in app-secrets)
   POSTGRES_HOST: "postgres"
   POSTGRES_PORT: "5432"

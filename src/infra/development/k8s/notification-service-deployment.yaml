@@ -45,14 +45,14 @@ spec:
                   name: sendgrid-credentials
             - name: SENDGRID_FROM_EMAIL
               valueFrom:
-                configMapKeyRef:
-                  key: SENDGRID_FROM_EMAIL
-                  name: app-config
+                secretKeyRef:
+                  key: fromEmail
+                  name: sendgrid-credentials
             - name: SENDGRID_FROM_NAME
               valueFrom:
-                configMapKeyRef:
-                  key: SENDGRID_FROM_NAME
-                  name: app-config
+                secretKeyRef:
+                  key: fromName
+                  name: sendgrid-credentials
             - name: PUBLIC_WEB_BASE_URL
               valueFrom:
                 configMapKeyRef:
@@ -88,11 +88,6 @@ spec:
                 secretKeyRef:
                   key: voipms_baseurl
                   name: voipms-credentials
-            - name: NROK_API_BASEURL
-              valueFrom:
-                secretKeyRef:
-                  key: ngrok_baseurl
-                  name: voipms-credentials
 
 ---
 apiVersion: v1
@@ -105,8 +100,8 @@ spec:
     - port: 50056
       targetPort: 50056
       name: grpc
-    - port: 3000
-      targetPort: 3000
+    - port: 3001
+      targetPort: 3001
       name: http
   selector:
     app: notification-service

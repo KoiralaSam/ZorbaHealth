@@ -10,8 +10,11 @@ import (
 // Primary adapters (gRPC/HTTP) should depend on this interface.
 type PatientService interface {
 	StartRegistrationWithVerification(ctx context.Context, req *models.RegisterPatientRequest) (verificationToken string, otp string, err error)
+	StartExistingPhoneVerification(ctx context.Context, phone string) error
 	VerifyEmailAndCreatePatient(ctx context.Context, token string) (*models.Patient, error)
 	VerifyPhoneOTP(ctx context.Context, phone string, code string) error
+	VerifyExistingPhoneOTP(ctx context.Context, phone string, code string) (*models.Patient, error)
+	CompletePhoneRegistration(ctx context.Context, token string) (*models.Patient, error)
 
 	LoginPatient(ctx context.Context, patient *models.Patient) (*models.Patient, error)
 	GetPatientByID(ctx context.Context, id string) (*models.Patient, error)

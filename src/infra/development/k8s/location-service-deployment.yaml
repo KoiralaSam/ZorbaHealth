@@ -1,0 +1,108 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: location-service
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: location-service
+  template:
+    metadata:
+      labels:
+        app: location-service
+    spec:
+      containers:
+        - name: location-service
+          image: zorba-health/location-service
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 50051
+              name: grpc
+            - containerPort: 8090
+              name: http
+          resources:
+            requests:
+              memory: "128Mi"
+              cpu: "125m"
+            limits:
+              memory: "256Mi"
+              cpu: "250m"
+          env:
+            - name: LOCATION_SERVICE_HTTP_ADDR
+              valueFrom:
+                configMapKeyRef:
+                  name: app-config
+                  key: LOCATION_SERVICE_HTTP_ADDR
+            - name: LOCATION_SERVICE_GRPC_ADDR
+              valueFrom:
+                configMapKeyRef:
+                  name: app-config
+                  key: LOCATION_SERVICE_GRPC_ADDR
+            - name: REDIS_ADDR
+              valueFrom:
+                configMapKeyRef:
+                  name: app-config
+                  key: REDIS_ADDR
+            - name: LOCATION_REDIS_DB
+              valueFrom:
+                configMapKeyRef:
+                  name: app-config
+                  key: LOCATION_REDIS_DB
+            - name: LOCATION_REDIS_KEY_PREFIX
+              valueFrom:
+                configMapKeyRef:
+                  name: app-config
+                  key: LOCATION_REDIS_KEY_PREFIX
+            - name: LOCATION_REDIS_SESSION_TTL_SEC
+              valueFrom:
+                configMapKeyRef:
+                  name: app-config
+                  key: LOCATION_REDIS_SESSION_TTL_SEC
+            - name: IP_GEOLOCATION_TIMEOUT_SEC
+              valueFrom:
+                configMapKeyRef:
+                  name: app-config
+                  key: IP_GEOLOCATION_TIMEOUT_SEC
+            - name: RABBITMQ_URI
+              valueFrom:
+                secretKeyRef:
+                  name: rabbitmq-credentials
+                  key: uri
+            - name: PATIENT_SERVICE_JWT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: app-secrets
+                  key: PATIENT_SERVICE_JWT_SECRET
+            - name: INTERNAL_SERVICE_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: app-secrets
+                  key: INTERNAL_SERVICE_SECRET
+            - name: REDIS_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: app-secrets
+                  key: REDIS_PASSWORD
+            - name: IP_GEOLOCATION_ENDPOINT_TEMPLATE
+              valueFrom:
+                secretKeyRef:
+                  name: app-secrets
+                  key: IP_GEOLOCATION_ENDPOINT_TEMPLATE
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: location-service
+spec:
+  type: ClusterIP
+  ports:
+    - port: 50051
+      targetPort: 50051
+      name: grpc
+    - port: 8090
+      targetPort: 8090
+      name: http
+  selector:
+    app: location-service
+

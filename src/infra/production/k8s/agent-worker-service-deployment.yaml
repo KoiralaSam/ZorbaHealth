@@ -16,14 +16,90 @@ spec:
         - name: agent-worker-service
           image: europe-west1-docker.pkg.dev/{{PROJECT_ID}}/zorba-health/agent-worker-service
           ports:
-            - containerPort: 50051
-              name: grpc
+            - containerPort: 8090
+              name: http
           env:
-            - name: GRPC_ADDR
+            - name: AGENT_WORKER_HTTP_ADDR
               valueFrom:
                 configMapKeyRef:
-                  key: AGENT_WORKER_GRPC_ADDR
+                  key: AGENT_WORKER_HTTP_ADDR
                   name: app-config
+            - name: LIVEKIT_WS_URL
+              valueFrom:
+                configMapKeyRef:
+                  key: LIVEKIT_WS_URL
+                  name: app-config
+            - name: HEALTH_RECORDS_SERVICE_GRPC_ADDR
+              valueFrom:
+                configMapKeyRef:
+                  key: HEALTH_RECORDS_SERVICE_GRPC_ADDR
+                  name: app-config
+            - name: TRANSLATION_SERVICE_GRPC_ADDR
+              valueFrom:
+                configMapKeyRef:
+                  key: TRANSLATION_SERVICE_GRPC_ADDR
+                  name: app-config
+            - name: LOCATION_SERVICE_GRPC_ADDR
+              valueFrom:
+                configMapKeyRef:
+                  key: LOCATION_SERVICE_GRPC_ADDR
+                  name: app-config
+            - name: ANALYTICS_SERVICE_GRPC_ADDR
+              valueFrom:
+                configMapKeyRef:
+                  key: ANALYTICS_SERVICE_GRPC_ADDR
+                  name: app-config
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  key: DATABASE_URL
+                  name: app-secrets
+            - name: INTERNAL_SERVICE_SECRET
+              valueFrom:
+                secretKeyRef:
+                  key: INTERNAL_SERVICE_SECRET
+                  name: app-secrets
+            - name: PATIENT_SERVICE_JWT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  key: PATIENT_SERVICE_JWT_SECRET
+                  name: app-secrets
+            - name: DEEPGRAM_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  key: apiKey
+                  name: deepgram-credentials
+            - name: ELEVENLABS_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  key: apiKey
+                  name: elevenlabs-credentials
+            - name: ELEVENLABS_VOICE_ID
+              valueFrom:
+                secretKeyRef:
+                  key: voiceId
+                  name: elevenlabs-credentials
+            - name: ELEVENLABS_OUTPUT_FORMAT
+              value: "pcm_24000"
+            - name: OPENAI_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  key: apiKey
+                  name: openai-credentials
+            - name: OPENAI_MODEL
+              value: "gpt-4o-mini"
+            - name: LIVEKIT_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  key: apiKey
+                  name: livekit-credentials
+            - name: LIVEKIT_API_SECRET
+              valueFrom:
+                secretKeyRef:
+                  key: apiSecret
+                  name: livekit-credentials
+            - name: MCP_SERVER_BINARY
+              value: "/app/mcp-server"
           resources:
             requests:
               memory: "256Mi"
@@ -39,8 +115,8 @@ metadata:
 spec:
   type: ClusterIP
   ports:
-    - port: 50051
-      targetPort: 50051
-      name: grpc
+    - port: 8090
+      targetPort: 8090
+      name: http
   selector:
     app: agent-worker-service

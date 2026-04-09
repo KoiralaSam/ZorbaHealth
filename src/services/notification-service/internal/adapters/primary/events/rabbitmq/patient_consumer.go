@@ -3,9 +3,9 @@ package rabbitmq
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 	"log"
 
+	domainErrors "github.com/KoiralaSam/ZorbaHealth/services/notification-service/internal/core/domain/errors"
 	"github.com/KoiralaSam/ZorbaHealth/services/notification-service/internal/core/ports/inbound"
 	"github.com/KoiralaSam/ZorbaHealth/shared/contracts"
 	"github.com/KoiralaSam/ZorbaHealth/shared/events"
@@ -36,26 +36,36 @@ func (c *PatientConsumer) Listen() error {
 			return err
 		}
 
-		if payload.RegisterRequest == nil {
-			return fmt.Errorf("pending verification event missing register_request")
-		}
-
 		// IMPORTANT: Don't return provider errors (email/SMS) here, otherwise RabbitMQ will redeliver
 		// and we can get stuck in an infinite retry loop (e.g., SendGrid credits exceeded).
 		// We only return errors for malformed/unprocessable messages.
 
-		if err := c.svc.SendPendingVerificationEmail(ctx, payload.RegisterRequest, PatientEvent.OwnerID); err != nil {
-			log.Printf("Failed to send verification email: %v", err)
-		} else {
-			log.Printf("Sent verification email to %s", payload.RegisterRequest.Email)
+		if payload.RegisterRequest != nil {
+			if err := c.svc.SendPendingVerificationEmail(ctx, payload.RegisterRequest, PatientEvent.OwnerID); err != nil {
+				log.Printf("Failed to send verification email: %v", err)
+			} else {
+				log.Printf("Sent verification email to %s", payload.RegisterRequest.Email)
+			}
 		}
 
-		if payload.RegisterRequest.PhoneNumber != "" && payload.RegisterRequest.Otp != "" {
+		if payload.RegisterRequest != nil && payload.RegisterRequest.PhoneNumber != "" && payload.RegisterRequest.Otp != "" {
 			if err := c.svc.SendOTP(ctx, payload.RegisterRequest.PhoneNumber, payload.RegisterRequest.Otp); err != nil {
 				log.Printf("Failed to send OTP SMS: %v", err)
 			} else {
 				log.Printf("Sent OTP to %s", payload.RegisterRequest.PhoneNumber)
 			}
+		}
+
+		if payload.PhoneVerification != nil && payload.PhoneVerification.PhoneNumber != "" && payload.PhoneVerification.Otp != "" {
+			if err := c.svc.SendOTP(ctx, payload.PhoneVerification.PhoneNumber, payload.PhoneVerification.Otp); err != nil {
+				log.Printf("Failed to send phone verification OTP SMS: %v", err)
+			} else {
+				log.Printf("Sent phone verification OTP to %s", payload.PhoneVerification.PhoneNumber)
+			}
+		}
+
+		if payload.RegisterRequest == nil && payload.PhoneVerification == nil {
+			return domainErrors.ErrPendingVerificationEventMissingRegisterRequest
 		}
 
 		// Ack the message regardless of provider outcome to prevent infinite redelivery.

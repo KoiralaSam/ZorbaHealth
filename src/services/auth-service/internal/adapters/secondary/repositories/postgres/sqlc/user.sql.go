@@ -59,6 +59,70 @@ func (q *Queries) DeleteUser(ctx context.Context, id pgtype.UUID) error {
 	return err
 }
 
+const getAdminByUserID = `-- name: GetAdminByUserID :one
+SELECT id, user_id
+FROM admins
+WHERE user_id = $1
+LIMIT 1
+`
+
+type GetAdminByUserIDRow struct {
+	ID     pgtype.UUID `json:"id"`
+	UserID pgtype.UUID `json:"user_id"`
+}
+
+func (q *Queries) GetAdminByUserID(ctx context.Context, userID pgtype.UUID) (GetAdminByUserIDRow, error) {
+	row := q.db.QueryRow(ctx, getAdminByUserID, userID)
+	var i GetAdminByUserIDRow
+	err := row.Scan(&i.ID, &i.UserID)
+	return i, err
+}
+
+const getHospitalStaffByUserID = `-- name: GetHospitalStaffByUserID :one
+SELECT id, hospital_id, user_id, role
+FROM hospital_staff
+WHERE user_id = $1
+LIMIT 1
+`
+
+type GetHospitalStaffByUserIDRow struct {
+	ID         pgtype.UUID `json:"id"`
+	HospitalID pgtype.UUID `json:"hospital_id"`
+	UserID     pgtype.UUID `json:"user_id"`
+	Role       string      `json:"role"`
+}
+
+func (q *Queries) GetHospitalStaffByUserID(ctx context.Context, userID pgtype.UUID) (GetHospitalStaffByUserIDRow, error) {
+	row := q.db.QueryRow(ctx, getHospitalStaffByUserID, userID)
+	var i GetHospitalStaffByUserIDRow
+	err := row.Scan(
+		&i.ID,
+		&i.HospitalID,
+		&i.UserID,
+		&i.Role,
+	)
+	return i, err
+}
+
+const getPatientByUserID = `-- name: GetPatientByUserID :one
+SELECT id, user_id
+FROM patients
+WHERE user_id = $1
+LIMIT 1
+`
+
+type GetPatientByUserIDRow struct {
+	ID     pgtype.UUID `json:"id"`
+	UserID pgtype.UUID `json:"user_id"`
+}
+
+func (q *Queries) GetPatientByUserID(ctx context.Context, userID pgtype.UUID) (GetPatientByUserIDRow, error) {
+	row := q.db.QueryRow(ctx, getPatientByUserID, userID)
+	var i GetPatientByUserIDRow
+	err := row.Scan(&i.ID, &i.UserID)
+	return i, err
+}
+
 const getUserByEmail = `-- name: GetUserByEmail :one
 SELECT id, email, phone_number, password_hash, role, created_at FROM users
 WHERE email = $1 LIMIT 1

@@ -2,9 +2,9 @@ package openai
 
 import (
 	"context"
-	"fmt"
 
 	"github.com/KoiralaSam/ZorbaHealth/services/health-records-service/internal/core/ports/outbound"
+	domainErrors "github.com/KoiralaSam/ZorbaHealth/services/health-records-service/internal/core/domain/errors"
 	openai "github.com/openai/openai-go/v3"
 	option "github.com/openai/openai-go/v3/option"
 )
@@ -29,7 +29,7 @@ func NewClient(apiKey string) outbound.Embedder {
 
 func (c *Client) Embed(ctx context.Context, text string) ([]float32, error) {
 	if text == "" {
-		return nil, fmt.Errorf("embed: empty input")
+		return nil, domainErrors.ErrEmbedEmptyInput
 	}
 
 	resp, err := c.oai.Embeddings.New(ctx, openai.EmbeddingNewParams{
@@ -39,10 +39,10 @@ func (c *Client) Embed(ctx context.Context, text string) ([]float32, error) {
 		},
 	})
 	if err != nil {
-		return nil, fmt.Errorf("embed: %w", err)
+		return nil, domainErrors.ErrEmbedFailed
 	}
 	if len(resp.Data) == 0 {
-		return nil, fmt.Errorf("embed: empty response")
+		return nil, domainErrors.ErrEmbedEmptyResponse
 	}
 
 	// The official SDK returns []float64 — convert to float32 for pgvector.

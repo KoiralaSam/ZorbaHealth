@@ -1,29 +1,26 @@
-FROM golang:1.24-alpine AS builder
+## syntax=docker/dockerfile:1.7
+FROM golang:1.25-alpine AS builder
 
 WORKDIR /app
 
-# Copy go mod files
 COPY go.mod go.sum ./
-COPY shared/go.mod shared/go.sum ./shared/
+RUN --mount=type=cache,target=/go/pkg/mod \
+    go mod download
 
-# Download dependencies
-RUN go mod download
-
-# Copy source code
-COPY services/analytics-service ./services/analytics-service
 COPY shared ./shared
+COPY services/analytics-service ./services/analytics-service
 
-# Build the application
-WORKDIR /app/services/analytics-service
-RUN CGO_ENABLED=0 GOOS=linux go build -o /app/build/analytics-service ./cmd/analytics-service
+RUN --mount=type=cache,target=/root/.cache/go-build \
+    --mount=type=cache,target=/go/pkg/mod \
+    CGO_ENABLED=0 GOOS=linux go build -o /app/build/analytics-service ./services/analytics-service/cmd/analytics-service
 
-# Final stage
-FROM alpine:latest
+FROM alpine:3.19
 WORKDIR /app
 
 RUN apk --no-cache add ca-certificates
 
-COPY --from=builder /app/build/analytics-service ./build/analytics-service
-COPY --from=builder /app/shared ./shared
+COPY --from=builder /app/build/analytics-service ./analytics-service
 
-ENTRYPOINT ["./build/analytics-service"]
+EXPOSE 50054
+
+CMD ["./analytics-service"]
