@@ -1,0 +1,21 @@
+syntax = "proto3";
+
+package patient.auth;
+
+option go_package = "shared/proto/patient;patient";
+
+service LoginService {
+    rpc Login(LoginRequest) returns (LoginResponse);
+}
+
+message LoginRequest {
+    string PhoneNumber = 1;
+    string Email = 2;
+    string Password = 3;
+}
+
+message LoginResponse {
+    string Message = 1;
+    string AccessToken = 2;
+    string PatientID = 3;
+}

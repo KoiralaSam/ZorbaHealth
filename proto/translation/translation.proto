@@ -1,0 +1,18 @@
+syntax = "proto3";
+package translation;
+option go_package = "shared/proto/translation;translation";
+
+service TranslationService {
+    rpc Translate(TranslateRequest) returns (TranslateResponse);
+}
+
+message TranslateRequest {
+    string text        = 1;
+    string target_lang = 2;  // ISO 639-1 code: "ne", "es", "zh"
+    string source_lang = 3;  // optional — empty means auto-detect
+}
+
+message TranslateResponse {
+    string translated_text = 1;
+    string detected_lang   = 2;
+}
