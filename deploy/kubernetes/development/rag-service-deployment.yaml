@@ -1,0 +1,46 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: rag-service
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: rag-service
+  template:
+    metadata:
+      labels:
+        app: rag-service
+    spec:
+      containers:
+        - name: rag-service
+          image: zorba-health/rag-service
+          ports:
+            - containerPort: 50053
+              name: grpc
+          resources:
+            requests:
+              memory: "256Mi"
+              cpu: "250m"
+            limits:
+              memory: "512Mi"
+              cpu: "500m"
+          env:
+            - name: GRPC_ADDR
+              valueFrom:
+                configMapKeyRef:
+                  key: RAG_SERVICE_GRPC_ADDR
+                  name: app-config
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: rag-service
+spec:
+  type: ClusterIP
+  ports:
+    - port: 50053
+      targetPort: 50053
+      name: grpc
+  selector:
+    app: rag-service

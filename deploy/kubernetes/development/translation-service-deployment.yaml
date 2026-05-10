@@ -1,0 +1,74 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: translation-service
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: translation-service
+  template:
+    metadata:
+      labels:
+        app: translation-service
+    spec:
+      containers:
+        - name: translation-service
+          image: zorba-health/translation-service
+          ports:
+            - containerPort: 50057
+              name: grpc
+          resources:
+            requests:
+              memory: "256Mi"
+              cpu: "250m"
+            limits:
+              memory: "512Mi"
+              cpu: "500m"
+          env:
+            - name: TRANSLATION_SERVICE_GRPC_ADDR
+              valueFrom:
+                configMapKeyRef:
+                  key: TRANSLATION_SERVICE_GRPC_ADDR
+                  name: app-config
+            - name: TRANSLATION_MODEL_BASE_URL
+              valueFrom:
+                configMapKeyRef:
+                  key: TRANSLATION_MODEL_BASE_URL
+                  name: app-config
+            - name: TRANSLATION_MODEL_TIMEOUT_SECONDS
+              value: "30"
+            - name: TRANSLATION_SERVICE_MAX_TEXT_LENGTH
+              value: "10000"
+            - name: TRANSLATION_SERVICE_RATE_LIMIT_PER_MINUTE
+              value: "60"
+            - name: TRANSLATION_SERVICE_ENABLE_GRPC_REFLECTION
+              value: "false"
+            - name: INTERNAL_SERVICE_SECRET
+              valueFrom:
+                secretKeyRef:
+                  key: INTERNAL_SERVICE_SECRET
+                  name: app-secrets
+            - name: PATIENT_SERVICE_JWT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  key: PATIENT_SERVICE_JWT_SECRET
+                  name: app-secrets
+            - name: AUTH_SERVICE_JWT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  key: AUTH_SERVICE_JWT_SECRET
+                  name: app-secrets
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: translation-service
+spec:
+  type: ClusterIP
+  ports:
+    - port: 50057
+      targetPort: 50057
+      name: grpc
+  selector:
+    app: translation-service

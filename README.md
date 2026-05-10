@@ -1,174 +1,103 @@
 # Zorba Health
 
-AI-powered voice health assistant — backend microservices (Go), web app (Next.js), and voice/SIP integration.
+Zorba Health is an open-source voice-based healthcare AI platform built around Go microservices, a Next.js web app, gRPC, RabbitMQ, PostgreSQL, Redis, and voice integrations such as LiveKit and FreePBX.
 
-## Project overview
+## What is in this repository
 
-Zorba Health is a health-assistant platform with patient registration, email verification, and voice/call flows. The repo contains:
+The repository is now organized around the top-level service and deployment layout:
 
-- **Go microservices:** API gateway, auth, patient, notification (email + planned SMS OTP)
-- **Web app:** Next.js frontend (registration, login, verify-email)
-- **Infrastructure:** Kubernetes manifests for local (Tilt) and production, PostgreSQL, Redis, RabbitMQ
+- `services/` contains the Go microservices
+- `web/` contains the Next.js frontend
+- `proto/` contains source protobuf definitions
+- `shared/` contains shared Go packages and generated protobuf code
+- `migrations/` contains SQL migrations
+- `deploy/` contains Dockerfiles and Kubernetes manifests
 
-Voice calls use **FreePBX**, **LiveKit**, and **LiveKit SIP** on a **separate server** (see below).
+This repo also includes contributor-facing assets under `docs/`, `examples/`, and `scripts/`.
 
----
+## Quick start
 
-## Project architecture and flow
-
-![Zorba Health architecture and flow](src/docs/mermaid_project_plan.svg)
-
-Detailed architecture and flows for Zorba Health are in the repo:
-
-- **RabbitMQ event flow** — exchanges, queues, and service interactions: `src/docs/architecture/rabbitmq-flow-v1.md`
-- **Voice call flow** — end-to-end call with LiveKit, agent worker, patient/RAG/medical records, and events: `src/docs/architecture/voice-call-flow-v1.md`
-
----
-
-## Prerequisites
-
-- **Docker** (Desktop or Engine)
-- **Go** (1.21+)
-- **Tilt** — [install](https://docs.tilt.dev/install.html)
-- **Local Kubernetes** — Docker Desktop Kubernetes, Minikube, or similar
-- **kubectl** — [install](https://kubernetes.io/docs/tasks/tools/)
-
-### macOS
+1. Clone the repository.
+2. Copy the development Kubernetes secrets template:
 
 ```bash
-brew install go
-# Install Docker Desktop, Tilt, and kubectl per the links above.
+cp deploy/kubernetes/development/secrets.example.yaml deploy/kubernetes/development/secrets.yaml
 ```
 
-### Windows (WSL)
-
-Install WSL, Docker Desktop for Windows, then inside WSL install Go, Tilt, and kubectl. Use the same versions as above.
-
----
-
-## Project setup
-
-### 1. Clone and enter the repo
+3. Replace every placeholder in `deploy/kubernetes/development/secrets.yaml`.
+4. Start the local stack:
 
 ```bash
-git clone https://github.com/KoiralaSam/ZorbaHealth.git
-cd ZorbaHealth
-```
-
-### 2. Kubernetes secrets (required for Tilt)
-
-Secrets are not committed. Create them from the example file:
-
-```bash
-cp src/infra/development/k8s/secrets.example.yaml src/infra/development/k8s/secrets.yaml
-```
-
-Edit `src/infra/development/k8s/secrets.yaml` and replace every placeholder:
-
-- **postgres-secret:** `POSTGRES_PASSWORD` (use the same value inside `app-secrets.DATABASE_URL`)
-- **sendgrid-credentials:** `apiKey` (use a verified SendGrid API key)
-- **voipms-credentials:** `username`, `password` (VoIP.ms API login; used for OTP SMS when implemented)
-- **app-secrets:** `DATABASE_URL` (full Postgres URL), `AUTH_SERVICE_JWT_SECRET`, `PATIENT_SERVICE_JWT_SECRET`
-
-Set `SENDGRID_FROM_EMAIL` and `SENDGRID_FROM_NAME` in `app-config.yaml` (or override in ConfigMap) to your verified sender address and name.
-
-See `src/infra/development/k8s/secrets.example.yaml` for the exact keys.
-
-### 3. Start the cluster and run the app
-
-From the **repository root**:
-
-```bash
-cd src
 tilt up
 ```
 
-Tilt will:
+5. Open:
+   - Web app: `http://localhost:3000`
+   - API gateway: `http://localhost:8081`
+   - Tilt UI: `http://localhost:10350`
 
-- Apply Kubernetes config (ConfigMap, Secrets, PostgreSQL, Redis, RabbitMQ)
-- Build and deploy the API gateway, auth-service, patient-service, notification-service, and web app
-- Open a UI in the browser (default: http://localhost:10350)
+Detailed setup instructions live in:
 
-### 4. Access the app
+- [`docs/local-setup.md`](docs/local-setup.md)
+- [`docs/kubernetes-setup.md`](docs/kubernetes-setup.md)
+- [`docs/deployment.md`](docs/deployment.md)
 
-- **Web app:** http://localhost:3000 (port-forward from the `web` deployment)
-- **API gateway:** http://localhost:8081
+## Documentation
 
-Use the Tilt UI to see logs, port-forwards, and resource status. To stop: `Ctrl+C` in the terminal where `tilt up` is running, or run `tilt down` in `src/`.
+- [`docs/architecture.md`](docs/architecture.md) — architecture overview, service boundaries, and future-work callouts
+- [`docs/directory-map.md`](docs/directory-map.md) — how the requested open-source layout maps to the current tree
+- [`docs/service-map.md`](docs/service-map.md) — service inventory, interfaces, dependencies, and maturity
+- [`docs/security.md`](docs/security.md) — authentication, authorization, logging, and secrets posture
+- [`docs/compliance.md`](docs/compliance.md) — audit, consent, analytics separation, and retention guidance
+- [`docs/evaluation.md`](docs/evaluation.md) — evaluation artifacts and measurement roadmap
+- [`docs/open-source-extension-guide.md`](docs/open-source-extension-guide.md) — how to add providers, services, tools, and migrations
+- [`docs/q1-journal-evaluation-plan.md`](docs/q1-journal-evaluation-plan.md) — research framing and target metrics
 
-### 5. Useful commands
+Existing architecture flow notes from the implementation are kept under:
 
-```bash
-# From repo root
-cd src
+- [`docs/architecture/rabbitmq-flow-v1.md`](docs/architecture/rabbitmq-flow-v1.md)
+- [`docs/architecture/voice-call-flow-v1.md`](docs/architecture/voice-call-flow-v1.md)
 
-# List running pods
-kubectl get pods
+## Repository status
 
-# Optional: Kubernetes dashboard (if using Minikube)
-minikube dashboard
-```
+Current primary services:
 
-### Troubleshooting
+- API gateway
+- Auth service
+- Patient service
+- Health records service
+- MCP server
+- Agent worker service
+- Notification service
+- Location service
+- Translation service
+- Analytics service
 
-- **`couldn't find key fromEmail in Secret sendgrid-credentials`** — Fixed: the notification-service now reads `SENDGRID_FROM_EMAIL` and `SENDGRID_FROM_NAME` from the ConfigMap (`app-config`). Set them in `src/infra/development/k8s/app-config.yaml` to your verified sender (e.g. `your-verified-sender@example.com` and `ZorbaHealth`).
-- **`secret "app-secrets" not found`** — Your `secrets.yaml` is missing the `app-secrets` (and possibly `postgres-secret`) block. Copy the full `secrets.example.yaml` to `secrets.yaml`, then replace every placeholder. If you already have a `secrets.yaml`, add the `app-secrets` and `postgres-secret` sections from `secrets.example.yaml`. Re-run `tilt up` or run `kubectl apply -f src/infra/development/k8s/secrets.yaml`.
+Some parts of the architecture described in the long-term roadmap are still future work, including a dedicated audit service, consent enforcement service boundaries, Helm packaging, richer provider abstraction, and a formal evaluation harness. Those gaps are documented explicitly rather than hidden.
 
----
+## Voice and telephony note
 
-## FreePBX, LiveKit, and LiveKit SIP (separate server)
+Voice and SIP infrastructure are not fully contained inside the local development stack. The expected production architecture includes:
 
-Voice and SIP are **not** run inside this repo’s Tilt/Kubernetes stack. They run on a **separate server** that you configure and operate yourself.
+- FreePBX for telephony
+- LiveKit for real-time audio sessions
+- LiveKit SIP for SIP-to-room bridging
 
-### Role of each component
+Those components are typically operated on separate infrastructure and integrated with the services in this repository.
 
-- **FreePBX** — PBX for phone numbers, trunks, and call routing.
-- **LiveKit** — Real-time media (voice/video) and room-based sessions.
-- **LiveKit SIP** — Bridges SIP (FreePBX) to LiveKit so incoming/outgoing calls become LiveKit rooms your app can join.
+## Community files
 
-### Typical setup on the separate server
+- [`CONTRIBUTING.md`](CONTRIBUTING.md)
+- [`CODE_OF_CONDUCT.md`](CODE_OF_CONDUCT.md)
+- [`SECURITY.md`](SECURITY.md)
+- [`LICENSE`](LICENSE)
 
-1. **Install and configure FreePBX**
-   - Set up trunks, DID(s), and dialplan so calls can be sent to LiveKit SIP (e.g. via a SIP trunk or endpoint).
+## Current local development expectations
 
-2. **Install and run LiveKit**
-   - Run the [LiveKit server](https://docs.livekit.io/deploy/) (single binary or Docker) and expose the required ports.
+- Go module root: repository root
+- Local orchestration: Tilt + Kubernetes
+- Secrets template: `deploy/kubernetes/development/secrets.example.yaml`
+- Database migrations: `migrations/`
+- Proto generation and SQLC generation: `Makefile`
 
-3. **Install and run LiveKit SIP**
-   - Follow [LiveKit SIP](https://docs.livekit.io/realtime-voice/sip/) to run the SIP dispatcher/connector that registers or receives SIP from FreePBX and creates LiveKit rooms.
-
-4. **Point this app at LiveKit**
-   - Configure the Zorba Health backend (e.g. API gateway or the service that handles calls) with the LiveKit API URL and credentials so it can create/join rooms and handle call logic.
-
-Exact steps depend on your host (VM, cloud, or on-prem). Use the official docs for [LiveKit](https://docs.livekit.io/) and [LiveKit SIP](https://docs.livekit.io/realtime-voice/sip/) and your FreePBX distribution.
-
----
-
-## Running with Tilt and Kubernetes (summary)
-
-| Step | Action                                                                                                             |
-| ---- | ------------------------------------------------------------------------------------------------------------------ |
-| 1    | Clone repo, `cd ZorbaHealth`                                                                                       |
-| 2    | `cp src/infra/development/k8s/secrets.example.yaml src/infra/development/k8s/secrets.yaml` and fill in real values |
-| 3    | `cd src && tilt up`                                                                                                |
-| 4    | Open web app at http://localhost:3000, API at http://localhost:8081                                                |
-
-Tilt uses the manifests under `src/infra/development/k8s/` (ConfigMap, Secrets, PostgreSQL, Redis, RabbitMQ, and each service deployment). Ensure your Kubernetes context points to your local cluster (e.g. Docker Desktop or Minikube) before running `tilt up`.
-
----
-
-## Deployment (production)
-
-For production you would:
-
-1. Build and push Docker images for each service (and the web app) to your registry.
-2. Apply the production Kubernetes manifests (or use Helm/another orchestrator) in order: config and secrets first, then infrastructure (Postgres, Redis, RabbitMQ), then services.
-3. Keep FreePBX, LiveKit, and LiveKit SIP on their separate server and configure the production backend with the correct LiveKit URL and credentials.
-
-The production manifests in this repo are under `src/infra/production/`; adapt them to your environment and CI/CD.
-
----
-
-## Adding HTTPS to your API (GCP example)
-
-See the original deployment section in git history or your runbooks for reserving a static IP, adding an Ingress, switching the API gateway to ClusterIP, and (optionally) using a Google-managed certificate. The same pattern applies to other clouds with an Ingress controller and TLS.
+If you are looking for the requested `/zorba-health/services`, `/proto`, or `/deploy` layout from the architecture suggestions, that layout is now the repository structure. [`docs/directory-map.md`](docs/directory-map.md) documents the detailed mapping and development subdirectories.

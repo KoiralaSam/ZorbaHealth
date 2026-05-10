@@ -1,0 +1,107 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: notification-service
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: notification-service
+  template:
+    metadata:
+      labels:
+        app: notification-service
+    spec:
+      containers:
+        - name: notification-service
+          image: zorba-health/notification-service
+          ports:
+            - containerPort: 50056
+              name: grpc
+            - containerPort: 3001
+              name: http
+          resources:
+            requests:
+              memory: "128Mi"
+              cpu: "125m"
+            limits:
+              memory: "256Mi"
+              cpu: "250m"
+          env:
+            - name: NOTIFICATION_SERVICE_GRPC_ADDR
+              valueFrom:
+                configMapKeyRef:
+                  key: NOTIFICATION_SERVICE_GRPC_ADDR
+                  name: app-config
+            - name: RABBITMQ_URI
+              valueFrom:
+                secretKeyRef:
+                  key: uri
+                  name: rabbitmq-credentials
+            - name: SENDGRID_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  key: apiKey
+                  name: sendgrid-credentials
+            - name: SENDGRID_FROM_EMAIL
+              valueFrom:
+                secretKeyRef:
+                  key: fromEmail
+                  name: sendgrid-credentials
+            - name: SENDGRID_FROM_NAME
+              valueFrom:
+                secretKeyRef:
+                  key: fromName
+                  name: sendgrid-credentials
+            - name: PUBLIC_WEB_BASE_URL
+              valueFrom:
+                configMapKeyRef:
+                  key: PUBLIC_WEB_BASE_URL
+                  name: app-config
+            - name: HTTP_ADDR
+              valueFrom:
+                secretKeyRef:
+                  key: http_addr
+                  name: voipms-credentials
+            - name: VOIPMS_DID
+              valueFrom:
+                secretKeyRef:
+                  key: did
+                  name: voipms-credentials
+            - name: VOIPMS_API_USERNAME
+              valueFrom:
+                secretKeyRef:
+                  key: username
+                  name: voipms-credentials
+            - name: VOIPMS_API_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  key: password
+                  name: voipms-credentials
+            - name: VOIPMS_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  key: key
+                  name: voipms-credentials
+            - name: VOIPMS_API_BASEURL
+              valueFrom:
+                secretKeyRef:
+                  key: voipms_baseurl
+                  name: voipms-credentials
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: notification-service
+spec:
+  type: ClusterIP
+  ports:
+    - port: 50056
+      targetPort: 50056
+      name: grpc
+    - port: 3001
+      targetPort: 3001
+      name: http
+  selector:
+    app: notification-service
