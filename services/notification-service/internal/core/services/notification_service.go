@@ -50,7 +50,7 @@ func (s *NotificationService) SendPendingVerificationEmail(ctx context.Context, 
 	plain := fmt.Sprintf(
 		"Hey %s,\n\n"+
 			"To complete your Zorba Health registration, please click the button below (or copy and paste the link into your browser) to confirm this is your correct email address:\n\n%s\n\n"+
-			"This verification link will expire in 24 hours. If you didn’t request this, you can safely ignore this email.\n",
+			"This verification link will expire in 15 minutes. If you didn’t request this, you can safely ignore this email.\n",
 		req.FullName,
 		verificationURL,
 	)
@@ -89,7 +89,7 @@ func (s *NotificationService) SendPendingVerificationEmail(ctx context.Context, 
                   </a>
                 </p>
                 <p style="margin:0 0 12px 0;font-size:13px;color:#6b7280;">
-                  This verification link will expire in 24 hours. If you didn’t make a change to
+                  This verification link will expire in 15 minutes. If you didn’t make a change to
                   your account, don’t worry – this update won’t happen unless you verify your email.
                 </p>
                 <p style="margin:16px 0 0 0;font-size:13px;color:#6b7280;">

@@ -24,6 +24,27 @@ spec:
                 configMapKeyRef:
                   key: NOTIFICATION_SERVICE_GRPC_ADDR
                   name: app-config
+            - name: MAILTRAP_API_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  key: MAILTRAP_API_TOKEN
+                  name: mailtrap-secrets
+            - name: MAILTRAP_FROM_EMAIL
+              valueFrom:
+                secretKeyRef:
+                  key: MAILTRAP_FROM_EMAIL
+                  name: mailtrap-secrets
+            - name: MAILTRAP_FROM_NAME
+              valueFrom:
+                secretKeyRef:
+                  key: MAILTRAP_FROM_NAME
+                  name: mailtrap-secrets
+            - name: MAILTRAP_SEND_URL
+              valueFrom:
+                secretKeyRef:
+                  key: MAILTRAP_SEND_URL
+                  name: mailtrap-secrets
+                  optional: true
           resources:
             requests:
               memory: "128Mi"

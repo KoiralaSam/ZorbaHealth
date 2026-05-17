@@ -37,7 +37,7 @@ func (c *PatientConsumer) Listen() error {
 		}
 
 		// IMPORTANT: Don't return provider errors (email/SMS) here, otherwise RabbitMQ will redeliver
-		// and we can get stuck in an infinite retry loop (e.g., SendGrid credits exceeded).
+		// and we can get stuck in an infinite retry loop (e.g., provider quota exceeded).
 		// We only return errors for malformed/unprocessable messages.
 
 		if payload.RegisterRequest != nil {

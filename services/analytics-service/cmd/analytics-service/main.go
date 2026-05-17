@@ -12,6 +12,8 @@ import (
 	grpchandlers "github.com/KoiralaSam/ZorbaHealth/services/analytics-service/internal/adapters/primary/grpc/handlers"
 	postgresrepos "github.com/KoiralaSam/ZorbaHealth/services/analytics-service/internal/adapters/secondary/repositories/postgres"
 	"github.com/KoiralaSam/ZorbaHealth/services/analytics-service/internal/core/services"
+	"github.com/KoiralaSam/ZorbaHealth/shared/env"
+	"github.com/KoiralaSam/ZorbaHealth/shared/tracing"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -27,8 +29,24 @@ func grpcListenAddr(addr string, defaultPort string) string {
 }
 
 func main() {
-	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	tracerCfg := tracing.Config{
+		ServiceName:    "analytics-service",
+		Environment:    env.GetString("ENVIRONMENT", "development"),
+		JaegerEndpoint: env.GetString("JAEGER_ENDPOINT", "http://localhost:4318/v1/traces"),
+	}
+	sh, err := tracing.InitTracer(tracerCfg)
+	if err != nil {
+		log.Fatalf("Failed to initialize tracer: %v", err)
+	}
+	ctx, cancel := context.WithCancel(context.Background())
+	defer sh(ctx)
 	defer cancel()
+	go func() {
+		sigChan := make(chan os.Signal, 1)
+		signal.Notify(sigChan, os.Interrupt, syscall.SIGTERM)
+		<-sigChan
+		cancel()
+	}()
 
 	db, err := pgxpool.New(ctx, os.Getenv("DATABASE_URL"))
 	if err != nil {

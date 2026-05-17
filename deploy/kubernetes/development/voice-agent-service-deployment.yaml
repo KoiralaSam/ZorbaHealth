@@ -1,0 +1,108 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: voice-agent-service
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: voice-agent-service
+  template:
+    metadata:
+      labels:
+        app: voice-agent-service
+    spec:
+      terminationGracePeriodSeconds: 600
+      containers:
+        - name: voice-agent-service
+          image: docker.io/zorba-health/voice-agent-service:latest
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 8090
+          resources:
+            requests:
+              memory: "512Mi"
+              cpu: "1000m"
+            limits:
+              memory: "1Gi"
+              cpu: "2000m"
+          env:
+            - name: ENVIRONMENT
+              valueFrom:
+                configMapKeyRef:
+                  key: ENVIRONMENT
+                  name: app-config
+            - name: JAEGER_ENDPOINT
+              valueFrom:
+                configMapKeyRef:
+                  key: JAEGER_ENDPOINT
+                  name: app-config
+            - name: LIVEKIT_URL
+              valueFrom:
+                configMapKeyRef:
+                  key: LIVEKIT_URL
+                  name: app-config
+            - name: LIVEKIT_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  key: apiKey
+                  name: livekit-credentials
+            - name: LIVEKIT_API_SECRET
+              valueFrom:
+                secretKeyRef:
+                  key: apiSecret
+                  name: livekit-credentials
+            - name: LIVEKIT_AGENT_NAME
+              value: "zorba-health-voice"
+            - name: VOICE_AGENT_HTTP_ADDR
+              value: ":8090"
+            - name: MCP_SERVER_URL
+              value: "http://mcp-server:8092"
+            - name: PATIENT_SERVICE_JWT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  key: PATIENT_SERVICE_JWT_SECRET
+                  name: app-secrets
+            - name: OPENAI_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  key: apiKey
+                  name: openai-credentials
+            - name: OPENAI_MODEL
+              value: "gpt-4o"
+            - name: TTS_PROVIDER
+              value: "deepgram"
+            - name: DEEPGRAM_TTS_MODEL
+              value: "aura-2-andromeda-en"
+            - name: ENABLE_TURN_DETECTOR
+              value: "false"
+            - name: DEEPGRAM_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  key: apiKey
+                  name: deepgram-credentials
+            - name: ELEVENLABS_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  key: apiKey
+                  name: elevenlabs-credentials
+            - name: ELEVENLABS_VOICE_ID
+              valueFrom:
+                secretKeyRef:
+                  key: voiceId
+                  name: elevenlabs-credentials
+                  optional: true
+            - name: ELEVENLABS_MODEL
+              value: "eleven_turbo_v2_5"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: voice-agent-service
+spec:
+  selector:
+    app: voice-agent-service
+  ports:
+    - name: http
+      port: 8090
+      targetPort: 8090

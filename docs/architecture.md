@@ -18,7 +18,7 @@ flowchart LR
   AuthSvc[AuthService]
   HealthRecordsSvc[HealthRecordsService]
   MCPSvc[McpServer]
-  AgentWorker[AgentWorkerService]
+  VoiceAgent[VoiceAgentService]
   NotificationSvc[NotificationService]
   LocationSvc[LocationService]
   TranslationSvc[TranslationService]
@@ -43,11 +43,9 @@ flowchart LR
   MCPSvc --> LocationSvc
   MCPSvc --> AnalyticsSvc
   MCPSvc --> Postgres
-  AgentWorker --> MCPSvc
-  AgentWorker --> PatientSvc
-  AgentWorker --> HealthRecordsSvc
-  AgentWorker --> LiveKit
-  AgentWorker --> AIProviders
+  VoiceAgent --> MCPSvc
+  VoiceAgent --> LiveKit
+  VoiceAgent --> AIProviders
   NotificationSvc --> RabbitMQ
   NotificationSvc --> AIProviders
   LocationSvc --> Redis
@@ -88,11 +86,11 @@ flowchart LR
 - Calls health records, translation, location, and analytics over gRPC
 - Uses PostgreSQL directly for some tool-related data access today
 
-### Agent Worker Service
+### Voice Agent Service
 
-- Voice-session orchestration and LiveKit webhook handling
-- Coordinates patient lookup, health-record access, MCP tool calls, and AI providers
-- Currently wires Deepgram, OpenAI, ElevenLabs, and LiveKit-specific adapters directly
+- LiveKit Agents-based voice runtime and webhook receiver
+- Owns realtime STT, LLM, TTS, VAD, and turn handling
+- Calls MCP over HTTP for backend tools and receives LiveKit webhook callbacks on its own HTTP endpoint
 
 ### Notification Service
 
@@ -126,7 +124,7 @@ flowchart LR
 ### Synchronous paths
 
 - Web -> API Gateway -> gRPC backend services
-- Agent Worker -> gRPC services
+- Voice Agent Service -> MCP Server -> gRPC backend services
 - MCP Server -> gRPC services
 
 ### Asynchronous paths

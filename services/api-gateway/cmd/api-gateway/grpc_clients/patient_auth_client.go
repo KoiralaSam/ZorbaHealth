@@ -3,16 +3,16 @@ package grpc_clients
 import (
 	"os"
 
-	"github.com/KoiralaSam/ZorbaHealth/shared/proto/patient/registration_verification"
+	"github.com/KoiralaSam/ZorbaHealth/shared/grpcclient"
 	pb "github.com/KoiralaSam/ZorbaHealth/shared/proto/patient"
+	"github.com/KoiralaSam/ZorbaHealth/shared/proto/patient/registration_verification"
 	"google.golang.org/grpc"
-	"google.golang.org/grpc/credentials/insecure"
 )
 
 type patientAuthServiceClient struct {
-	LoginClient      pb.LoginServiceClient
+	LoginClient        pb.LoginServiceClient
 	RegistrationClient registration_verification.RegistrationVerificationServiceClient
-	conn             *grpc.ClientConn
+	conn               *grpc.ClientConn
 }
 
 func NewPatientAuthServiceClient() (*patientAuthServiceClient, error) {
@@ -22,7 +22,7 @@ func NewPatientAuthServiceClient() (*patientAuthServiceClient, error) {
 		patientServiceGRPCAddr = "localhost:9093"
 	}
 
-	conn, err := grpc.NewClient(patientServiceGRPCAddr, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	conn, err := grpcclient.DialInsecure(patientServiceGRPCAddr)
 	if err != nil {
 		return nil, err
 	}

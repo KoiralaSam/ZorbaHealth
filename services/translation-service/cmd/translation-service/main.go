@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"log"
 	"net"
 	"os"
@@ -13,7 +14,9 @@ import (
 	"github.com/KoiralaSam/ZorbaHealth/services/translation-service/internal/adapters/primary/grpc/interceptors"
 	llamacpp "github.com/KoiralaSam/ZorbaHealth/services/translation-service/internal/adapters/secondary/external/llamacpp"
 	"github.com/KoiralaSam/ZorbaHealth/services/translation-service/internal/core/services"
+	"github.com/KoiralaSam/ZorbaHealth/shared/env"
 	pb "github.com/KoiralaSam/ZorbaHealth/shared/proto/translation"
+	"github.com/KoiralaSam/ZorbaHealth/shared/tracing"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/keepalive"
 	"google.golang.org/grpc/reflection"
@@ -31,6 +34,19 @@ func grpcListenAddr(addr string, defaultPort string) string {
 }
 
 func main() {
+	tracerCfg := tracing.Config{
+		ServiceName:    "translation-service",
+		Environment:    env.GetString("ENVIRONMENT", "development"),
+		JaegerEndpoint: env.GetString("JAEGER_ENDPOINT", "http://localhost:4318/v1/traces"),
+	}
+	sh, err := tracing.InitTracer(tracerCfg)
+	if err != nil {
+		log.Fatalf("Failed to initialize tracer: %v", err)
+	}
+	ctx, cancel := context.WithCancel(context.Background())
+	defer sh(ctx)
+	defer cancel()
+
 	cfg, err := config.Load()
 	if err != nil {
 		log.Fatalf("config: %v", err)
@@ -45,7 +61,8 @@ func main() {
 	svc := services.NewTranslationService(provider, cfg.MaxTextLength)
 	handler := grpchandlers.NewTranslationHandler(svc)
 
-	grpcServer := grpc.NewServer(
+	grpcServerOptions := append(
+		tracing.WithTracingInterceptors(),
 		interceptors.Chain(),
 		grpc.KeepaliveParams(keepalive.ServerParameters{
 			MaxConnectionIdle: 5 * time.Minute,
@@ -59,6 +76,7 @@ func main() {
 		grpc.MaxRecvMsgSize(4*1024*1024),
 		grpc.MaxSendMsgSize(4*1024*1024),
 	)
+	grpcServer := grpc.NewServer(grpcServerOptions...)
 
 	pb.RegisterTranslationServiceServer(grpcServer, handler)
 

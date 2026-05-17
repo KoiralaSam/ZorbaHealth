@@ -5,6 +5,7 @@ import (
 	"net/http"
 
 	"github.com/KoiralaSam/ZorbaHealth/services/notification-service/internal/core/ports/inbound"
+	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
 )
 
 // Server is the primary HTTP adapter for the notification service (e.g. webhooks).
@@ -31,7 +32,7 @@ func (s *Server) Run() {
 	mux.HandleFunc("POST /sms", s.HandleSMSRequest)
 
 	log.Printf("HTTP server listening on %s", s.addr)
-	if err := http.ListenAndServe(s.addr, mux); err != nil {
+	if err := http.ListenAndServe(s.addr, otelhttp.NewHandler(mux, "notification-service")); err != nil {
 		log.Printf("HTTP server error: %v", err)
 	}
 }

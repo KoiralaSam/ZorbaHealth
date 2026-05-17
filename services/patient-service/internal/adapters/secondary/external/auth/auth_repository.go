@@ -5,24 +5,24 @@ import (
 
 	"github.com/KoiralaSam/ZorbaHealth/services/patient-service/internal/core/domain/models"
 	"github.com/KoiralaSam/ZorbaHealth/services/patient-service/internal/core/ports/outbound"
+	"github.com/KoiralaSam/ZorbaHealth/shared/grpcclient"
 	pb "github.com/KoiralaSam/ZorbaHealth/shared/proto/auth"
 	"google.golang.org/grpc"
-	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
 type authService struct {
-	Login        pb.LoginServiceClient
-	Register     pb.RegisterPatientServiceClient
-	VerifyToken  pb.VerifyTokenServiceClient
-	conn         *grpc.ClientConn
+	Login       pb.LoginServiceClient
+	Register    pb.RegisterPatientServiceClient
+	VerifyToken pb.VerifyTokenServiceClient
+	conn        *grpc.ClientConn
 }
 
 func NewAuthServiceClient(authServiceGRPCAddr string) (*authService, error) {
 	if authServiceGRPCAddr == "" {
 		authServiceGRPCAddr = "localhost:9092"
 	}
-	conn, err := grpc.NewClient(authServiceGRPCAddr, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	conn, err := grpcclient.DialInsecure(authServiceGRPCAddr)
 	if err != nil {
 		return nil, err
 	}

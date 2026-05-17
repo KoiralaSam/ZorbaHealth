@@ -26,6 +26,16 @@ spec:
               memory: "256Mi"
               cpu: "250m"
           env:
+            - name: ENVIRONMENT
+              valueFrom:
+                configMapKeyRef:
+                  key: ENVIRONMENT
+                  name: app-config
+            - name: JAEGER_ENDPOINT
+              valueFrom:
+                configMapKeyRef:
+                  key: JAEGER_ENDPOINT
+                  name: app-config
             - name: MEDICAL_RECORDS_SERVICE_GRPC_ADDR
               valueFrom:
                 configMapKeyRef:
@@ -59,4 +69,3 @@ spec:
       name: grpc
   selector:
     app: health-records-service
-

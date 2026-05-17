@@ -8,6 +8,7 @@ import (
 
 	"github.com/KoiralaSam/ZorbaHealth/shared/contracts"
 	"github.com/KoiralaSam/ZorbaHealth/shared/events"
+	"github.com/KoiralaSam/ZorbaHealth/shared/tracing"
 	amqp "github.com/rabbitmq/amqp091-go"
 )
 
@@ -117,27 +118,31 @@ func (r *RabbitMQ) ConsumeMessages(queueName string, handler MessageHandler) err
 		return err
 	}
 
-	ctx := context.Background()
-
 	go func() {
 		for msg := range msgs {
-			log.Printf("Received a message: %s", msg.Body)
+			if err := tracing.TracedConsumer(msg, func(ctx context.Context, d amqp.Delivery) error {
+				log.Printf("Received a message: %s", msg.Body)
 
-			if err := handler(ctx, msg); err != nil {
-				log.Printf("failed to handle message: %v. Message Body: %s", err, msg.Body)
+				if err := handler(ctx, msg); err != nil {
+					log.Printf("failed to handle message: %v. Message Body: %s", err, msg.Body)
 
-				// Requeue by default so transient failures can be retried.
-				if nackErr := msg.Nack(false, true); nackErr != nil {
-					log.Printf("failed to nack message (will likely be redelivered on consumer restart): %v", nackErr)
+					// Requeue by default so transient failures can be retried.
+					if nackErr := msg.Nack(false, true); nackErr != nil {
+						log.Printf("failed to nack message (will likely be redelivered on consumer restart): %v", nackErr)
+					}
+
+					//continue to the next message
+					return err
 				}
+				//only ack the message if the handler succeeds
+				if ackErr := msg.Ack(false); ackErr != nil {
+					log.Printf("failed to ack message: %v. Message Body: %s", ackErr, msg.Body)
+				}
+				return nil
+			}); err != nil {
+				log.Printf("failed to consume message: %v", err)
+			}
 
-				//continue to the next message
-				continue
-			}
-			//only ack the message if the handler succeeds
-			if ackErr := msg.Ack(false); ackErr != nil {
-				log.Printf("failed to ack message: %v. Message Body: %s", ackErr, msg.Body)
-			}
 		}
 	}()
 	return nil
@@ -151,16 +156,21 @@ func (r *RabbitMQ) PublishMessage(ctx context.Context, exhange string, routingKe
 	if err != nil {
 		return fmt.Errorf("failed to marshal message: %v", err)
 	}
+	msg := amqp.Publishing{
+		ContentType:  "text/plain",
+		Body:         jsonMsg,
+		DeliveryMode: amqp.Persistent,
+	}
+	return tracing.TracedPublisher(ctx, exhange, routingKey, msg, r.Publish)
+}
+
+func (r *RabbitMQ) Publish(ctx context.Context, exhange string, routingKey string, messagage amqp.Publishing) error {
 	return r.Channel.PublishWithContext(ctx,
 		exhange,    // exchange
 		routingKey, // routing key
 		false,      // mandatory
 		false,      // immediate
-		amqp.Publishing{
-			ContentType:  "text/plain",
-			Body:         jsonMsg,
-			DeliveryMode: amqp.Persistent,
-		})
+		messagage)
 }
 
 func (r *RabbitMQ) Close() {

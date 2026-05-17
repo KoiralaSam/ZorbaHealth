@@ -1,0 +1,56 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "zorba-health-voice-agent-service"
+version = "1.0.0"
+description = "Zorba Health voice-agent-service built with LiveKit Agents and MCP tools"
+requires-python = ">=3.10, <3.15"
+
+dependencies = [
+    "livekit-agents[silero,turn-detector,openai,deepgram,elevenlabs]~=1.5",
+    "aiohttp>=3.9",
+    "opentelemetry-api>=1.39",
+    "opentelemetry-exporter-otlp>=1.39",
+    "opentelemetry-sdk>=1.39",
+    "PyJWT>=2.8",
+    "python-dotenv",
+]
+
+[dependency-groups]
+dev = [
+    "pytest",
+    "pytest-asyncio",
+    "pyright",
+    "ruff",
+]
+
+[tool.pyright]
+venvPath = "."
+venv = ".venv"
+pythonVersion = "3.12"
+include = ["src", "tests"]
+extraPaths = ["src"]
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-dir]
+"" = "src"
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "function"
+
+[tool.ruff]
+line-length = 100
+target-version = "py310"
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "N", "B", "A", "C4", "UP", "SIM", "RUF"]
+ignore = ["E501"]
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"

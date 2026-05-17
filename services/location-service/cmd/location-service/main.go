@@ -23,6 +23,8 @@ import (
 	"github.com/KoiralaSam/ZorbaHealth/shared/env"
 	"github.com/KoiralaSam/ZorbaHealth/shared/events"
 	"github.com/KoiralaSam/ZorbaHealth/shared/messaging"
+	"github.com/KoiralaSam/ZorbaHealth/shared/tracing"
+	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
 
 	grpcserver "google.golang.org/grpc"
 )
@@ -39,8 +41,24 @@ func grpcListenAddr(addr string, defaultPort string) string {
 }
 
 func main() {
-	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
-	defer stop()
+	tracerCfg := tracing.Config{
+		ServiceName:    "location-service",
+		Environment:    env.GetString("ENVIRONMENT", "development"),
+		JaegerEndpoint: env.GetString("JAEGER_ENDPOINT", "http://localhost:4318/v1/traces"),
+	}
+	sh, err := tracing.InitTracer(tracerCfg)
+	if err != nil {
+		log.Fatalf("Failed to initialize tracer: %v", err)
+	}
+	ctx, cancel := context.WithCancel(context.Background())
+	defer sh(ctx)
+	defer cancel()
+	go func() {
+		sigChan := make(chan os.Signal, 1)
+		signal.Notify(sigChan, os.Interrupt, syscall.SIGTERM)
+		<-sigChan
+		cancel()
+	}()
 
 	// ── Configuration / Infrastructure ─────────────────────────────────────
 	httpAddr := env.GetString("LOCATION_SERVICE_HTTP_ADDR", ":8090")
@@ -85,7 +103,11 @@ func main() {
 	if err != nil {
 		log.Fatalf("gRPC listen on %s: %v", grpcAddr, err)
 	}
-	grpcServer := grpcserver.NewServer(grpcserver.UnaryInterceptor(grpcinterceptors.InternalAuthInterceptor))
+	grpcServerOptions := append(
+		tracing.WithTracingInterceptors(),
+		grpcserver.UnaryInterceptor(grpcinterceptors.InternalAuthInterceptor),
+	)
+	grpcServer := grpcserver.NewServer(grpcServerOptions...)
 	grpchandlers.NewLocationGRPCHandler(grpcServer, svc)
 	go func() {
 		log.Printf("location-service gRPC listening on %s", grpcAddr)
@@ -105,7 +127,7 @@ func main() {
 
 	server := &http.Server{
 		Addr:              httpAddr,
-		Handler:           mux,
+		Handler:           otelhttp.NewHandler(mux, "location-service"),
 		ReadHeaderTimeout: 10 * time.Second,
 	}
 

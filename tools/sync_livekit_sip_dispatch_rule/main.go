@@ -29,7 +29,7 @@ func main() {
 		apiKey     = flag.String("api-key", getenv("LIVEKIT_API_KEY", ""), "LiveKit API key")
 		apiSecret  = flag.String("api-secret", getenv("LIVEKIT_API_SECRET", ""), "LiveKit API secret")
 
-		webhookURL = flag.String("webhook-url", getenv("AGENT_WEBHOOK_URL", ""), "Your agent worker webhook URL (stored on rule attribute agent_webhook_url)")
+		webhookURL = flag.String("webhook-url", getenv("VOICE_AGENT_WEBHOOK_URL", getenv("AGENT_WEBHOOK_URL", "")), "Your voice agent webhook URL (stored on rule attribute agent_webhook_url)")
 		ruleName   = flag.String("rule-name", getenv("SIP_DISPATCH_RULE_NAME", "zorba-agent-individual"), "Human-readable dispatch rule name")
 		roomPrefix = flag.String("room-prefix", getenv("SIP_DISPATCH_ROOM_PREFIX", "zorba-call-"), "Room prefix for Individual dispatch rule")
 
@@ -58,7 +58,7 @@ func main() {
 		fatalf("-api-secret (or LIVEKIT_API_SECRET) is required")
 	}
 	if strings.TrimSpace(*webhookURL) == "" {
-		fatalf("-webhook-url (or AGENT_WEBHOOK_URL) is required")
+		fatalf("-webhook-url (or VOICE_AGENT_WEBHOOK_URL) is required")
 	}
 
 	toNumbers := splitCSV(*toNumbersRaw)

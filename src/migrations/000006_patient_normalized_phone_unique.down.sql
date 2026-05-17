@@ -1,1 +1,0 @@
-DROP INDEX IF EXISTS patients_phone_number_normalized_uidx;

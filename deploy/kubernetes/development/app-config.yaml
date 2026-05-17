@@ -4,6 +4,8 @@ metadata:
   name: app-config
 data:
   ENVIRONMENT: "development"
+  # OTLP HTTP (Jaeger all-in-one with COLLECTOR_OTLP_ENABLED=true)
+  JAEGER_ENDPOINT: "http://jaeger:4318/v1/traces"
   # API Gateway
   API_GATEWAY_HTTP_ADDR: ":8081"
   # Patient Service
@@ -12,9 +14,9 @@ data:
   # Auth Service
   AUTH_SERVICE_HTTP_ADDR: ":8082"
   AUTH_SERVICE_GRPC_ADDR: "auth-service:9092"
-  # Agent Worker Service
-  AGENT_WORKER_HTTP_ADDR: ":8090"
   LIVEKIT_WS_URL: "ws://34.198.147.82:7880"
+  LIVEKIT_URL: "ws://34.198.147.82:7880"
+  MCP_HTTP_ADDR: ":8092"
   # RAG Service
   RAG_SERVICE_GRPC_ADDR: "rag-service:50053"
   # Medical Records Service

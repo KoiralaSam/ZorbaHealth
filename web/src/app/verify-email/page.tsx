@@ -1,7 +1,7 @@
 "use client";
 
 import { useSearchParams } from "next/navigation";
-import { Suspense, useCallback, useEffect, useState } from "react";
+import { Suspense, useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { API_URL } from "../../constants";
 import { APIEndpoints } from "../../contracts";
@@ -11,6 +11,7 @@ type Status = "idle" | "loading" | "success" | "error" | "missing_token";
 function VerifyEmailContent() {
   const searchParams = useSearchParams();
   const token = searchParams.get("token");
+  const verifiedTokenRef = useRef<string | null>(null);
 
   const [status, setStatus] = useState<Status>("idle");
   const [errorMessage, setErrorMessage] = useState<string>("");
@@ -51,6 +52,12 @@ function VerifyEmailContent() {
       setStatus("missing_token");
       return;
     }
+
+    if (verifiedTokenRef.current === token) {
+      return;
+    }
+    verifiedTokenRef.current = token;
+
     verify(token);
   }, [token, verify]);
 

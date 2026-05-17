@@ -1,0 +1,96 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mcp-server
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: mcp-server
+  template:
+    metadata:
+      labels:
+        app: mcp-server
+    spec:
+      containers:
+        - name: mcp-server
+          image: docker.io/zorba-health/mcp-server:latest
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 8092
+              name: http
+          resources:
+            requests:
+              memory: "128Mi"
+              cpu: "100m"
+            limits:
+              memory: "256Mi"
+              cpu: "250m"
+          env:
+            - name: ENVIRONMENT
+              valueFrom:
+                configMapKeyRef:
+                  key: ENVIRONMENT
+                  name: app-config
+            - name: JAEGER_ENDPOINT
+              valueFrom:
+                configMapKeyRef:
+                  key: JAEGER_ENDPOINT
+                  name: app-config
+            - name: MCP_TRANSPORT
+              value: "http"
+            - name: MCP_HTTP_ADDR
+              value: ":8092"
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  key: DATABASE_URL
+                  name: app-secrets
+            - name: INTERNAL_SERVICE_SECRET
+              valueFrom:
+                secretKeyRef:
+                  key: INTERNAL_SERVICE_SECRET
+                  name: app-secrets
+            - name: PATIENT_SERVICE_JWT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  key: PATIENT_SERVICE_JWT_SECRET
+                  name: app-secrets
+            - name: AUTH_SERVICE_JWT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  key: AUTH_SERVICE_JWT_SECRET
+                  name: app-secrets
+            - name: HEALTH_RECORDS_SERVICE_GRPC_ADDR
+              valueFrom:
+                configMapKeyRef:
+                  key: HEALTH_RECORDS_SERVICE_GRPC_ADDR
+                  name: app-config
+            - name: TRANSLATION_SERVICE_GRPC_ADDR
+              valueFrom:
+                configMapKeyRef:
+                  key: TRANSLATION_SERVICE_GRPC_ADDR
+                  name: app-config
+            - name: LOCATION_SERVICE_GRPC_ADDR
+              valueFrom:
+                configMapKeyRef:
+                  key: LOCATION_SERVICE_GRPC_ADDR
+                  name: app-config
+            - name: ANALYTICS_SERVICE_GRPC_ADDR
+              valueFrom:
+                configMapKeyRef:
+                  key: ANALYTICS_SERVICE_GRPC_ADDR
+                  name: app-config
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: mcp-server
+spec:
+  type: ClusterIP
+  ports:
+    - port: 8092
+      targetPort: 8092
+      name: http
+  selector:
+    app: mcp-server
