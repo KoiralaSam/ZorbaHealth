@@ -1,2 +1,0 @@
-DROP TABLE IF EXISTS "calls";
-DROP TABLE IF EXISTS "patients";

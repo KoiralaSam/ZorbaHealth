@@ -84,6 +84,11 @@ k8s_yaml('./deploy/kubernetes/development/rabbitmq-deployment.yaml')
 k8s_resource('rabbitmq', port_forwards=[5672, 15672], labels="tooling")
 ### End of RabbitMQ ###
 
+### Jaeger ###
+k8s_yaml('./deploy/kubernetes/development/jaeger.yaml')
+k8s_resource('jaeger', port_forwards=['16686:16686', '4318:4318'], labels="tooling")
+### End of Jaeger ###
+
 ### API Gateway ###
 
 gateway_compile_cmd = 'CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go build -o build/api-gateway ./services/api-gateway/cmd/api-gateway'
@@ -190,7 +195,7 @@ k8s_yaml('./deploy/kubernetes/development/location-service-deployment.yaml')
 k8s_resource(
   'location-service',
   resource_deps=['rabbitmq', 'redis'],
-  port_forwards=['50051:50051', '8090:8090'],
+  port_forwards=['50051:50051', '8091:8090'],
   labels="services",
 )
 ### End of Location Service ###
@@ -220,21 +225,37 @@ k8s_resource(
 )
 ### End of Translation Service ###
 
-### Agent Worker Service ###
+### MCP Server ###
 docker_build(
-  'zorba-health/agent-worker-service',
+  'zorba-health/mcp-server',
   '.',
-  dockerfile='./deploy/docker/development/agent-worker-service.Dockerfile',
+  dockerfile='./deploy/docker/development/mcp-server.Dockerfile',
 )
 
-k8s_yaml('./deploy/kubernetes/development/agent-worker-service-deployment.yaml')
+k8s_yaml('./deploy/kubernetes/development/mcp-server-deployment.yaml')
 k8s_resource(
-  'agent-worker-service',
-  resource_deps=['health-records-service', 'location-service', 'translation-service', 'db-migrate'],
-  port_forwards='8091:8090',
+  'mcp-server',
+  resource_deps=['health-records-service', 'location-service', 'translation-service', 'analytics-service', 'db-migrate'],
+  port_forwards='8092:8092',
   labels="services",
 )
-### End of Agent Worker Service ###
+### End of MCP Server ###
+
+### Voice Agent Service ###
+docker_build(
+  'zorba-health/voice-agent-service',
+  './services/voice-agent-service',
+  dockerfile='./services/voice-agent-service/Dockerfile',
+)
+
+k8s_yaml('./deploy/kubernetes/development/voice-agent-service-deployment.yaml')
+k8s_resource(
+  'voice-agent-service',
+  resource_deps=['mcp-server'],
+  port_forwards='8090:8090',
+  labels="services",
+)
+### End of Voice Agent Service ###
 
 docker_build(
   'zorba-health/web',

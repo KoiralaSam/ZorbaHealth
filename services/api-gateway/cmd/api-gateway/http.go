@@ -8,6 +8,7 @@ import (
 	"github.com/KoiralaSam/ZorbaHealth/services/api-gateway/cmd/api-gateway/grpc_clients"
 	"github.com/KoiralaSam/ZorbaHealth/shared/contracts"
 	"github.com/KoiralaSam/ZorbaHealth/shared/proto/patient/registration_verification"
+	"github.com/KoiralaSam/ZorbaHealth/shared/tracing"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/timestamppb"
@@ -32,8 +33,11 @@ func corsMiddleware(next http.HandlerFunc) http.HandlerFunc {
 	}
 }
 
+var tracer = tracing.GetTracer("api-gateway")
+
 // PatientLoginHandler handles patient authentication
 func PatientLoginHandler(w http.ResponseWriter, r *http.Request) {
+
 	var reqBody PatientLoginRequest
 	if err := json.NewDecoder(r.Body).Decode(&reqBody); err != nil {
 		writeJson(w, http.StatusBadRequest, nil, &contracts.APIError{
@@ -69,6 +73,9 @@ func PatientLoginHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func PatientRegisterHandler(w http.ResponseWriter, r *http.Request) {
+	ctx, span := tracer.Start(r.Context(), "PatientLoginHandler")
+	defer span.End()
+
 	var reqBody PatientRegisterRequest
 	if err := json.NewDecoder(r.Body).Decode(&reqBody); err != nil {
 		writeJson(w, http.StatusBadRequest, nil, &contracts.APIError{
@@ -102,8 +109,8 @@ func PatientRegisterHandler(w http.ResponseWriter, r *http.Request) {
 	if !reqBody.DateOfBirth.IsZero() {
 		dateOfBirth = timestamppb.New(reqBody.DateOfBirth)
 	}
-	response, err := patientAuthServiceClient.RegistrationClient.StartRegistration(context.Background(), &registration_verification.StartRegistrationRequest{
-		PhoneNumber:  reqBody.PhoneNumber,
+	response, err := patientAuthServiceClient.RegistrationClient.StartRegistration(ctx, &registration_verification.StartRegistrationRequest{
+		PhoneNumber: reqBody.PhoneNumber,
 		Email:       reqBody.Email,
 		Password:    reqBody.Password,
 		FullName:    reqBody.FullName,
@@ -129,6 +136,9 @@ func PatientRegisterHandler(w http.ResponseWriter, r *http.Request) {
 
 // PatientRegisterVerifyHandler handles email verification (step 2 of registration).
 func PatientRegisterVerifyHandler(w http.ResponseWriter, r *http.Request) {
+	ctx, span := tracer.Start(r.Context(), "PatientLoginHandler")
+	defer span.End()
+
 	var reqBody struct {
 		Token string `json:"token"`
 	}
@@ -159,7 +169,7 @@ func PatientRegisterVerifyHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	defer client.Close()
 
-	response, err := client.RegistrationClient.VerifyEmail(context.Background(), &registration_verification.VerifyEmailRequest{Token: reqBody.Token})
+	response, err := client.RegistrationClient.VerifyEmail(ctx, &registration_verification.VerifyEmailRequest{Token: reqBody.Token})
 	if err != nil {
 		writeJson(w, http.StatusBadRequest, nil, &contracts.APIError{
 			Code:    "VERIFICATION_FAILED",

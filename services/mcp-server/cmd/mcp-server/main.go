@@ -3,6 +3,8 @@ package main
 import (
 	"context"
 	"log"
+	"net/http"
+	"strings"
 
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
@@ -14,10 +16,23 @@ import (
 	healthpb "github.com/KoiralaSam/ZorbaHealth/shared/proto/health_records"
 	locpb "github.com/KoiralaSam/ZorbaHealth/shared/proto/location"
 	transpb "github.com/KoiralaSam/ZorbaHealth/shared/proto/translation"
+	"github.com/KoiralaSam/ZorbaHealth/shared/tracing"
+	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
 )
 
 func main() {
-	ctx := context.Background()
+	tracerCfg := tracing.Config{
+		ServiceName:    "mcp-server",
+		Environment:    sharedenv.GetString("ENVIRONMENT", "development"),
+		JaegerEndpoint: sharedenv.GetString("JAEGER_ENDPOINT", "http://localhost:4318/v1/traces"),
+	}
+	sh, err := tracing.InitTracer(tracerCfg)
+	if err != nil {
+		log.Fatalf("Failed to initialize tracer: %v", err)
+	}
+	ctx, cancel := context.WithCancel(context.Background())
+	defer sh(ctx)
+	defer cancel()
 
 	db, err := pgxpool.New(ctx, sharedenv.GetString("DATABASE_URL", ""))
 	if err != nil {
@@ -62,6 +77,18 @@ func main() {
 	tools.RegisterGetLocation(server, db, locClient)
 	tools.RegisterFindNearestHospital(server, db, locClient)
 	tools.RegisterGetHospitalAnalytics(server, db, analyticsClient)
+
+	if strings.EqualFold(sharedenv.GetString("MCP_TRANSPORT", "stdio"), "http") {
+		addr := sharedenv.GetString("MCP_HTTP_ADDR", ":8092")
+		handler := mcp.NewStreamableHTTPHandler(func(*http.Request) *mcp.Server {
+			return server
+		}, &mcp.StreamableHTTPOptions{
+			Stateless:    true,
+			JSONResponse: true,
+		})
+		log.Printf("MCP server starting on streamable HTTP at %s", addr)
+		log.Fatal(http.ListenAndServe(addr, otelhttp.NewHandler(handler, "mcp-server")))
+	}
 
 	log.Println("MCP server starting on stdio...")
 	if err := server.Run(ctx, &mcp.StdioTransport{}); err != nil {

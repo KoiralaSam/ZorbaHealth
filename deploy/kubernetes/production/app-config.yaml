@@ -4,9 +4,9 @@ metadata:
   name: app-config
 data:
   ENVIRONMENT: "production"
-  # Agent Worker Service
-  AGENT_WORKER_HTTP_ADDR: ":8090"
   LIVEKIT_WS_URL: "wss://livekit.example.com"
+  LIVEKIT_URL: "wss://livekit.example.com"
+  MCP_HTTP_ADDR: ":8092"
   # Patient Service
   PATIENT_SERVICE_GRPC_ADDR: ":50052"
   # RAG Service

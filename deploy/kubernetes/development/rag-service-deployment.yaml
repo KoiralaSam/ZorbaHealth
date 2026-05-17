@@ -26,6 +26,16 @@ spec:
               memory: "512Mi"
               cpu: "500m"
           env:
+            - name: ENVIRONMENT
+              valueFrom:
+                configMapKeyRef:
+                  key: ENVIRONMENT
+                  name: app-config
+            - name: JAEGER_ENDPOINT
+              valueFrom:
+                configMapKeyRef:
+                  key: JAEGER_ENDPOINT
+                  name: app-config
             - name: GRPC_ADDR
               valueFrom:
                 configMapKeyRef:

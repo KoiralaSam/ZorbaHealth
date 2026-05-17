@@ -15,10 +15,23 @@ import (
 	"github.com/KoiralaSam/ZorbaHealth/shared/env"
 	"github.com/KoiralaSam/ZorbaHealth/shared/events"
 	"github.com/KoiralaSam/ZorbaHealth/shared/messaging"
+	"github.com/KoiralaSam/ZorbaHealth/shared/tracing"
 )
 
 func main() {
 	log.Println("Starting notification service")
+	tracerCfg := tracing.Config{
+		ServiceName:    "notification-service",
+		Environment:    env.GetString("ENVIRONMENT", "development"),
+		JaegerEndpoint: env.GetString("JAEGER_ENDPOINT", "http://localhost:4318/v1/traces"),
+	}
+	sh, err := tracing.InitTracer(tracerCfg)
+	if err != nil {
+		log.Fatalf("Failed to initialize tracer: %v", err)
+	}
+	ctx, cancel := context.WithCancel(context.Background())
+	defer sh(ctx)
+	defer cancel()
 
 	httpAddr := env.GetString("HTTP_ADDR", ":3000")
 	webhookAPIKey := env.GetString("VOIPMS_API_KEY", "")
@@ -38,23 +51,21 @@ func main() {
 
 	smsSender := voipms.NewSender(voipmsBaseURL, voipmsUsername, voipmsPassword, voipmsDID)
 
-	sendGridAPIKey := env.GetString("SENDGRID_API_KEY", "")
-	if sendGridAPIKey == "" {
-		log.Fatalf("SENDGRID_API_KEY is required")
+	mailtrapAPIToken := env.GetString("MAILTRAP_API_TOKEN", "")
+	if mailtrapAPIToken == "" {
+		log.Fatalf("MAILTRAP_API_TOKEN is required")
 	}
-	fromEmail := env.GetString("SENDGRID_FROM_EMAIL", "")
+	fromEmail := env.GetString("MAILTRAP_FROM_EMAIL", "")
 	if fromEmail == "" {
-		log.Fatalf("SENDGRID_FROM_EMAIL is required")
+		log.Fatalf("MAILTRAP_FROM_EMAIL is required")
 	}
-	fromName := env.GetString("SENDGRID_FROM_NAME", "ZorbaHealth")
+	fromName := env.GetString("MAILTRAP_FROM_NAME", "ZorbaHealth")
+	mailtrapSendURL := env.GetString("MAILTRAP_SEND_URL", "")
 
 	publicWebBaseURL := env.GetString("PUBLIC_WEB_BASE_URL", "")
 
-	emailSender := email.NewSendGridSender(sendGridAPIKey, fromEmail, fromName)
+	emailSender := email.NewMailtrapSender(mailtrapAPIToken, fromEmail, fromName, mailtrapSendURL)
 	notificationSvc := services.NewNotificationService(emailSender, smsSender, nil, publicWebBaseURL)
-
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
 
 	//webhook used by VoIP.ms to send SMS to the service
 	httpServer := httpadapter.NewServer(httpAddr, webhookAPIKey, notificationSvc)

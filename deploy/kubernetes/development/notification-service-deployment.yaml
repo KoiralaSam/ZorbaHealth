@@ -28,6 +28,16 @@ spec:
               memory: "256Mi"
               cpu: "250m"
           env:
+            - name: ENVIRONMENT
+              valueFrom:
+                configMapKeyRef:
+                  key: ENVIRONMENT
+                  name: app-config
+            - name: JAEGER_ENDPOINT
+              valueFrom:
+                configMapKeyRef:
+                  key: JAEGER_ENDPOINT
+                  name: app-config
             - name: NOTIFICATION_SERVICE_GRPC_ADDR
               valueFrom:
                 configMapKeyRef:
@@ -38,21 +48,27 @@ spec:
                 secretKeyRef:
                   key: uri
                   name: rabbitmq-credentials
-            - name: SENDGRID_API_KEY
+            - name: MAILTRAP_API_TOKEN
               valueFrom:
                 secretKeyRef:
-                  key: apiKey
-                  name: sendgrid-credentials
-            - name: SENDGRID_FROM_EMAIL
+                  key: MAILTRAP_API_TOKEN
+                  name: mailtrap-secrets
+            - name: MAILTRAP_FROM_EMAIL
               valueFrom:
                 secretKeyRef:
-                  key: fromEmail
-                  name: sendgrid-credentials
-            - name: SENDGRID_FROM_NAME
+                  key: MAILTRAP_FROM_EMAIL
+                  name: mailtrap-secrets
+            - name: MAILTRAP_FROM_NAME
               valueFrom:
                 secretKeyRef:
-                  key: fromName
-                  name: sendgrid-credentials
+                  key: MAILTRAP_FROM_NAME
+                  name: mailtrap-secrets
+            - name: MAILTRAP_SEND_URL
+              valueFrom:
+                secretKeyRef:
+                  key: MAILTRAP_SEND_URL
+                  name: mailtrap-secrets
+                  optional: true
             - name: PUBLIC_WEB_BASE_URL
               valueFrom:
                 configMapKeyRef:

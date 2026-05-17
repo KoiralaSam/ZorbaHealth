@@ -44,18 +44,18 @@ This document inventories the services currently present in the repository, thei
 
 - Path: `services/mcp-server`
 - Entrypoint: `services/mcp-server/cmd/mcp-server/main.go`
-- Interfaces: MCP stdio transport
+- Interfaces: MCP stdio transport by default; streamable HTTP on `MCP_HTTP_ADDR` when `MCP_TRANSPORT=http`
 - Primary dependencies: PostgreSQL, health-records service, translation service, location service, analytics service
 - Current scope: tool routing for health-record, translation, location, and analytics workflows
 - Status: Implemented
 
-### Agent Worker Service
+### Voice Agent Service
 
-- Path: `services/agent-worker-service`
-- Entrypoint: `services/agent-worker-service/cmd/agent-worker/main.go`
-- Interfaces: HTTP on `AGENT_WORKER_HTTP_ADDR` with LiveKit webhook endpoint
-- Primary dependencies: patient service, health-records service, MCP server subprocess, Deepgram, OpenAI, ElevenLabs, LiveKit
-- Current scope: voice session orchestration and tool-enabled conversational handling
+- Path: `services/voice-agent-service`
+- Entrypoint: `services/voice-agent-service/src/agent.py`
+- Interfaces: outbound LiveKit agent worker; HTTP on `VOICE_AGENT_HTTP_ADDR` for `/webhook/livekit` and `/health`; MCP client to `mcp-server`
+- Primary dependencies: LiveKit, MCP server, Deepgram, OpenAI, ElevenLabs
+- Current scope: realtime voice session orchestration, LiveKit webhook handling, STT/LLM/TTS, and MCP-backed assistant tools
 - Status: Implemented
 
 ### Notification Service
@@ -63,7 +63,7 @@ This document inventories the services currently present in the repository, thei
 - Path: `services/notification-service`
 - Entrypoint: `services/notification-service/cmd/notification-service/main.go`
 - Interfaces: HTTP on `HTTP_ADDR`, RabbitMQ consumer
-- Primary dependencies: RabbitMQ, SendGrid, VoIP.ms
+- Primary dependencies: RabbitMQ, Mailtrap, VoIP.ms
 - Current scope: patient event notifications and SMS webhook handling
 - Status: Implemented
 
@@ -137,8 +137,8 @@ This document inventories the services currently present in the repository, thei
 - PostgreSQL: auth, patient, health-records, analytics, MCP server
 - Redis: patient, location
 - RabbitMQ: auth, patient, notification, location
-- LiveKit and SIP ecosystem: agent worker
-- AI providers: agent worker, health-records, translation
+- LiveKit and SIP ecosystem: voice agent service
+- AI providers: voice agent service, health-records, translation
 
 ## Important current gaps
 

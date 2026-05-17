@@ -5,17 +5,23 @@ import (
 	"errors"
 	"os"
 
+	"github.com/KoiralaSam/ZorbaHealth/shared/tracing"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/grpc/metadata"
 )
 
 func Dial(addr string) (*grpc.ClientConn, error) {
-	return grpc.NewClient(
-		addr,
+	return DialInsecure(addr, grpc.WithUnaryInterceptor(injectAuthMetadata))
+}
+
+func DialInsecure(addr string, extraOptions ...grpc.DialOption) (*grpc.ClientConn, error) {
+	dialOptions := append(
+		tracing.DialOptionsWithTracing(),
 		grpc.WithTransportCredentials(insecure.NewCredentials()),
-		grpc.WithUnaryInterceptor(injectAuthMetadata),
 	)
+	dialOptions = append(dialOptions, extraOptions...)
+	return grpc.NewClient(addr, dialOptions...)
 }
 
 func injectAuthMetadata(

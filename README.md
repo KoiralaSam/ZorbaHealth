@@ -67,7 +67,7 @@ Current primary services:
 - Patient service
 - Health records service
 - MCP server
-- Agent worker service
+- Voice agent service
 - Notification service
 - Location service
 - Translation service
@@ -82,6 +82,7 @@ Voice and SIP infrastructure are not fully contained inside the local developmen
 - FreePBX for telephony
 - LiveKit for real-time audio sessions
 - LiveKit SIP for SIP-to-room bridging
+- `voice-agent-service` for the active LiveKit Agents voice runtime and webhook handling
 
 Those components are typically operated on separate infrastructure and integrated with the services in this repository.
 

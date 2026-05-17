@@ -8,9 +8,9 @@ import (
 	"os/signal"
 	"syscall"
 
-	rmqadapter "github.com/KoiralaSam/ZorbaHealth/services/patient-service/internal/adapters/secondary/messaging/rabbitmq"
 	grpc "github.com/KoiralaSam/ZorbaHealth/services/patient-service/internal/adapters/primary/grpc/handlers"
 	authsvc "github.com/KoiralaSam/ZorbaHealth/services/patient-service/internal/adapters/secondary/external/auth"
+	rmqadapter "github.com/KoiralaSam/ZorbaHealth/services/patient-service/internal/adapters/secondary/messaging/rabbitmq"
 	"github.com/KoiralaSam/ZorbaHealth/services/patient-service/internal/adapters/secondary/repositories/postgres"
 	redisrepo "github.com/KoiralaSam/ZorbaHealth/services/patient-service/internal/adapters/secondary/repositories/redis"
 	"github.com/KoiralaSam/ZorbaHealth/services/patient-service/internal/core/services"
@@ -18,6 +18,7 @@ import (
 	"github.com/KoiralaSam/ZorbaHealth/shared/env"
 	"github.com/KoiralaSam/ZorbaHealth/shared/events"
 	"github.com/KoiralaSam/ZorbaHealth/shared/messaging"
+	"github.com/KoiralaSam/ZorbaHealth/shared/tracing"
 	grpcserver "google.golang.org/grpc"
 )
 
@@ -37,6 +38,19 @@ var (
 )
 
 func main() {
+	tracerCfg := tracing.Config{
+		ServiceName:    "patient-service",
+		Environment:    env.GetString("ENVIRONMENT", "development"),
+		JaegerEndpoint: env.GetString("JAEGER_ENDPOINT", "http://localhost:4318/v1/traces"),
+	}
+	sh, err := tracing.InitTracer(tracerCfg)
+	if err != nil {
+		log.Fatalf("Failed to initialize tracer: %v", err)
+	}
+	ctx, cancel := context.WithCancel(context.Background())
+	defer sh(ctx)
+	defer cancel()
+
 	// --- Database ---
 	dbURL := env.GetString("DATABASE_URL", "")
 	if err := db.InitDB(context.Background(), dbURL); err != nil {
@@ -62,9 +76,6 @@ func main() {
 		log.Fatalf("Failed to create pending registration repository: %v", err)
 	}
 
-	// --- Shutdown: cancel context on SIGINT/SIGTERM ---
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
 	go func() {
 		sigChan := make(chan os.Signal, 1)
 		signal.Notify(sigChan, os.Interrupt, syscall.SIGTERM)
@@ -92,7 +103,7 @@ func main() {
 	svc := services.NewPatientService(postgresRepo, authRepo, pendingRegRepo, patientPublisher)
 
 	// --- gRPC server: register handlers and serve ---
-	grpcServer := grpcserver.NewServer()
+	grpcServer := grpcserver.NewServer(tracing.WithTracingInterceptors()...)
 	grpc.NewGRPCHandler(grpcServer, svc)
 	log.Printf("Starting gRPC server patient service on port %s", grpcAddr)
 	go func() {

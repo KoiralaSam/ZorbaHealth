@@ -15,6 +15,7 @@ import (
 	"github.com/KoiralaSam/ZorbaHealth/services/health-records-service/internal/core/services"
 	"github.com/KoiralaSam/ZorbaHealth/shared/db"
 	"github.com/KoiralaSam/ZorbaHealth/shared/env"
+	"github.com/KoiralaSam/ZorbaHealth/shared/tracing"
 	grpcserver "google.golang.org/grpc"
 )
 
@@ -32,9 +33,20 @@ func grpcListenAddr(addr string, defaultPort string) string {
 var grpcAddr = grpcListenAddr(env.GetString("MEDICAL_RECORDS_SERVICE_GRPC_ADDR", "health-records-service:50054"), "50054")
 
 func main() {
-	// --- Shutdown: cancel context on SIGINT/SIGTERM ---
+	tracerCfg := tracing.Config{
+		ServiceName:    "health-records-service",
+		Environment:    env.GetString("ENVIRONMENT", "development"),
+		JaegerEndpoint: env.GetString("JAEGER_ENDPOINT", "http://localhost:4318/v1/traces"),
+	}
+	sh, err := tracing.InitTracer(tracerCfg)
+	if err != nil {
+		log.Fatalf("Failed to initialize tracer: %v", err)
+	}
 	ctx, cancel := context.WithCancel(context.Background())
+	defer sh(ctx)
 	defer cancel()
+
+	// --- Shutdown: cancel context on SIGINT/SIGTERM ---
 	go func() {
 		sigChan := make(chan os.Signal, 1)
 		signal.Notify(sigChan, os.Interrupt, syscall.SIGTERM)
@@ -65,7 +77,11 @@ func main() {
 		log.Fatalf("Failed to listen on %s: %v", grpcAddr, err)
 	}
 
-	grpcServer := grpcserver.NewServer(grpcserver.UnaryInterceptor(grpcinterceptors.Chain()))
+	grpcServerOptions := append(
+		tracing.WithTracingInterceptors(),
+		grpcserver.UnaryInterceptor(grpcinterceptors.Chain()),
+	)
+	grpcServer := grpcserver.NewServer(grpcServerOptions...)
 	grpcadapter.NewGRPCHandler(grpcServer, svc, pool)
 
 	log.Printf("health-records-service gRPC server listening on %s", grpcAddr)

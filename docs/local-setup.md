@@ -91,7 +91,7 @@ Some services require external credentials or separately managed infrastructure:
 - OpenAI
 - Deepgram
 - ElevenLabs
-- SendGrid
+- Mailtrap
 - VoIP.ms
 
 Those integrations are part of the current implementation but are not yet fully abstracted behind provider interfaces.
