@@ -3,7 +3,9 @@ package handlers
 import (
 	"encoding/json"
 	"log"
+	"net"
 	"net/http"
+	"strings"
 
 	"github.com/gorilla/websocket"
 
@@ -19,10 +21,14 @@ var upgrader = websocket.Upgrader{
 }
 
 // wsConn wraps *websocket.Conn to satisfy inbound.PatientLiveChannel.
-type wsConn struct{ *websocket.Conn }
+type wsConn struct {
+	*websocket.Conn
+	clientIP string
+}
 
 func (w *wsConn) WriteJSON(v any) error { return w.Conn.WriteJSON(v) }
 func (w *wsConn) Close() error          { return w.Conn.Close() }
+func (w *wsConn) ClientIP() string      { return w.clientIP }
 
 // WebSocketHandler handles GET /ws/location
 type WebSocketHandler struct {
@@ -52,9 +58,8 @@ func (h *WebSocketHandler) HandleConnect(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	ch := &wsConn{conn}
+	ch := &wsConn{Conn: conn, clientIP: clientIPFromRequest(r)}
 	h.Service.RegisterPatientLiveChannel(r.Context(), patientID, ch)
-	log.Printf("patient %s connected to location WS", patientID)
 
 	defer func() {
 		h.Service.UnregisterPatientLiveChannel(r.Context(), patientID)
@@ -85,15 +90,21 @@ func (h *WebSocketHandler) HandleConnect(w http.ResponseWriter, r *http.Request)
 			continue
 		}
 
+		method := upd.Method
+		if method == "" {
+			method = "gps"
+		}
 		loc := models.Location{
 			Lat:      upd.Lat,
 			Lng:      upd.Lng,
 			Accuracy: upd.Accuracy,
-			Method:   "gps",
+			Method:   method,
 		}
 		if err := h.Service.StoreLocation(r.Context(), upd.SessionID, loc); err != nil {
 			log.Printf("store location failed (session=%s): %v", upd.SessionID, err)
+			continue
 		}
+		log.Printf("stored location session=%s method=%s lat=%.5f lng=%.5f", upd.SessionID, method, upd.Lat, upd.Lng)
 	}
 }
 
@@ -103,4 +114,19 @@ func extractBearerToken(r *http.Request) string {
 		return h[7:]
 	}
 	return ""
+}
+
+func clientIPFromRequest(r *http.Request) string {
+	if xff := strings.TrimSpace(r.Header.Get("X-Forwarded-For")); xff != "" {
+		ip := strings.TrimSpace(strings.Split(xff, ",")[0])
+		if host, _, err := net.SplitHostPort(ip); err == nil {
+			return host
+		}
+		return ip
+	}
+	host, _, err := net.SplitHostPort(r.RemoteAddr)
+	if err != nil {
+		return strings.TrimSpace(r.RemoteAddr)
+	}
+	return host
 }

@@ -3,6 +3,7 @@ package handlers
 import (
 	"context"
 
+	"github.com/KoiralaSam/ZorbaHealth/services/health-records-service/internal/core/domain/models"
 	"github.com/KoiralaSam/ZorbaHealth/services/health-records-service/internal/core/ports/inbound"
 	sharedauth "github.com/KoiralaSam/ZorbaHealth/shared/auth"
 	pb "github.com/KoiralaSam/ZorbaHealth/shared/proto/health_records"
@@ -44,13 +45,36 @@ func (h *GRPCHandler) SearchRecords(ctx context.Context, req *pb.SearchRequest) 
 
 	out := make([]*pb.RecordChunk, 0, len(chunks))
 	for _, c := range chunks {
-		out = append(out, &pb.RecordChunk{
-			Text:       c.Text,
-			SourceFile: c.SourceFile,
-			Score:      c.Score,
-		})
+		out = append(out, toProtoChunk(c))
 	}
 	return &pb.SearchResponse{Chunks: out}, nil
+}
+
+func (h *GRPCHandler) AnswerPatientQuestion(ctx context.Context, req *pb.AnswerPatientQuestionRequest) (*pb.AnswerPatientQuestionResponse, error) {
+	if req == nil {
+		return nil, status.Error(codes.InvalidArgument, "request required")
+	}
+	claims, err := claimsFromContext(ctx)
+	if err != nil {
+		return nil, err
+	}
+	if err := requirePatientAccess(claims, req.PatientId); err != nil {
+		return nil, err
+	}
+
+	answer, chunks, err := h.svc.AnswerPatientQuestion(ctx, req.PatientId, req.Question, req.TopK)
+	if err != nil {
+		return nil, status.Error(codes.Internal, err.Error())
+	}
+
+	out := make([]*pb.RecordChunk, 0, len(chunks))
+	for _, c := range chunks {
+		out = append(out, toProtoChunk(c))
+	}
+	return &pb.AnswerPatientQuestionResponse{
+		Answer:    answer,
+		Citations: out,
+	}, nil
 }
 
 func (h *GRPCHandler) HospitalSearchRecords(ctx context.Context, req *pb.HospitalSearchRequest) (*pb.SearchResponse, error) {
@@ -71,11 +95,7 @@ func (h *GRPCHandler) HospitalSearchRecords(ctx context.Context, req *pb.Hospita
 
 	out := make([]*pb.RecordChunk, 0, len(chunks))
 	for _, c := range chunks {
-		out = append(out, &pb.RecordChunk{
-			Text:       c.Text,
-			SourceFile: c.SourceFile,
-			Score:      c.Score,
-		})
+		out = append(out, toProtoChunk(c))
 	}
 	return &pb.SearchResponse{Chunks: out}, nil
 }
@@ -190,8 +210,29 @@ func (h *GRPCHandler) IngestDocument(ctx context.Context, req *pb.IngestRequest)
 }
 
 func (h *GRPCHandler) IngestFHIRBundle(ctx context.Context, req *pb.FHIRBundleRequest) (*pb.IngestResponse, error) {
-	// FHIR bundle parsing + dual-write (fhir_resources + record_chunks) can be added next.
-	return nil, status.Error(codes.Unimplemented, "IngestFHIRBundle not implemented")
+	if req == nil || req.PatientId == "" || req.BundleJson == "" {
+		return nil, status.Error(codes.InvalidArgument, "patient_id and bundle_json required")
+	}
+	resourcesStored, chunksStored, err := h.svc.IngestFHIRBundle(ctx, req.PatientId, req.BundleJson, req.Source)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, err.Error())
+	}
+	return &pb.IngestResponse{
+		ChunksStored:    chunksStored,
+		ResourcesStored: resourcesStored,
+		Status:          "ok",
+	}, nil
+}
+
+func toProtoChunk(c models.ScoredChunk) *pb.RecordChunk {
+	return &pb.RecordChunk{
+		Text:             c.Text,
+		SourceFile:       c.SourceFile,
+		Score:            c.Score,
+		ChunkId:          c.ChunkID.String(),
+		RecordId:         c.RecordID.String(),
+		FhirResourceType: c.FHIRResourceType,
+	}
 }
 
 func claimsFromContext(ctx context.Context) (*sharedauth.Claims, error) {

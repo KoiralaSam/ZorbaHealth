@@ -18,6 +18,48 @@ type Admin struct {
 	CreatedAt pgtype.Timestamptz `json:"created_at"`
 }
 
+type AuditAuditEvent struct {
+	ID             int64              `json:"id"`
+	EventID        pgtype.UUID        `json:"event_id"`
+	EventType      string             `json:"event_type"`
+	ActorType      string             `json:"actor_type"`
+	ActorID        string             `json:"actor_id"`
+	PatientID      pgtype.Text        `json:"patient_id"`
+	ServiceName    string             `json:"service_name"`
+	ResourceType   pgtype.Text        `json:"resource_type"`
+	ResourceID     pgtype.Text        `json:"resource_id"`
+	EventTimestamp pgtype.Timestamptz `json:"event_timestamp"`
+	RequestID      pgtype.Text        `json:"request_id"`
+	CorrelationID  pgtype.Text        `json:"correlation_id"`
+	IpAddress      pgtype.Text        `json:"ip_address"`
+	ToolName       pgtype.Text        `json:"tool_name"`
+	ModelName      pgtype.Text        `json:"model_name"`
+	ProviderName   pgtype.Text        `json:"provider_name"`
+	SuccessStatus  bool               `json:"success_status"`
+	FailureReason  pgtype.Text        `json:"failure_reason"`
+	MetadataJson   []byte             `json:"metadata_json"`
+	CreatedAt      pgtype.Timestamptz `json:"created_at"`
+}
+
+type AuditAuditEventType struct {
+	EventType      string `json:"event_type"`
+	RetentionClass string `json:"retention_class"`
+	Description    string `json:"description"`
+}
+
+type AuditConsent struct {
+	ID             pgtype.UUID        `json:"id"`
+	PatientID      string             `json:"patient_id"`
+	ConsentType    string             `json:"consent_type"`
+	GrantedBy      string             `json:"granted_by"`
+	GrantedAt      pgtype.Timestamptz `json:"granted_at"`
+	RevokedAt      pgtype.Timestamptz `json:"revoked_at"`
+	Scope          string             `json:"scope"`
+	ExpirationTime pgtype.Timestamptz `json:"expiration_time"`
+	Source         string             `json:"source"`
+	MetadataJson   []byte             `json:"metadata_json"`
+}
+
 type Auth struct {
 	ID       int64       `json:"id"`
 	UserID   pgtype.UUID `json:"user_id"`
@@ -45,16 +87,6 @@ type ConversationTurn struct {
 	Content   string             `json:"content"`
 	Embedding pgvector.Vector    `json:"embedding"`
 	CreatedAt pgtype.Timestamptz `json:"created_at"`
-}
-
-type FhirResource struct {
-	ID           pgtype.UUID        `json:"id"`
-	PatientID    pgtype.UUID        `json:"patient_id"`
-	ResourceType string             `json:"resource_type"`
-	ResourceID   string             `json:"resource_id"`
-	SourceSystem pgtype.Text        `json:"source_system"`
-	ResourceJson []byte             `json:"resource_json"`
-	IndexedAt    pgtype.Timestamptz `json:"indexed_at"`
 }
 
 type Hospital struct {
@@ -115,14 +147,41 @@ type PatientHospitalConsent struct {
 	RevokedAt pgtype.Timestamptz `json:"revoked_at"`
 }
 
-type RecordChunk struct {
-	ID         pgtype.UUID        `json:"id"`
-	PatientID  pgtype.UUID        `json:"patient_id"`
-	SourceFile string             `json:"source_file"`
-	ChunkIndex int32              `json:"chunk_index"`
-	ChunkText  string             `json:"chunk_text"`
-	Embedding  pgvector.Vector    `json:"embedding"`
-	CreatedAt  pgtype.Timestamptz `json:"created_at"`
+type RecordsFhirPatientMap struct {
+	FhirPatientID     string             `json:"fhir_patient_id"`
+	SourceSystem      string             `json:"source_system"`
+	InternalPatientID pgtype.UUID        `json:"internal_patient_id"`
+	CreatedAt         pgtype.Timestamptz `json:"created_at"`
+}
+
+type RecordsFhirResource struct {
+	ID             pgtype.UUID        `json:"id"`
+	PatientID      pgtype.UUID        `json:"patient_id"`
+	ResourceType   string             `json:"resource_type"`
+	ResourceID     string             `json:"resource_id"`
+	SourceSystem   pgtype.Text        `json:"source_system"`
+	ResourceJson   []byte             `json:"resource_json"`
+	DisplayText    pgtype.Text        `json:"display_text"`
+	ClinicalStatus pgtype.Text        `json:"clinical_status"`
+	EffectiveDate  pgtype.Timestamptz `json:"effective_date"`
+	IndexedAt      pgtype.Timestamptz `json:"indexed_at"`
+}
+
+type RecordsRecordChunk struct {
+	ChunkID          pgtype.UUID        `json:"chunk_id"`
+	PatientID        pgtype.UUID        `json:"patient_id"`
+	RecordID         pgtype.UUID        `json:"record_id"`
+	FhirResourceType pgtype.Text        `json:"fhir_resource_type"`
+	SourceSystem     pgtype.Text        `json:"source_system"`
+	SourceFile       string             `json:"source_file"`
+	ChunkIndex       int32              `json:"chunk_index"`
+	ChunkText        string             `json:"chunk_text"`
+	ChunkHash        string             `json:"chunk_hash"`
+	AccessLevel      string             `json:"access_level"`
+	EmbeddingModel   string             `json:"embedding_model"`
+	Embedding        pgvector.Vector    `json:"embedding"`
+	CreatedAt        pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt        pgtype.Timestamptz `json:"updated_at"`
 }
 
 type User struct {

@@ -47,7 +47,9 @@ spec:
                   key: TRANSLATION_MODEL_BASE_URL
                   name: app-config
             - name: TRANSLATION_MODEL_TIMEOUT_SECONDS
-              value: "30"
+              value: "90"
+            - name: TRANSLATION_MODEL_MAX_TOKENS
+              value: "128"
             - name: TRANSLATION_SERVICE_MAX_TEXT_LENGTH
               value: "10000"
             - name: TRANSLATION_SERVICE_RATE_LIMIT_PER_MINUTE

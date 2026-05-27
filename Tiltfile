@@ -184,6 +184,22 @@ k8s_resource(
 )
 ### End of Analytics Service ###
 
+### Audit Service ###
+docker_build(
+  'zorba-health/audit-service',
+  '.',
+  dockerfile='./deploy/docker/development/audit-service.Dockerfile',
+)
+
+k8s_yaml('./deploy/kubernetes/development/audit-service-deployment.yaml')
+k8s_resource(
+  'audit-service',
+  resource_deps=['db-migrate'],
+  port_forwards='50058:50058',
+  labels="services",
+)
+### End of Audit Service ###
+
 ### Location Service ###
 docker_build(
   'zorba-health/location-service',
@@ -235,7 +251,7 @@ docker_build(
 k8s_yaml('./deploy/kubernetes/development/mcp-server-deployment.yaml')
 k8s_resource(
   'mcp-server',
-  resource_deps=['health-records-service', 'location-service', 'translation-service', 'analytics-service', 'db-migrate'],
+  resource_deps=['health-records-service', 'location-service', 'translation-service', 'analytics-service', 'audit-service', 'db-migrate'],
   port_forwards='8092:8092',
   labels="services",
 )
@@ -261,9 +277,32 @@ docker_build(
   'zorba-health/web',
   '.',
   dockerfile='./deploy/docker/development/web.Dockerfile',
+  build_args={
+    'NEXT_PUBLIC_API_URL': 'http://localhost:8081',
+    'NEXT_PUBLIC_LOCATION_WS_URL': 'ws://localhost:8091',
+  },
 )
 
 k8s_yaml('./deploy/kubernetes/development/web-deployment.yaml')
 k8s_resource('web', port_forwards=3000, labels="frontend")
 
 ### End of Web Frontend ###
+
+### Mobile Frontend ###
+docker_build(
+  'zorba-health/mobile',
+  '.',
+  dockerfile='./deploy/docker/development/mobile.Dockerfile',
+  build_args={
+    'EXPO_PUBLIC_API_URL': 'http://localhost:8081',
+    'EXPO_PUBLIC_LOCATION_WS_URL': 'ws://localhost:8091',
+  },
+  only=[
+    './mobile',
+  ],
+)
+
+k8s_yaml('./deploy/kubernetes/development/mobile-deployment.yaml')
+k8s_resource('mobile', port_forwards='8084:8084', labels="frontend")
+
+### End of Mobile Frontend ###

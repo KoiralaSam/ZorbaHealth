@@ -218,7 +218,7 @@ func (s *PatientService) VerifyPhoneOTP(ctx context.Context, phone string, code 
 	return nil
 }
 
-func (s *PatientService) VerifyExistingPhoneOTP(ctx context.Context, phone string, code string) (*models.Patient, error) {
+func (s *PatientService) VerifyExistingPhoneOTP(ctx context.Context, phone string, code string) (*models.PatientSessionResult, error) {
 	normalized := normalizePhone(phone)
 	if normalized == "" {
 		return nil, domainErrors.ErrInvalidPhoneNumberNoDigits
@@ -241,55 +241,54 @@ func (s *PatientService) VerifyExistingPhoneOTP(ctx context.Context, phone strin
 	}
 
 	_ = s.pendingRegistrationRepo.DeleteOTP(ctx, normalized)
-	return s.repo.GetPatientByID(ctx, patientID)
-}
-
-func (s *PatientService) CompletePhoneRegistration(ctx context.Context, token string) (*models.Patient, error) {
-	pending, err := s.pendingRegistrationRepo.Get(ctx, token)
+	patient, err := s.repo.GetPatientByID(ctx, patientID)
 	if err != nil {
-		return nil, domainErrors.ErrInvalidOrExpiredVerificationLink
-	}
-	if !pending.PhoneVerified {
-		return nil, domainErrors.ErrPhoneVerificationRequired
-	}
-
-	normalizedPhone := normalizePhone(pending.PhoneNumber)
-	if normalizedPhone == "" {
-		return nil, domainErrors.ErrInvalidPhoneNumberNoDigits
-	}
-
-	if _, err := s.repo.GetPatientByPhoneNumber(ctx, normalizedPhone); err == nil {
-		return nil, domainErrors.ErrPhoneNumberAlreadyRegistered
-	} else if err != nil && !errors.Is(err, pgx.ErrNoRows) {
 		return nil, err
 	}
-
-	defer s.pendingRegistrationRepo.Delete(ctx, token)
-	patient := &models.Patient{
-		PhoneNumber: normalizedPhone,
-		Email:       strings.TrimSpace(strings.ToLower(pending.Email)),
-		FullName:    pending.FullName,
-		DateOfBirth: pending.DateOfBirth,
-	}
-	patient, err = s.repo.CreatePatient(ctx, patient)
+	session, err := s.authService.CreatePatientSession(ctx, patient.UserID.String(), []string{"location:read", "records:read"})
 	if err != nil {
-		return nil, domainErrors.ErrPatientCreationFailed
+		return nil, domainErrors.ErrAuthServiceRegisterPatientFailed
 	}
-	if s.publisher != nil {
-		if err := s.publisher.PublishPatientRegistered(ctx, patient); err != nil {
-			return nil, domainErrors.ErrPublishPatientRegisteredEventFailed
-		}
-	}
-	return patient, nil
+	_ = session
+	return &models.PatientSessionResult{
+		PatientID:   patient.ID.String(),
+		UserID:      patient.UserID.String(),
+		AccessToken: session.AccessToken,
+	}, nil
 }
 
 func (s *PatientService) LoginPatient(
 	ctx context.Context,
 	patient *models.Patient,
-) (*models.Patient, error) {
-	// TODO: patient login is handled by the dedicated auth-service.
-	// For now this method is a placeholder to keep the handler signature stable.
-	return s.repo.GetPatientByEmail(ctx, patient.Email)
+) (*models.PatientSessionResult, error) {
+	if patient == nil {
+		return nil, domainErrors.ErrRegistrationRequestRequired
+	}
+
+	loginResult, err := s.authService.Login(ctx, &models.LoginRequest{
+		Email:       strings.TrimSpace(patient.Email),
+		PhoneNumber: normalizePhone(patient.PhoneNumber),
+		Password:    patient.MedicalNotes,
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	patientRecord, err := s.repo.GetPatientByUserID(ctx, loginResult.UserID)
+	if err != nil {
+		return nil, err
+	}
+
+	session, err := s.authService.CreatePatientSession(ctx, patientRecord.UserID.String(), []string{"location:read", "records:read"})
+	if err != nil {
+		return nil, err
+	}
+
+	return &models.PatientSessionResult{
+		PatientID:   patientRecord.ID.String(),
+		UserID:      patientRecord.UserID.String(),
+		AccessToken: session.AccessToken,
+	}, nil
 }
 
 func (s *PatientService) GetPatientByID(
@@ -298,6 +297,14 @@ func (s *PatientService) GetPatientByID(
 ) (*models.Patient, error) {
 	// business rules can live here
 	return s.repo.GetPatientByID(ctx, id)
+}
+
+func (s *PatientService) GetPatientProfile(ctx context.Context, patientID string) (*models.PatientProfile, error) {
+	return s.repo.GetPatientProfile(ctx, patientID)
+}
+
+func (s *PatientService) ListPatientCallSummaries(ctx context.Context, patientID string, limit, offset int32) ([]models.CallSummary, error) {
+	return s.repo.ListPatientCallSummaries(ctx, patientID, limit, offset)
 }
 
 // normalizePhone returns digits only (E.164 without +) for consistent lookup.

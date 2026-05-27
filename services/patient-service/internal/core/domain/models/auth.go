@@ -30,3 +30,10 @@ type RegisterResult struct {
 	Message string
 	UserID  string
 }
+
+type PatientSessionResult struct {
+	PatientID   string
+	UserID      string
+	AccessToken string
+	AuthUUID    string
+}

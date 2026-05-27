@@ -1,0 +1,53 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mobile
+  labels:
+    app: mobile
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: mobile
+  template:
+    metadata:
+      labels:
+        app: mobile
+    spec:
+      containers:
+        - name: mobile
+          image: zorba-health/mobile
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 8084
+              name: expo
+          resources:
+            requests:
+              cpu: "100m"
+              memory: "256Mi"
+            limits:
+              cpu: "1000m"
+              memory: "1Gi"
+          env:
+            - name: NODE_ENV
+              value: "development"
+            - name: EXPO_NO_TELEMETRY
+              value: "1"
+            - name: CI
+              value: "1"
+            # Public app URLs are baked into the Expo bundle by mobile.Dockerfile/Tilt build_args.
+            # They must target host port-forwards, not cluster DNS, because the app runs on a device/simulator.
+          readinessProbe:
+            tcpSocket:
+              port: expo
+            initialDelaySeconds: 10
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 6
+          livenessProbe:
+            tcpSocket:
+              port: expo
+            initialDelaySeconds: 30
+            periodSeconds: 20
+            timeoutSeconds: 5
+            failureThreshold: 3

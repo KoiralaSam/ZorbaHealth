@@ -1,0 +1,24 @@
+name: FHIR sample validation
+
+on:
+  push:
+    paths:
+      - "examples/sample-fhir-data/**"
+      - "services/health-records-service/internal/fhir/**"
+      - "migrations/000008_records_rag_fhir.up.sql"
+  pull_request:
+    paths:
+      - "examples/sample-fhir-data/**"
+      - "services/health-records-service/internal/fhir/**"
+      - "migrations/000008_records_rag_fhir.up.sql"
+
+jobs:
+  fhir-samples:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.24"
+      - name: Validate sample FHIR bundles
+        run: go test ./services/health-records-service/internal/fhir/... -count=1

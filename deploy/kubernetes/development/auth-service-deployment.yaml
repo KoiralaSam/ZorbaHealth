@@ -57,6 +57,11 @@ spec:
                 secretKeyRef:
                   key: AUTH_SERVICE_JWT_SECRET
                   name: app-secrets
+            - name: PATIENT_SERVICE_JWT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  key: PATIENT_SERVICE_JWT_SECRET
+                  name: app-secrets
             - name: RABBITMQ_URI
               valueFrom:
                 secretKeyRef:

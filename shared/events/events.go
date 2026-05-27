@@ -5,9 +5,11 @@ import "github.com/KoiralaSam/ZorbaHealth/shared/contracts"
 const (
 	// PatientExchange is the topic exchange for patient-related events (publish + consume).
 	PatientExchange = "patient"
+	EscalationExchange = "zorba.escalation"
 
 	NotifyPatientRegisteredQueue          = "notify_patient_registered"
 	NotifyPatientPendingVerificationQueue = "notify_patient_pending_verification"
+	NotifyEmergencyEscalationQueue        = "notify_emergency_escalation"
 
 	// CallsExchange is the topic exchange for call lifecycle events.
 	CallsExchange = "zorba.calls"
@@ -38,6 +40,10 @@ var NotificationServicePatientQueueBindings = []QueueBinding{
 	{
 		QueueName:   NotifyPatientPendingVerificationQueue,
 		RoutingKeys: []string{contracts.PatientEventChached, contracts.PatientEventVerificationCodeRequested},
+	},
+	{
+		QueueName:   NotifyEmergencyEscalationQueue,
+		RoutingKeys: []string{contracts.EmergencyEscalatedEvent},
 	},
 }
 
@@ -84,4 +90,16 @@ type CallEvent struct {
 	EventType string `json:"event_type"` // e.g. "call.started" | "call.ended"
 	PatientID string `json:"patient_id"`
 	SessionID string `json:"session_id"`
+}
+
+type EmergencyEscalationData struct {
+	SessionID          string   `json:"session_id"`
+	PatientID          string   `json:"patient_id,omitempty"`
+	CallerPhone        string   `json:"caller_phone,omitempty"`
+	Reason             string   `json:"reason"`
+	Severity           string   `json:"severity,omitempty"`
+	TransferRequested  bool     `json:"transfer_requested,omitempty"`
+	TransferTarget     string   `json:"transfer_target,omitempty"`
+	AlertPhoneNumbers  []string `json:"alert_phone_numbers,omitempty"`
+	TranscriptExcerpt  string   `json:"transcript_excerpt,omitempty"`
 }

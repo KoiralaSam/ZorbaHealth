@@ -10,6 +10,7 @@ from webhook import (
     extract_caller_phone,
     is_agent_identity,
     parse_bind_addr,
+	participant_language,
     process_webhook_event,
     verify_webhook_event,
 )
@@ -58,6 +59,11 @@ def test_process_webhook_event_accepts_real_caller_join() -> None:
     )
 
     assert status == HTTPStatus.ACCEPTED
+
+
+def test_participant_language_supports_preferred_language_and_locale() -> None:
+    assert participant_language('{"preferred_language":"es"}') == "es"
+    assert participant_language('{"locale":"fr-CA"}') == "fr"
 
 
 def test_process_webhook_event_ignores_agent_identity() -> None:

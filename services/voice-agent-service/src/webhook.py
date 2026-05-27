@@ -89,7 +89,9 @@ def participant_language(metadata: str) -> str:
         parsed = json.loads(metadata)
     except json.JSONDecodeError:
         return "en"
-    language = str(parsed.get("language") or "").strip()
+    language = str(parsed.get("language") or parsed.get("preferred_language") or parsed.get("locale") or "").strip()
+    if "-" in language:
+        language = language.split("-", 1)[0]
     return language or "en"
 
 

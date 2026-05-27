@@ -9,4 +9,6 @@ type SessionActor struct {
 	Role       string
 	AdminID    string
 	Scopes     []string
+	UserID     string
+	AuthUUID   string
 }

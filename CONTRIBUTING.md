@@ -61,3 +61,14 @@ The project is moving toward a more modular, provider-agnostic, compliance-aware
 - data handling
 - external provider coupling
 - audit and consent implications
+
+### Architecture boundary lint (health records)
+
+When editing `services/health-records-service`:
+
+- keep FHIR parsing in `internal/fhir`
+- keep retrieval/rerank/summarize orchestration in `internal/rag`
+- keep SQL in `internal/adapters/secondary/repositories/postgres`
+- do not import `internal/rag` or `internal/fhir` from other services
+
+See [`services/health-records-service/README.md`](services/health-records-service/README.md) and the **Health records service vs RAG module** section in [`docs/architecture.md`](docs/architecture.md).

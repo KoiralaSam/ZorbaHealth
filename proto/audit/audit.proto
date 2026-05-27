@@ -1,0 +1,123 @@
+syntax = "proto3";
+
+package audit;
+option go_package = "shared/proto/audit;audit";
+
+import "google/protobuf/struct.proto";
+import "google/protobuf/timestamp.proto";
+
+service AuditService {
+  rpc AppendAuditEvent(AppendAuditEventRequest) returns (AppendAuditEventResponse);
+  rpc QueryAuditEvents(QueryAuditEventsRequest) returns (QueryAuditEventsResponse);
+
+  rpc CheckConsent(CheckConsentRequest) returns (CheckConsentResponse);
+  rpc GrantConsent(GrantConsentRequest) returns (GrantConsentResponse);
+  rpc RevokeConsent(RevokeConsentRequest) returns (RevokeConsentResponse);
+  rpc ListConsents(ListConsentsRequest) returns (ListConsentsResponse);
+}
+
+message AuditEvent {
+  string event_id = 1;
+  string event_type = 2;
+  string actor_type = 3;
+  string actor_id = 4;
+  string patient_id = 5;
+  string service_name = 6;
+  string resource_type = 7;
+  string resource_id = 8;
+  google.protobuf.Timestamp timestamp = 9;
+  string request_id = 10;
+  string correlation_id = 11;
+  string ip_address = 12;
+  string tool_name = 13;
+  string model_name = 14;
+  string provider_name = 15;
+  bool success_status = 16;
+  string failure_reason = 17;
+  google.protobuf.Struct metadata = 18;
+}
+
+message AppendAuditEventRequest {
+  AuditEvent event = 1;
+}
+
+message AppendAuditEventResponse {
+  AuditEvent event = 1;
+}
+
+message QueryAuditEventsRequest {
+  string event_type = 1;
+  string actor_type = 2;
+  string actor_id = 3;
+  string patient_id = 4;
+  string service_name = 5;
+  string correlation_id = 6;
+  int32 limit = 7;
+}
+
+message QueryAuditEventsResponse {
+  repeated AuditEvent events = 1;
+}
+
+message Consent {
+  string consent_id = 1;
+  string patient_id = 2;
+  string consent_type = 3;
+  string granted_by = 4;
+  google.protobuf.Timestamp granted_at = 5;
+  google.protobuf.Timestamp revoked_at = 6;
+  string scope = 7;
+  google.protobuf.Timestamp expiration_time = 8;
+  string source = 9;
+  google.protobuf.Struct metadata = 10;
+}
+
+message CheckConsentRequest {
+  string patient_id = 1;
+  string consent_type = 2;
+  string scope = 3;
+}
+
+message CheckConsentResponse {
+  bool allowed = 1;
+  string denial_reason = 2;
+  Consent consent = 3;
+}
+
+message GrantConsentRequest {
+  string patient_id = 1;
+  string consent_type = 2;
+  string granted_by = 3;
+  string scope = 4;
+  google.protobuf.Timestamp expiration_time = 5;
+  string source = 6;
+  google.protobuf.Struct metadata = 7;
+}
+
+message GrantConsentResponse {
+  Consent consent = 1;
+}
+
+message RevokeConsentRequest {
+  string patient_id = 1;
+  string consent_type = 2;
+  string scope = 3;
+  string revoked_by = 4;
+  string source = 5;
+  google.protobuf.Struct metadata = 6;
+}
+
+message RevokeConsentResponse {
+  Consent consent = 1;
+}
+
+message ListConsentsRequest {
+  string patient_id = 1;
+  string consent_type = 2;
+  bool include_revoked = 3;
+  int32 limit = 4;
+}
+
+message ListConsentsResponse {
+  repeated Consent consents = 1;
+}

@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"sync"
 
 	"github.com/KoiralaSam/ZorbaHealth/services/location-service/internal/core/domain/errors"
 	"github.com/KoiralaSam/ZorbaHealth/services/location-service/internal/core/domain/models"
@@ -17,15 +18,22 @@ type LocationService struct {
 	registry   outbound.ConnectionRegistry
 	geolocator outbound.GeolocationProvider
 	hospitals  outbound.HospitalFinder
+
+	pendingMu           sync.Mutex
+	pendingVoiceSession map[string]string // patientID -> LiveKit/voice sessionID awaiting WS connect
 }
 
 var _ inbound.LocationService = (*LocationService)(nil)
 
 // patientLiveConn adapts inbound.PatientLiveChannel to outbound.Connection.
-type patientLiveConn struct{ ch inbound.PatientLiveChannel }
+type patientLiveConn struct {
+	ch       inbound.PatientLiveChannel
+	clientIP string
+}
 
 func (p *patientLiveConn) WriteJSON(v any) error { return p.ch.WriteJSON(v) }
 func (p *patientLiveConn) Close() error          { return p.ch.Close() }
+func (p *patientLiveConn) ClientIP() string      { return p.clientIP }
 
 func NewLocationService(
 	repo outbound.LocationRepository,
@@ -34,10 +42,11 @@ func NewLocationService(
 	hospitals outbound.HospitalFinder,
 ) inbound.LocationService {
 	return &LocationService{
-		repo:       repo,
-		registry:   registry,
-		geolocator: geolocator,
-		hospitals:  hospitals,
+		repo:                repo,
+		registry:            registry,
+		geolocator:          geolocator,
+		hospitals:           hospitals,
+		pendingVoiceSession: make(map[string]string),
 	}
 }
 
@@ -77,8 +86,18 @@ func (s *LocationService) FindNearestHospital(ctx context.Context, lat, lng floa
 	return s.hospitals.FindNearest(ctx, lat, lng, placeType)
 }
 
-func (s *LocationService) RegisterPatientLiveChannel(_ context.Context, patientID string, ch inbound.PatientLiveChannel) {
-	s.registry.Register(patientID, &patientLiveConn{ch: ch})
+func (s *LocationService) RegisterPatientLiveChannel(ctx context.Context, patientID string, ch inbound.PatientLiveChannel) {
+	s.registry.Register(patientID, &patientLiveConn{ch: ch, clientIP: ch.ClientIP()})
+	log.Printf("patient %s connected to location WS", patientID)
+
+	if sessionID, ok := s.takePendingVoiceSession(patientID); ok {
+		cmd := models.LocationCommand{Command: "start_location", SessionID: sessionID}
+		if err := s.registry.Send(patientID, cmd); err != nil {
+			log.Printf("deliver pending start_location failed patient=%s: %v", patientID, err)
+		} else {
+			log.Printf("delivered pending start_location session=%s patient=%s", sessionID, patientID)
+		}
+	}
 }
 
 func (s *LocationService) UnregisterPatientLiveChannel(_ context.Context, patientID string) {
@@ -101,6 +120,7 @@ func (s *LocationService) HandleCallEvent(ctx context.Context, event events.Call
 			Command:   "stop_location",
 			SessionID: event.SessionID,
 		}
+		s.clearPendingVoiceSession(event.PatientID)
 		// Clean up Redis entry when call ends
 		_ = s.repo.Delete(ctx, event.SessionID)
 	default:
@@ -108,10 +128,37 @@ func (s *LocationService) HandleCallEvent(ctx context.Context, event events.Call
 	}
 
 	if err := s.registry.Send(event.PatientID, cmd); err != nil {
-		// Not a hard error — app may not have WebSocket open (PSTN caller)
-		// location-service will fall back to IP geolocation for that call
-		log.Printf("no WS connection for patient %s: %v", event.PatientID, err)
+		if event.EventType == "call.started" {
+			s.setPendingVoiceSession(event.PatientID, event.SessionID)
+			log.Printf("patient %s not on WS yet; queued start_location for session %s", event.PatientID, event.SessionID)
+		} else {
+			log.Printf("no WS connection for patient %s: %v", event.PatientID, err)
+		}
+	} else if event.EventType == "call.started" {
+		log.Printf("sent start_location to patient %s session=%s (browser should prompt for GPS)", event.PatientID, event.SessionID)
 	}
 
 	return nil
+}
+
+func (s *LocationService) setPendingVoiceSession(patientID, sessionID string) {
+	s.pendingMu.Lock()
+	defer s.pendingMu.Unlock()
+	s.pendingVoiceSession[patientID] = sessionID
+}
+
+func (s *LocationService) takePendingVoiceSession(patientID string) (string, bool) {
+	s.pendingMu.Lock()
+	defer s.pendingMu.Unlock()
+	sessionID, ok := s.pendingVoiceSession[patientID]
+	if ok {
+		delete(s.pendingVoiceSession, patientID)
+	}
+	return sessionID, ok
+}
+
+func (s *LocationService) clearPendingVoiceSession(patientID string) {
+	s.pendingMu.Lock()
+	defer s.pendingMu.Unlock()
+	delete(s.pendingVoiceSession, patientID)
 }

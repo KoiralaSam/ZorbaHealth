@@ -34,6 +34,7 @@ tilt up
 5. Open:
    - Web app: `http://localhost:3000`
    - API gateway: `http://localhost:8081`
+   - Location WebSocket base: `ws://localhost:8091` (patient app uses `/ws/location`)
    - Tilt UI: `http://localhost:10350`
 
 Detailed setup instructions live in:

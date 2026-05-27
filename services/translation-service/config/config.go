@@ -12,6 +12,7 @@ type Config struct {
 	TranslationModelBaseURL    string
 	TranslationModelName       string
 	ModelTimeout               time.Duration
+	ModelMaxTokens             int
 	InternalServiceSecret      string
 	MaxTextLength              int
 	RateLimitPerMinute         int
@@ -24,6 +25,7 @@ func Load() (*Config, error) {
 		TranslationModelBaseURL:    sharedenv.GetString("TRANSLATION_MODEL_BASE_URL", "http://translation-model:8080"),
 		TranslationModelName:       sharedenv.GetString("TRANSLATION_MODEL_NAME", ""),
 		ModelTimeout:               time.Duration(sharedenv.GetInt("TRANSLATION_MODEL_TIMEOUT_SECONDS", 30)) * time.Second,
+		ModelMaxTokens:             sharedenv.GetInt("TRANSLATION_MODEL_MAX_TOKENS", 128),
 		InternalServiceSecret:      sharedenv.GetString("INTERNAL_SERVICE_SECRET", ""),
 		MaxTextLength:              sharedenv.GetInt("TRANSLATION_SERVICE_MAX_TEXT_LENGTH", 10000),
 		RateLimitPerMinute:         sharedenv.GetInt("TRANSLATION_SERVICE_RATE_LIMIT_PER_MINUTE", 60),
@@ -52,6 +54,9 @@ func (c *Config) validate() error {
 	}
 	if c.ModelTimeout <= 0 {
 		return fmt.Errorf("TRANSLATION_MODEL_TIMEOUT_SECONDS must be greater than zero")
+	}
+	if c.ModelMaxTokens <= 0 {
+		return fmt.Errorf("TRANSLATION_MODEL_MAX_TOKENS must be greater than zero")
 	}
 	if c.MaxTextLength <= 0 {
 		return fmt.Errorf("TRANSLATION_SERVICE_MAX_TEXT_LENGTH must be greater than zero")

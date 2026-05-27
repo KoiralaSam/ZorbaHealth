@@ -35,6 +35,7 @@ const (
 	CallEventEnded   = "call.ended"
 	CallEventFailed  = "call.failed"
 	CallEventAll     = "call.*"
+	EmergencyEscalatedEvent = "emergency.event.escalated"
 
 	// Commands for services
 	// Session commands (session.cmd.*)

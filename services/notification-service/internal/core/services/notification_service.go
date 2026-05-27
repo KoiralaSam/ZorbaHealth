@@ -128,6 +128,41 @@ func (s *NotificationService) SendOTP(ctx context.Context, phone string, otp str
 	return s.sms.SendSMS(ctx, phone, message)
 }
 
+func (s *NotificationService) SendEmergencyEscalationSMS(ctx context.Context, phone string, reason string) error {
+	if phone == "" {
+		return domainErrors.ErrPhoneNumberEmpty
+	}
+	if reason == "" {
+		reason = "urgent symptoms"
+	}
+	message := fmt.Sprintf("Zorba Health urgent notice: emergency escalation was triggered for %s. Please contact emergency services or your care team immediately.", reason)
+	return s.sms.SendSMS(ctx, phone, message)
+}
+
+func (s *NotificationService) SendEmergencyEscalationAlerts(ctx context.Context, phones []string, reason string) []error {
+	if len(phones) == 0 {
+		return nil
+	}
+
+	seen := make(map[string]struct{}, len(phones))
+	var errs []error
+	for _, phone := range phones {
+		normalized := strings.TrimSpace(phone)
+		if normalized == "" {
+			continue
+		}
+		if _, ok := seen[normalized]; ok {
+			continue
+		}
+		seen[normalized] = struct{}{}
+
+		if err := s.SendEmergencyEscalationSMS(ctx, normalized, reason); err != nil {
+			errs = append(errs, err)
+		}
+	}
+	return errs
+}
+
 // ReceiveSMS forwards inbound SMS messages (webhook) to the configured inbound receiver.
 func (s *NotificationService) ReceiveSMS(ctx context.Context, phoneNumber, message string) error {
 	return s.inbound.ReceiveSMS(ctx, phoneNumber, message)

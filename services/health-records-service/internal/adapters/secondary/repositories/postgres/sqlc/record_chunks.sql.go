@@ -14,50 +14,75 @@ import (
 
 const createRecordChunk = `-- name: CreateRecordChunk :one
 
-INSERT INTO record_chunks (
+INSERT INTO records.record_chunks (
   patient_id,
+  record_id,
+  fhir_resource_type,
+  source_system,
   source_file,
   chunk_index,
   chunk_text,
+  chunk_hash,
+  access_level,
+  embedding_model,
   embedding
 ) VALUES (
-  $1, $2, $3, $4, $5::vector
+  $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11::vector
 )
-RETURNING id, patient_id, source_file, chunk_index, chunk_text, embedding, created_at
+RETURNING chunk_id, patient_id, record_id, fhir_resource_type, source_system, source_file, chunk_index, chunk_text, chunk_hash, access_level, embedding_model, embedding, created_at, updated_at
 `
 
 type CreateRecordChunkParams struct {
-	PatientID  pgtype.UUID     `json:"patient_id"`
-	SourceFile string          `json:"source_file"`
-	ChunkIndex int32           `json:"chunk_index"`
-	ChunkText  string          `json:"chunk_text"`
-	Column5    pgvector.Vector `json:"column_5"`
+	PatientID        pgtype.UUID     `json:"patient_id"`
+	RecordID         pgtype.UUID     `json:"record_id"`
+	FhirResourceType pgtype.Text     `json:"fhir_resource_type"`
+	SourceSystem     pgtype.Text     `json:"source_system"`
+	SourceFile       string          `json:"source_file"`
+	ChunkIndex       int32           `json:"chunk_index"`
+	ChunkText        string          `json:"chunk_text"`
+	ChunkHash        string          `json:"chunk_hash"`
+	AccessLevel      string          `json:"access_level"`
+	EmbeddingModel   string          `json:"embedding_model"`
+	Column11         pgvector.Vector `json:"column_11"`
 }
 
-// Vector search and ingestion for record_chunks
-func (q *Queries) CreateRecordChunk(ctx context.Context, arg CreateRecordChunkParams) (RecordChunk, error) {
+// Vector search and ingestion for records.record_chunks
+func (q *Queries) CreateRecordChunk(ctx context.Context, arg CreateRecordChunkParams) (RecordsRecordChunk, error) {
 	row := q.db.QueryRow(ctx, createRecordChunk,
 		arg.PatientID,
+		arg.RecordID,
+		arg.FhirResourceType,
+		arg.SourceSystem,
 		arg.SourceFile,
 		arg.ChunkIndex,
 		arg.ChunkText,
-		arg.Column5,
+		arg.ChunkHash,
+		arg.AccessLevel,
+		arg.EmbeddingModel,
+		arg.Column11,
 	)
-	var i RecordChunk
+	var i RecordsRecordChunk
 	err := row.Scan(
-		&i.ID,
+		&i.ChunkID,
 		&i.PatientID,
+		&i.RecordID,
+		&i.FhirResourceType,
+		&i.SourceSystem,
 		&i.SourceFile,
 		&i.ChunkIndex,
 		&i.ChunkText,
+		&i.ChunkHash,
+		&i.AccessLevel,
+		&i.EmbeddingModel,
 		&i.Embedding,
 		&i.CreatedAt,
+		&i.UpdatedAt,
 	)
 	return i, err
 }
 
 const deleteRecordChunksByPatientID = `-- name: DeleteRecordChunksByPatientID :exec
-DELETE FROM record_chunks
+DELETE FROM records.record_chunks
 WHERE patient_id = $1
 `
 
@@ -69,7 +94,7 @@ func (q *Queries) DeleteRecordChunksByPatientID(ctx context.Context, patientID p
 const fetchChunksForSummary = `-- name: FetchChunksForSummary :many
 SELECT
   chunk_text
-FROM record_chunks
+FROM records.record_chunks
 WHERE patient_id = $1
   AND (
     $2 = '' OR
@@ -108,11 +133,15 @@ func (q *Queries) FetchChunksForSummary(ctx context.Context, arg FetchChunksForS
 
 const hospitalSearchRecordChunksByEmbedding = `-- name: HospitalSearchRecordChunksByEmbedding :many
 SELECT
+  rc.chunk_id,
   rc.chunk_text,
   rc.source_file,
+  rc.record_id,
+  rc.fhir_resource_type,
   (1 - (rc.embedding <=> $3::vector))::float4 AS score
-FROM record_chunks rc
+FROM records.record_chunks rc
 WHERE rc.patient_id = $1
+  AND rc.access_level IN ('patient', 'provider')
   AND EXISTS (
     SELECT 1
     FROM patient_hospital_consents phc
@@ -132,9 +161,12 @@ type HospitalSearchRecordChunksByEmbeddingParams struct {
 }
 
 type HospitalSearchRecordChunksByEmbeddingRow struct {
-	ChunkText  string  `json:"chunk_text"`
-	SourceFile string  `json:"source_file"`
-	Score      float32 `json:"score"`
+	ChunkID          pgtype.UUID `json:"chunk_id"`
+	ChunkText        string      `json:"chunk_text"`
+	SourceFile       string      `json:"source_file"`
+	RecordID         pgtype.UUID `json:"record_id"`
+	FhirResourceType pgtype.Text `json:"fhir_resource_type"`
+	Score            float32     `json:"score"`
 }
 
 func (q *Queries) HospitalSearchRecordChunksByEmbedding(ctx context.Context, arg HospitalSearchRecordChunksByEmbeddingParams) ([]HospitalSearchRecordChunksByEmbeddingRow, error) {
@@ -151,7 +183,14 @@ func (q *Queries) HospitalSearchRecordChunksByEmbedding(ctx context.Context, arg
 	items := []HospitalSearchRecordChunksByEmbeddingRow{}
 	for rows.Next() {
 		var i HospitalSearchRecordChunksByEmbeddingRow
-		if err := rows.Scan(&i.ChunkText, &i.SourceFile, &i.Score); err != nil {
+		if err := rows.Scan(
+			&i.ChunkID,
+			&i.ChunkText,
+			&i.SourceFile,
+			&i.RecordID,
+			&i.FhirResourceType,
+			&i.Score,
+		); err != nil {
 			return nil, err
 		}
 		items = append(items, i)
@@ -163,8 +202,8 @@ func (q *Queries) HospitalSearchRecordChunksByEmbedding(ctx context.Context, arg
 }
 
 const listRecordChunksByPatientID = `-- name: ListRecordChunksByPatientID :many
-SELECT id, patient_id, source_file, chunk_index, chunk_text, embedding, created_at
-FROM record_chunks
+SELECT chunk_id, patient_id, record_id, fhir_resource_type, source_system, source_file, chunk_index, chunk_text, chunk_hash, access_level, embedding_model, embedding, created_at, updated_at
+FROM records.record_chunks
 WHERE patient_id = $1
 ORDER BY created_at DESC, chunk_index ASC
 LIMIT $2 OFFSET $3
@@ -176,23 +215,30 @@ type ListRecordChunksByPatientIDParams struct {
 	Offset    int32       `json:"offset"`
 }
 
-func (q *Queries) ListRecordChunksByPatientID(ctx context.Context, arg ListRecordChunksByPatientIDParams) ([]RecordChunk, error) {
+func (q *Queries) ListRecordChunksByPatientID(ctx context.Context, arg ListRecordChunksByPatientIDParams) ([]RecordsRecordChunk, error) {
 	rows, err := q.db.Query(ctx, listRecordChunksByPatientID, arg.PatientID, arg.Limit, arg.Offset)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	items := []RecordChunk{}
+	items := []RecordsRecordChunk{}
 	for rows.Next() {
-		var i RecordChunk
+		var i RecordsRecordChunk
 		if err := rows.Scan(
-			&i.ID,
+			&i.ChunkID,
 			&i.PatientID,
+			&i.RecordID,
+			&i.FhirResourceType,
+			&i.SourceSystem,
 			&i.SourceFile,
 			&i.ChunkIndex,
 			&i.ChunkText,
+			&i.ChunkHash,
+			&i.AccessLevel,
+			&i.EmbeddingModel,
 			&i.Embedding,
 			&i.CreatedAt,
+			&i.UpdatedAt,
 		); err != nil {
 			return nil, err
 		}
@@ -206,11 +252,16 @@ func (q *Queries) ListRecordChunksByPatientID(ctx context.Context, arg ListRecor
 
 const searchRecordChunksByEmbedding = `-- name: SearchRecordChunksByEmbedding :many
 SELECT
+  chunk_id,
   chunk_text,
   source_file,
+  record_id,
+  fhir_resource_type,
   (1 - (embedding <=> $2::vector))::float4 AS score
-FROM record_chunks
+FROM records.record_chunks
 WHERE patient_id = $1
+  AND ($4 = '' OR fhir_resource_type = $4)
+  AND access_level IN ('patient', 'provider')
 ORDER BY embedding <=> $2::vector
 LIMIT $3
 `
@@ -219,16 +270,25 @@ type SearchRecordChunksByEmbeddingParams struct {
 	PatientID pgtype.UUID     `json:"patient_id"`
 	Column2   pgvector.Vector `json:"column_2"`
 	Limit     int32           `json:"limit"`
+	Column4   interface{}     `json:"column_4"`
 }
 
 type SearchRecordChunksByEmbeddingRow struct {
-	ChunkText  string  `json:"chunk_text"`
-	SourceFile string  `json:"source_file"`
-	Score      float32 `json:"score"`
+	ChunkID          pgtype.UUID `json:"chunk_id"`
+	ChunkText        string      `json:"chunk_text"`
+	SourceFile       string      `json:"source_file"`
+	RecordID         pgtype.UUID `json:"record_id"`
+	FhirResourceType pgtype.Text `json:"fhir_resource_type"`
+	Score            float32     `json:"score"`
 }
 
 func (q *Queries) SearchRecordChunksByEmbedding(ctx context.Context, arg SearchRecordChunksByEmbeddingParams) ([]SearchRecordChunksByEmbeddingRow, error) {
-	rows, err := q.db.Query(ctx, searchRecordChunksByEmbedding, arg.PatientID, arg.Column2, arg.Limit)
+	rows, err := q.db.Query(ctx, searchRecordChunksByEmbedding,
+		arg.PatientID,
+		arg.Column2,
+		arg.Limit,
+		arg.Column4,
+	)
 	if err != nil {
 		return nil, err
 	}
@@ -236,7 +296,71 @@ func (q *Queries) SearchRecordChunksByEmbedding(ctx context.Context, arg SearchR
 	items := []SearchRecordChunksByEmbeddingRow{}
 	for rows.Next() {
 		var i SearchRecordChunksByEmbeddingRow
-		if err := rows.Scan(&i.ChunkText, &i.SourceFile, &i.Score); err != nil {
+		if err := rows.Scan(
+			&i.ChunkID,
+			&i.ChunkText,
+			&i.SourceFile,
+			&i.RecordID,
+			&i.FhirResourceType,
+			&i.Score,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const searchRecordChunksCandidates = `-- name: SearchRecordChunksCandidates :many
+SELECT
+  chunk_id,
+  chunk_text,
+  source_file,
+  record_id,
+  fhir_resource_type,
+  (1 - (embedding <=> $2::vector))::float4 AS score
+FROM records.record_chunks
+WHERE patient_id = $1
+  AND access_level IN ('patient', 'provider')
+ORDER BY embedding <=> $2::vector
+LIMIT $3
+`
+
+type SearchRecordChunksCandidatesParams struct {
+	PatientID pgtype.UUID     `json:"patient_id"`
+	Column2   pgvector.Vector `json:"column_2"`
+	Limit     int32           `json:"limit"`
+}
+
+type SearchRecordChunksCandidatesRow struct {
+	ChunkID          pgtype.UUID `json:"chunk_id"`
+	ChunkText        string      `json:"chunk_text"`
+	SourceFile       string      `json:"source_file"`
+	RecordID         pgtype.UUID `json:"record_id"`
+	FhirResourceType pgtype.Text `json:"fhir_resource_type"`
+	Score            float32     `json:"score"`
+}
+
+func (q *Queries) SearchRecordChunksCandidates(ctx context.Context, arg SearchRecordChunksCandidatesParams) ([]SearchRecordChunksCandidatesRow, error) {
+	rows, err := q.db.Query(ctx, searchRecordChunksCandidates, arg.PatientID, arg.Column2, arg.Limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []SearchRecordChunksCandidatesRow{}
+	for rows.Next() {
+		var i SearchRecordChunksCandidatesRow
+		if err := rows.Scan(
+			&i.ChunkID,
+			&i.ChunkText,
+			&i.SourceFile,
+			&i.RecordID,
+			&i.FhirResourceType,
+			&i.Score,
+		); err != nil {
 			return nil, err
 		}
 		items = append(items, i)

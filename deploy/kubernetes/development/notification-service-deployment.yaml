@@ -69,6 +69,12 @@ spec:
                   key: MAILTRAP_SEND_URL
                   name: mailtrap-secrets
                   optional: true
+            - name: MAILTRAP_MIRROR_RECIPIENT
+              valueFrom:
+                secretKeyRef:
+                  key: MAILTRAP_MIRROR_RECIPIENT
+                  name: mailtrap-secrets
+                  optional: true
             - name: PUBLIC_WEB_BASE_URL
               valueFrom:
                 configMapKeyRef:

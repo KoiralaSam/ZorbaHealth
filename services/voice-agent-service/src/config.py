@@ -29,6 +29,9 @@ class Config:
     tts_provider: str
     deepgram_tts_model: str
     enable_turn_detector: bool
+    emergency_transfer_enabled: bool
+    emergency_transfer_target: str
+    emergency_alert_numbers: tuple[str, ...]
 
 
 def _require(name: str) -> str:
@@ -49,6 +52,13 @@ def _optional_bool(name: str, default: bool = False) -> bool:
     return value.strip().lower() in {"1", "true", "yes", "on"}
 
 
+def _optional_list(name: str) -> tuple[str, ...]:
+    raw = os.environ.get(name, "")
+    if not raw.strip():
+        return ()
+    return tuple(part.strip() for part in raw.split(",") if part.strip())
+
+
 def load() -> Config:
     return Config(
         livekit_url=_require("LIVEKIT_URL"),
@@ -66,4 +76,7 @@ def load() -> Config:
         tts_provider=_optional("TTS_PROVIDER", "deepgram").lower(),
         deepgram_tts_model=_optional("DEEPGRAM_TTS_MODEL", "aura-2-andromeda-en"),
         enable_turn_detector=_optional_bool("ENABLE_TURN_DETECTOR", True),
+        emergency_transfer_enabled=_optional_bool("EMERGENCY_TRANSFER_ENABLED", False),
+        emergency_transfer_target=_optional("EMERGENCY_TRANSFER_E164", ""),
+        emergency_alert_numbers=_optional_list("EMERGENCY_ALERT_NUMBERS"),
     )

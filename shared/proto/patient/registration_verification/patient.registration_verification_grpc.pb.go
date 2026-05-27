@@ -24,7 +24,6 @@ const (
 	RegistrationVerificationService_StartExistingPhoneVerification_FullMethodName = "/patient.registration_verification.RegistrationVerificationService/StartExistingPhoneVerification"
 	RegistrationVerificationService_VerifyPhoneOTP_FullMethodName                 = "/patient.registration_verification.RegistrationVerificationService/VerifyPhoneOTP"
 	RegistrationVerificationService_VerifyExistingPhoneOTP_FullMethodName         = "/patient.registration_verification.RegistrationVerificationService/VerifyExistingPhoneOTP"
-	RegistrationVerificationService_CompletePhoneRegistration_FullMethodName      = "/patient.registration_verification.RegistrationVerificationService/CompletePhoneRegistration"
 	RegistrationVerificationService_VerifyEmail_FullMethodName                    = "/patient.registration_verification.RegistrationVerificationService/VerifyEmail"
 )
 
@@ -46,8 +45,6 @@ type RegistrationVerificationServiceClient interface {
 	VerifyPhoneOTP(ctx context.Context, in *VerifyPhoneOTPRequest, opts ...grpc.CallOption) (*VerifyPhoneOTPResponse, error)
 	// VerifyExistingPhoneOTP verifies an OTP for an existing patient and returns the patient id.
 	VerifyExistingPhoneOTP(ctx context.Context, in *VerifyExistingPhoneOTPRequest, opts ...grpc.CallOption) (*VerifyExistingPhoneOTPResponse, error)
-	// CompletePhoneRegistration creates a patient after phone verification for voice-only registration flows.
-	CompletePhoneRegistration(ctx context.Context, in *CompletePhoneRegistrationRequest, opts ...grpc.CallOption) (*CompletePhoneRegistrationResponse, error)
 	// VerifyEmail consumes the token from the verification link, creates user and patient, returns ids.
 	VerifyEmail(ctx context.Context, in *VerifyEmailRequest, opts ...grpc.CallOption) (*VerifyEmailResponse, error)
 }
@@ -110,16 +107,6 @@ func (c *registrationVerificationServiceClient) VerifyExistingPhoneOTP(ctx conte
 	return out, nil
 }
 
-func (c *registrationVerificationServiceClient) CompletePhoneRegistration(ctx context.Context, in *CompletePhoneRegistrationRequest, opts ...grpc.CallOption) (*CompletePhoneRegistrationResponse, error) {
-	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
-	out := new(CompletePhoneRegistrationResponse)
-	err := c.cc.Invoke(ctx, RegistrationVerificationService_CompletePhoneRegistration_FullMethodName, in, out, cOpts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
 func (c *registrationVerificationServiceClient) VerifyEmail(ctx context.Context, in *VerifyEmailRequest, opts ...grpc.CallOption) (*VerifyEmailResponse, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(VerifyEmailResponse)
@@ -148,8 +135,6 @@ type RegistrationVerificationServiceServer interface {
 	VerifyPhoneOTP(context.Context, *VerifyPhoneOTPRequest) (*VerifyPhoneOTPResponse, error)
 	// VerifyExistingPhoneOTP verifies an OTP for an existing patient and returns the patient id.
 	VerifyExistingPhoneOTP(context.Context, *VerifyExistingPhoneOTPRequest) (*VerifyExistingPhoneOTPResponse, error)
-	// CompletePhoneRegistration creates a patient after phone verification for voice-only registration flows.
-	CompletePhoneRegistration(context.Context, *CompletePhoneRegistrationRequest) (*CompletePhoneRegistrationResponse, error)
 	// VerifyEmail consumes the token from the verification link, creates user and patient, returns ids.
 	VerifyEmail(context.Context, *VerifyEmailRequest) (*VerifyEmailResponse, error)
 	mustEmbedUnimplementedRegistrationVerificationServiceServer()
@@ -176,9 +161,6 @@ func (UnimplementedRegistrationVerificationServiceServer) VerifyPhoneOTP(context
 }
 func (UnimplementedRegistrationVerificationServiceServer) VerifyExistingPhoneOTP(context.Context, *VerifyExistingPhoneOTPRequest) (*VerifyExistingPhoneOTPResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method VerifyExistingPhoneOTP not implemented")
-}
-func (UnimplementedRegistrationVerificationServiceServer) CompletePhoneRegistration(context.Context, *CompletePhoneRegistrationRequest) (*CompletePhoneRegistrationResponse, error) {
-	return nil, status.Error(codes.Unimplemented, "method CompletePhoneRegistration not implemented")
 }
 func (UnimplementedRegistrationVerificationServiceServer) VerifyEmail(context.Context, *VerifyEmailRequest) (*VerifyEmailResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method VerifyEmail not implemented")
@@ -295,24 +277,6 @@ func _RegistrationVerificationService_VerifyExistingPhoneOTP_Handler(srv interfa
 	return interceptor(ctx, in, info, handler)
 }
 
-func _RegistrationVerificationService_CompletePhoneRegistration_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(CompletePhoneRegistrationRequest)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(RegistrationVerificationServiceServer).CompletePhoneRegistration(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: RegistrationVerificationService_CompletePhoneRegistration_FullMethodName,
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(RegistrationVerificationServiceServer).CompletePhoneRegistration(ctx, req.(*CompletePhoneRegistrationRequest))
-	}
-	return interceptor(ctx, in, info, handler)
-}
-
 func _RegistrationVerificationService_VerifyEmail_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(VerifyEmailRequest)
 	if err := dec(in); err != nil {
@@ -357,10 +321,6 @@ var RegistrationVerificationService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "VerifyExistingPhoneOTP",
 			Handler:    _RegistrationVerificationService_VerifyExistingPhoneOTP_Handler,
-		},
-		{
-			MethodName: "CompletePhoneRegistration",
-			Handler:    _RegistrationVerificationService_CompletePhoneRegistration_Handler,
 		},
 		{
 			MethodName: "VerifyEmail",

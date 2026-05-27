@@ -6,6 +6,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 
+	sharedaudit "github.com/KoiralaSam/ZorbaHealth/shared/audit"
 	sharedauth "github.com/KoiralaSam/ZorbaHealth/shared/auth"
 	healthpb "github.com/KoiralaSam/ZorbaHealth/shared/proto/health_records"
 )
@@ -31,23 +32,25 @@ func RegisterSummarizePatientRecord(s *mcp.Server, db *pgxpool.Pool, client heal
 		}
 
 		if err := sharedauth.RequireActorType(claims, sharedauth.ActorStaff); err != nil {
-			audit(db, claims, "summarize_patient_record", "forbidden", err.Error())
+			auditCompat(db, claims, "summarize_patient_record", "forbidden", err.Error())
 			return errorResult(err.Error()), nil, nil
 		}
 		if !sharedauth.HasScope(claims, "patient:read") {
-			audit(db, claims, "summarize_patient_record", "forbidden", "missing patient:read")
+			auditCompat(db, claims, "summarize_patient_record", "forbidden", "missing patient:read")
 			return errorResult("forbidden: missing patient:read"), nil, nil
 		}
 
-		ok, err := sharedauth.CheckConsent(ctx, db, in.PatientID, claims.HospitalID)
+		ok, denialReason, err := checkConsent(ctx, db, in.Auth, in.PatientID, sharedaudit.ConsentAISummarization, "hospital:"+claims.HospitalID)
 		if err != nil {
-			audit(db, claims, "summarize_patient_record", "error", err.Error())
+			auditCompat(db, claims, "summarize_patient_record", "error", err.Error())
 			return errorResult("consent check failed"), nil, nil
 		}
 		if !ok {
-			msg := "access denied: patient has not consented to share data with your hospital"
-			audit(db, claims, "summarize_patient_record", "consent-denied", msg)
-			return errorResult(msg), nil, nil
+			if denialReason == "" {
+				denialReason = "access denied: patient has not consented to share data with your hospital"
+			}
+			auditCompat(db, claims, "summarize_patient_record", "consent-denied", denialReason)
+			return errorResult(denialReason), nil, nil
 		}
 
 		focus := in.Focus
@@ -55,6 +58,10 @@ func RegisterSummarizePatientRecord(s *mcp.Server, db *pgxpool.Pool, client heal
 			focus = "full"
 		}
 
+		correlationID := auditStart(ctx, claims, sharedaudit.EventHealthRecordSummarized, "summarize_patient_record", map[string]any{
+			"patient_id": in.PatientID,
+			"focus":      focus,
+		})
 		ctx = ctxWithForwardedToken(ctx, in.Auth)
 
 		resp, err := client.SummarizeRecords(ctx, &healthpb.SummarizeRequest{
@@ -63,11 +70,11 @@ func RegisterSummarizePatientRecord(s *mcp.Server, db *pgxpool.Pool, client heal
 			Focus:      focus,
 		})
 		if err != nil {
-			audit(db, claims, "summarize_patient_record", "error", err.Error())
+			auditComplete(ctx, db, claims, sharedaudit.EventHealthRecordSummarized, "summarize_patient_record", "error", err.Error(), correlationID, nil)
 			return errorResult("summarization failed"), nil, nil
 		}
 
-		audit(db, claims, "summarize_patient_record", "success", "")
+		auditComplete(ctx, db, claims, sharedaudit.EventHealthRecordSummarized, "summarize_patient_record", "success", "", correlationID, nil)
 		return textResult(resp.GetSummary()), nil, nil
 	})
 }

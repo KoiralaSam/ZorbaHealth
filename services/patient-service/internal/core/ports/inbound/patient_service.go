@@ -13,13 +13,14 @@ type PatientService interface {
 	StartExistingPhoneVerification(ctx context.Context, phone string) error
 	VerifyEmailAndCreatePatient(ctx context.Context, token string) (*models.Patient, error)
 	VerifyPhoneOTP(ctx context.Context, phone string, code string) error
-	VerifyExistingPhoneOTP(ctx context.Context, phone string, code string) (*models.Patient, error)
-	CompletePhoneRegistration(ctx context.Context, token string) (*models.Patient, error)
+	VerifyExistingPhoneOTP(ctx context.Context, phone string, code string) (*models.PatientSessionResult, error)
 
-	LoginPatient(ctx context.Context, patient *models.Patient) (*models.Patient, error)
+	LoginPatient(ctx context.Context, patient *models.Patient) (*models.PatientSessionResult, error)
 	GetPatientByID(ctx context.Context, id string) (*models.Patient, error)
 	GetPatientByPhoneNumber(ctx context.Context, phoneNumber string) (*models.Patient, error)
 	GetPatientByEmail(ctx context.Context, email string) (*models.Patient, error)
+	GetPatientProfile(ctx context.Context, patientID string) (*models.PatientProfile, error)
+	ListPatientCallSummaries(ctx context.Context, patientID string, limit, offset int32) ([]models.CallSummary, error)
 	UpdatePatient(ctx context.Context, patient *models.Patient) error
 	DeletePatient(ctx context.Context, id string) error
 }

@@ -18,7 +18,6 @@ import (
 	geolocation "github.com/KoiralaSam/ZorbaHealth/services/location-service/internal/adapters/secondary/geolocation"
 	memoryrepo "github.com/KoiralaSam/ZorbaHealth/services/location-service/internal/adapters/secondary/repositories/memory"
 	redisrepo "github.com/KoiralaSam/ZorbaHealth/services/location-service/internal/adapters/secondary/repositories/redis"
-	"github.com/KoiralaSam/ZorbaHealth/services/location-service/internal/adapters/secondary/stub"
 	"github.com/KoiralaSam/ZorbaHealth/services/location-service/internal/core/services"
 	"github.com/KoiralaSam/ZorbaHealth/shared/env"
 	"github.com/KoiralaSam/ZorbaHealth/shared/events"
@@ -77,7 +76,7 @@ func main() {
 	if err != nil {
 		log.Fatalf("ip geolocation: %v", err)
 	}
-	hospitals := stub.NewNoopHospitalFinder()
+	hospitals := geolocation.NewNominatimHospitalFinder()
 
 	// ── Core service ───────────────────────────────────────────────────────
 	svc := services.NewLocationService(locationRepo, registry, geo, hospitals)
@@ -123,7 +122,13 @@ func main() {
 		Service: svc,
 		Auth:    auth.NewPatientJWTAuth(jwtSecret),
 	}
+	approxHandler := &httphandlers.ApproximateLocationHandler{
+		Geolocator: geo,
+		Auth:       auth.NewPatientJWTAuth(jwtSecret),
+	}
 	mux.HandleFunc("GET /ws/location", wsHandler.HandleConnect)
+	mux.HandleFunc("GET /v1/patient/location/approximate", approxHandler.Handle)
+	mux.HandleFunc("OPTIONS /v1/patient/location/approximate", approxHandler.Handle)
 
 	server := &http.Server{
 		Addr:              httpAddr,

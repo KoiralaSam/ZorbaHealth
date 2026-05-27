@@ -45,8 +45,17 @@ This document inventories the services currently present in the repository, thei
 - Path: `services/mcp-server`
 - Entrypoint: `services/mcp-server/cmd/mcp-server/main.go`
 - Interfaces: MCP stdio transport by default; streamable HTTP on `MCP_HTTP_ADDR` when `MCP_TRANSPORT=http`
-- Primary dependencies: PostgreSQL, health-records service, translation service, location service, analytics service
-- Current scope: tool routing for health-record, translation, location, and analytics workflows
+- Primary dependencies: PostgreSQL, RabbitMQ, audit service, health-records service, translation service, location service, analytics service
+- Current scope: tool routing for health-record, translation, location, analytics, and escalation workflows with consent/audit checks
+- Status: Implemented
+
+### Audit Service
+
+- Path: `services/audit-service`
+- Entrypoint: `services/audit-service/cmd/audit-service/main.go`
+- Interfaces: gRPC on `AUDIT_SERVICE_GRPC_ADDR`
+- Primary dependencies: PostgreSQL
+- Current scope: append-only audit event storage, audit query path, and consent grant/check/revoke/list APIs
 - Status: Implemented
 
 ### Voice Agent Service
@@ -55,7 +64,7 @@ This document inventories the services currently present in the repository, thei
 - Entrypoint: `services/voice-agent-service/src/agent.py`
 - Interfaces: outbound LiveKit agent worker; HTTP on `VOICE_AGENT_HTTP_ADDR` for `/webhook/livekit` and `/health`; MCP client to `mcp-server`
 - Primary dependencies: LiveKit, MCP server, Deepgram, OpenAI, ElevenLabs
-- Current scope: realtime voice session orchestration, LiveKit webhook handling, STT/LLM/TTS, and MCP-backed assistant tools
+- Current scope: realtime voice session orchestration, LiveKit webhook handling, STT/LLM/TTS, MCP-backed assistant tools, and current safety/escalation trigger logic
 - Status: Implemented
 
 ### Notification Service
@@ -64,7 +73,7 @@ This document inventories the services currently present in the repository, thei
 - Entrypoint: `services/notification-service/cmd/notification-service/main.go`
 - Interfaces: HTTP on `HTTP_ADDR`, RabbitMQ consumer
 - Primary dependencies: RabbitMQ, Mailtrap, VoIP.ms
-- Current scope: patient event notifications and SMS webhook handling
+- Current scope: patient event notifications, emergency escalation SMS fan-out, and SMS webhook handling
 - Status: Implemented
 
 ### Location Service
@@ -142,8 +151,6 @@ This document inventories the services currently present in the repository, thei
 
 ## Important current gaps
 
-- No dedicated audit/compliance service yet
-- No formal consent service or consent enforcement layer yet
 - No provider-agnostic abstraction layer across all external integrations yet
 - No Helm charts or Docker Compose workflow yet
 - Health provider functionality is still a stub

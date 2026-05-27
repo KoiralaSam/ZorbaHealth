@@ -13,8 +13,11 @@ import (
 	openaiadapter "github.com/KoiralaSam/ZorbaHealth/services/health-records-service/internal/adapters/secondary/openai"
 	postgresrepo "github.com/KoiralaSam/ZorbaHealth/services/health-records-service/internal/adapters/secondary/repositories/postgres"
 	"github.com/KoiralaSam/ZorbaHealth/services/health-records-service/internal/core/services"
+	"github.com/KoiralaSam/ZorbaHealth/services/health-records-service/internal/rag"
 	"github.com/KoiralaSam/ZorbaHealth/shared/db"
 	"github.com/KoiralaSam/ZorbaHealth/shared/env"
+	"github.com/KoiralaSam/ZorbaHealth/shared/grpcclient"
+	auditpb "github.com/KoiralaSam/ZorbaHealth/shared/proto/audit"
 	"github.com/KoiralaSam/ZorbaHealth/shared/tracing"
 	grpcserver "google.golang.org/grpc"
 )
@@ -68,8 +71,23 @@ func main() {
 	embedder := openaiadapter.NewClient(openAIKey)
 	summarizer := openaiadapter.NewSummarizerClient(openAIKey)
 
+	auditConn, err := grpcclient.Dial(env.GetString("AUDIT_SERVICE_GRPC_ADDR", "audit-service:50058"))
+	if err != nil {
+		log.Fatalf("audit-service dial: %v", err)
+	}
+	defer auditConn.Close()
+	auditClient := auditpb.NewAuditServiceClient(auditConn)
+	ragPipeline := rag.NewPipeline(
+		store,
+		embedder,
+		summarizer,
+		rag.NewGRPCConsentChecker(auditClient),
+		rag.NewGRPCAuditAdapter(auditClient, "health-records-service"),
+		"text-embedding-3-small",
+	)
+
 	// --- Core service ---
-	svc := services.NewHealthRecordsService(embedder, store, summarizer)
+	svc := services.NewHealthRecordsService(embedder, store, summarizer, ragPipeline)
 
 	// --- gRPC listener ---
 	lis, err := net.Listen("tcp", grpcAddr)

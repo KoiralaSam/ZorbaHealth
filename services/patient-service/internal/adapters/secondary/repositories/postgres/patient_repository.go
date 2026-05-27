@@ -62,6 +62,20 @@ func (r *PatientRepository) GetPatientByID(ctx context.Context, id string) (*mod
 	return r.toDomainPatient(&dbPatient), nil
 }
 
+func (r *PatientRepository) GetPatientByUserID(ctx context.Context, userID string) (*models.Patient, error) {
+	uid, err := uuid.Parse(userID)
+	if err != nil {
+		return nil, err
+	}
+
+	dbPatient, err := r.queries.GetPatientByUserID(ctx, pgtype.UUID{Bytes: uid, Valid: true})
+	if err != nil {
+		return nil, err
+	}
+
+	return r.toDomainPatient(&dbPatient), nil
+}
+
 // GetPatientByPhoneNumber retrieves a patient by phone number
 func (r *PatientRepository) GetPatientByPhoneNumber(ctx context.Context, phoneNumber string) (*models.Patient, error) {
 	rows, err := r.db.Query(ctx, `
@@ -114,6 +128,50 @@ func (r *PatientRepository) GetPatientByEmail(ctx context.Context, email string)
 	}
 
 	return r.toDomainPatient(&dbPatient), nil
+}
+
+func (r *PatientRepository) GetPatientProfile(ctx context.Context, patientID string) (*models.PatientProfile, error) {
+	patient, err := r.GetPatientByID(ctx, patientID)
+	if err != nil {
+		return nil, err
+	}
+
+	return &models.PatientProfile{
+		PatientID:    patient.ID.String(),
+		PhoneNumber:  patient.PhoneNumber,
+		Email:        patient.Email,
+		FullName:     patient.FullName,
+		DateOfBirth:  patient.DateOfBirth,
+		MedicalNotes: patient.MedicalNotes,
+	}, nil
+}
+
+func (r *PatientRepository) ListPatientCallSummaries(ctx context.Context, patientID string, limit, offset int32) ([]models.CallSummary, error) {
+	id, err := uuid.Parse(patientID)
+	if err != nil {
+		return nil, err
+	}
+	if limit <= 0 {
+		limit = 10
+	}
+	if offset < 0 {
+		offset = 0
+	}
+
+	rows, err := r.queries.ListCallsByPatientID(ctx, sqlc.ListCallsByPatientIDParams{
+		PatientID: pgtype.UUID{Bytes: id, Valid: true},
+		Limit:     limit,
+		Offset:    offset,
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	calls := make([]models.CallSummary, 0, len(rows))
+	for _, row := range rows {
+		calls = append(calls, toCallSummary(row))
+	}
+	return calls, nil
 }
 
 // UpdatePatient updates an existing patient
@@ -170,4 +228,24 @@ func (r *PatientRepository) toDomainPatient(p *sqlc.Patient) *models.Patient {
 		CreatedAt:    createdAt,
 		UpdatedAt:    updatedAt,
 	}
+}
+
+func toCallSummary(call sqlc.Call) models.CallSummary {
+	return models.CallSummary{
+		ID:            call.ID,
+		Status:        call.Status.String,
+		StartedAt:     timestampPtr(call.StartedAt),
+		EndedAt:       timestampPtr(call.EndedAt),
+		RecordingURL:  call.RecordingS3Url.String,
+		Summary:       call.Summary.String,
+		LivekitRoomID: call.LivekitRoomID.String,
+	}
+}
+
+func timestampPtr(value pgtype.Timestamp) *time.Time {
+	if !value.Valid {
+		return nil
+	}
+	t := value.Time
+	return &t
 }

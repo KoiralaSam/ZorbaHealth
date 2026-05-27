@@ -3,12 +3,12 @@ package rabbitmq
 import (
 	"context"
 	"encoding/json"
-	"log"
 
 	domainErrors "github.com/KoiralaSam/ZorbaHealth/services/notification-service/internal/core/domain/errors"
 	"github.com/KoiralaSam/ZorbaHealth/services/notification-service/internal/core/ports/inbound"
 	"github.com/KoiralaSam/ZorbaHealth/shared/contracts"
 	"github.com/KoiralaSam/ZorbaHealth/shared/events"
+	sharedlogging "github.com/KoiralaSam/ZorbaHealth/shared/logging"
 	messaging "github.com/KoiralaSam/ZorbaHealth/shared/messaging"
 	amqp "github.com/rabbitmq/amqp091-go"
 )
@@ -26,13 +26,13 @@ func (c *PatientConsumer) Listen() error {
 	return c.rabbitmq.ConsumeMessages(events.NotifyPatientPendingVerificationQueue, func(ctx context.Context, message amqp.Delivery) error {
 		var PatientEvent contracts.AmqpMessage
 		if err := json.Unmarshal(message.Body, &PatientEvent); err != nil {
-			log.Printf("Failed to unmarshal message: %v", err)
+			sharedlogging.Error("notification patient event decode failed", err)
 			return err
 		}
 
 		var payload events.PatientEventData
 		if err := json.Unmarshal(PatientEvent.Data, &payload); err != nil {
-			log.Printf("Failed to unmarshal message: %v", err)
+			sharedlogging.Error("notification patient payload decode failed", err)
 			return err
 		}
 
@@ -42,25 +42,31 @@ func (c *PatientConsumer) Listen() error {
 
 		if payload.RegisterRequest != nil {
 			if err := c.svc.SendPendingVerificationEmail(ctx, payload.RegisterRequest, PatientEvent.OwnerID); err != nil {
-				log.Printf("Failed to send verification email: %v", err)
+				sharedlogging.Error("notification email send failed", err)
 			} else {
-				log.Printf("Sent verification email to %s", payload.RegisterRequest.Email)
+				sharedlogging.Info("notification email sent",
+					"email_hash", sharedlogging.HashIdentifier(payload.RegisterRequest.Email),
+				)
 			}
 		}
 
 		if payload.RegisterRequest != nil && payload.RegisterRequest.PhoneNumber != "" && payload.RegisterRequest.Otp != "" {
 			if err := c.svc.SendOTP(ctx, payload.RegisterRequest.PhoneNumber, payload.RegisterRequest.Otp); err != nil {
-				log.Printf("Failed to send OTP SMS: %v", err)
+				sharedlogging.Error("notification otp send failed", err)
 			} else {
-				log.Printf("Sent OTP to %s", payload.RegisterRequest.PhoneNumber)
+				sharedlogging.Info("notification otp sent",
+					"phone_hash", sharedlogging.HashIdentifier(payload.RegisterRequest.PhoneNumber),
+				)
 			}
 		}
 
 		if payload.PhoneVerification != nil && payload.PhoneVerification.PhoneNumber != "" && payload.PhoneVerification.Otp != "" {
 			if err := c.svc.SendOTP(ctx, payload.PhoneVerification.PhoneNumber, payload.PhoneVerification.Otp); err != nil {
-				log.Printf("Failed to send phone verification OTP SMS: %v", err)
+				sharedlogging.Error("notification phone verification otp send failed", err)
 			} else {
-				log.Printf("Sent phone verification OTP to %s", payload.PhoneVerification.PhoneNumber)
+				sharedlogging.Info("notification phone verification otp sent",
+					"phone_hash", sharedlogging.HashIdentifier(payload.PhoneVerification.PhoneNumber),
+				)
 			}
 		}
 

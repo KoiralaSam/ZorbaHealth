@@ -327,6 +327,109 @@ var RegisterHealthProviderService_ServiceDesc = grpc.ServiceDesc{
 }
 
 const (
+	CreatePatientSessionService_CreatePatientSession_FullMethodName = "/auth.CreatePatientSessionService/CreatePatientSession"
+)
+
+// CreatePatientSessionServiceClient is the client API for CreatePatientSessionService service.
+//
+// For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
+type CreatePatientSessionServiceClient interface {
+	CreatePatientSession(ctx context.Context, in *CreatePatientSessionRequest, opts ...grpc.CallOption) (*CreatePatientSessionResponse, error)
+}
+
+type createPatientSessionServiceClient struct {
+	cc grpc.ClientConnInterface
+}
+
+func NewCreatePatientSessionServiceClient(cc grpc.ClientConnInterface) CreatePatientSessionServiceClient {
+	return &createPatientSessionServiceClient{cc}
+}
+
+func (c *createPatientSessionServiceClient) CreatePatientSession(ctx context.Context, in *CreatePatientSessionRequest, opts ...grpc.CallOption) (*CreatePatientSessionResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(CreatePatientSessionResponse)
+	err := c.cc.Invoke(ctx, CreatePatientSessionService_CreatePatientSession_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+// CreatePatientSessionServiceServer is the server API for CreatePatientSessionService service.
+// All implementations must embed UnimplementedCreatePatientSessionServiceServer
+// for forward compatibility.
+type CreatePatientSessionServiceServer interface {
+	CreatePatientSession(context.Context, *CreatePatientSessionRequest) (*CreatePatientSessionResponse, error)
+	mustEmbedUnimplementedCreatePatientSessionServiceServer()
+}
+
+// UnimplementedCreatePatientSessionServiceServer must be embedded to have
+// forward compatible implementations.
+//
+// NOTE: this should be embedded by value instead of pointer to avoid a nil
+// pointer dereference when methods are called.
+type UnimplementedCreatePatientSessionServiceServer struct{}
+
+func (UnimplementedCreatePatientSessionServiceServer) CreatePatientSession(context.Context, *CreatePatientSessionRequest) (*CreatePatientSessionResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method CreatePatientSession not implemented")
+}
+func (UnimplementedCreatePatientSessionServiceServer) mustEmbedUnimplementedCreatePatientSessionServiceServer() {
+}
+func (UnimplementedCreatePatientSessionServiceServer) testEmbeddedByValue() {}
+
+// UnsafeCreatePatientSessionServiceServer may be embedded to opt out of forward compatibility for this service.
+// Use of this interface is not recommended, as added methods to CreatePatientSessionServiceServer will
+// result in compilation errors.
+type UnsafeCreatePatientSessionServiceServer interface {
+	mustEmbedUnimplementedCreatePatientSessionServiceServer()
+}
+
+func RegisterCreatePatientSessionServiceServer(s grpc.ServiceRegistrar, srv CreatePatientSessionServiceServer) {
+	// If the following call panics, it indicates UnimplementedCreatePatientSessionServiceServer was
+	// embedded by pointer and is nil.  This will cause panics if an
+	// unimplemented method is ever invoked, so we test this at initialization
+	// time to prevent it from happening at runtime later due to I/O.
+	if t, ok := srv.(interface{ testEmbeddedByValue() }); ok {
+		t.testEmbeddedByValue()
+	}
+	s.RegisterService(&CreatePatientSessionService_ServiceDesc, srv)
+}
+
+func _CreatePatientSessionService_CreatePatientSession_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(CreatePatientSessionRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(CreatePatientSessionServiceServer).CreatePatientSession(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: CreatePatientSessionService_CreatePatientSession_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(CreatePatientSessionServiceServer).CreatePatientSession(ctx, req.(*CreatePatientSessionRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+// CreatePatientSessionService_ServiceDesc is the grpc.ServiceDesc for CreatePatientSessionService service.
+// It's only intended for direct use with grpc.RegisterService,
+// and not to be introspected or modified (even as a copy)
+var CreatePatientSessionService_ServiceDesc = grpc.ServiceDesc{
+	ServiceName: "auth.CreatePatientSessionService",
+	HandlerType: (*CreatePatientSessionServiceServer)(nil),
+	Methods: []grpc.MethodDesc{
+		{
+			MethodName: "CreatePatientSession",
+			Handler:    _CreatePatientSessionService_CreatePatientSession_Handler,
+		},
+	},
+	Streams:  []grpc.StreamDesc{},
+	Metadata: "auth.proto",
+}
+
+const (
 	VerifyTokenService_VerifyToken_FullMethodName = "/auth.VerifyTokenService/VerifyToken"
 )
 

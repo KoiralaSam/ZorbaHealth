@@ -1,6 +1,8 @@
 package mappers
 
 import (
+	"fmt"
+
 	"github.com/KoiralaSam/ZorbaHealth/services/location-service/internal/core/domain/models"
 	pb "github.com/KoiralaSam/ZorbaHealth/shared/proto/location"
 )
@@ -48,7 +50,7 @@ func HospitalToProto(h *models.Hospital) *pb.FindHospitalResponse {
 	return &pb.FindHospitalResponse{
 		Name:          h.Name,
 		Address:       h.Address,
-		DirectionsUrl: "",
+		DirectionsUrl: fmt.Sprintf("https://www.google.com/maps/search/?api=1&query=%f,%f", h.Lat, h.Lng),
 		Phone:         "",
 	}
 }

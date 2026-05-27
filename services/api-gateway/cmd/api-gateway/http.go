@@ -3,14 +3,31 @@ package main
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"net/http"
+	"os"
+	"strings"
+	"time"
 
 	"github.com/KoiralaSam/ZorbaHealth/services/api-gateway/cmd/api-gateway/grpc_clients"
+	"github.com/KoiralaSam/ZorbaHealth/shared/env"
+	sharedauth "github.com/KoiralaSam/ZorbaHealth/shared/auth"
+	sharedaudit "github.com/KoiralaSam/ZorbaHealth/shared/audit"
 	"github.com/KoiralaSam/ZorbaHealth/shared/contracts"
+	"github.com/KoiralaSam/ZorbaHealth/shared/grpcclient"
+	authpb "github.com/KoiralaSam/ZorbaHealth/shared/proto/auth"
+	auditpb "github.com/KoiralaSam/ZorbaHealth/shared/proto/audit"
+	auditportalpb "github.com/KoiralaSam/ZorbaHealth/shared/proto/auditportal"
+	healthpb "github.com/KoiralaSam/ZorbaHealth/shared/proto/health_records"
+	patientpb "github.com/KoiralaSam/ZorbaHealth/shared/proto/patient"
 	"github.com/KoiralaSam/ZorbaHealth/shared/proto/patient/registration_verification"
+	patientportalpb "github.com/KoiralaSam/ZorbaHealth/shared/proto/patientportal"
 	"github.com/KoiralaSam/ZorbaHealth/shared/tracing"
+	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/status"
+	"google.golang.org/protobuf/types/known/structpb"
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
@@ -49,7 +66,7 @@ func PatientLoginHandler(w http.ResponseWriter, r *http.Request) {
 	defer r.Body.Close()
 
 	//validation
-	if reqBody.PhoneNumber == "" {
+	if strings.TrimSpace(reqBody.PhoneNumber) == "" {
 		writeJson(w, http.StatusBadRequest, nil, &contracts.APIError{
 			Code:    "INVALID_REQUEST_BODY",
 			Message: "Phone number is required",
@@ -57,7 +74,6 @@ func PatientLoginHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// TODO: call patient service to initiate login
 	patientAuthServiceClient, err := grpc_clients.NewPatientAuthServiceClient()
 	if err != nil {
 		writeJson(w, http.StatusInternalServerError, nil, &contracts.APIError{
@@ -69,7 +85,23 @@ func PatientLoginHandler(w http.ResponseWriter, r *http.Request) {
 
 	defer patientAuthServiceClient.Close()
 
-	writeJson(w, http.StatusOK, nil, nil)
+	response, err := patientAuthServiceClient.LoginClient.Login(r.Context(), &patientpb.LoginRequest{
+		PhoneNumber: strings.TrimSpace(reqBody.PhoneNumber),
+		Email:       strings.TrimSpace(reqBody.Email),
+		Password:    reqBody.Password,
+	})
+	if err != nil {
+		writeJson(w, http.StatusUnauthorized, nil, &contracts.APIError{
+			Code:    "UNAUTHORIZED",
+			Message: "Patient login failed: " + err.Error(),
+		})
+		return
+	}
+	writeJson(w, http.StatusOK, PatientLoginResponse{
+		Message:     response.GetMessage(),
+		AccessToken: response.GetAccessToken(),
+		PatientID:   response.GetPatientID(),
+	}, nil)
 }
 
 func PatientRegisterHandler(w http.ResponseWriter, r *http.Request) {
@@ -238,9 +270,833 @@ func HospitalLoginHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	defer r.Body.Close()
 
-	// TODO: Implement actual authentication logic
-	response := HospitalLoginResponse{
-		Message: "Hospital login endpoint - Implementation pending",
+	if strings.TrimSpace(reqBody.Email) == "" || strings.TrimSpace(reqBody.Password) == "" {
+		writeJson(w, http.StatusBadRequest, nil, &contracts.APIError{
+			Code:    "INVALID_REQUEST_BODY",
+			Message: "email and password are required",
+		})
+		return
 	}
-	writeJson(w, http.StatusOK, response, nil)
+
+	client, err := grpc_clients.NewPatientAuthServiceClient()
+	if err != nil {
+		writeJson(w, http.StatusInternalServerError, nil, &contracts.APIError{
+			Code:    "INTERNAL_SERVER_ERROR",
+			Message: "Failed to create auth client: " + err.Error(),
+		})
+		return
+	}
+	defer client.Close()
+
+	response, err := client.HospitalLoginClient.Login(r.Context(), &authpb.LoginRequest{
+		Email:    strings.TrimSpace(reqBody.Email),
+		Password: reqBody.Password,
+	})
+	if err != nil {
+		writeJson(w, http.StatusUnauthorized, nil, &contracts.APIError{
+			Code:    "UNAUTHORIZED",
+			Message: "Hospital login failed: " + err.Error(),
+		})
+		return
+	}
+
+	writeJson(w, http.StatusOK, HospitalLoginResponse{
+		Message:     response.GetMessage(),
+		AccessToken: response.GetAccessToken(),
+		Role:        response.GetRole(),
+	}, nil)
+}
+
+func HospitalPatientSummaryHandler(w http.ResponseWriter, r *http.Request) {
+	var reqBody HospitalPatientSummaryRequest
+	if err := json.NewDecoder(r.Body).Decode(&reqBody); err != nil {
+		writeJson(w, http.StatusBadRequest, nil, &contracts.APIError{
+			Code:    "INVALID_REQUEST_BODY",
+			Message: "Invalid request body: " + err.Error(),
+		})
+		return
+	}
+	defer r.Body.Close()
+
+	accessToken := strings.TrimSpace(strings.TrimPrefix(r.Header.Get("Authorization"), "Bearer "))
+	if accessToken == "" {
+		writeJson(w, http.StatusUnauthorized, nil, &contracts.APIError{
+			Code:    "UNAUTHORIZED",
+			Message: "Authorization bearer token is required",
+		})
+		return
+	}
+	if strings.TrimSpace(reqBody.PatientID) == "" {
+		writeJson(w, http.StatusBadRequest, nil, &contracts.APIError{
+			Code:    "INVALID_REQUEST_BODY",
+			Message: "patient_id is required",
+		})
+		return
+	}
+
+	claims, err := sharedauth.VerifyToken(accessToken)
+	if err != nil {
+		writeJson(w, http.StatusUnauthorized, nil, &contracts.APIError{
+			Code:    "UNAUTHORIZED",
+			Message: "Invalid hospital token",
+		})
+		return
+	}
+	if claims.ActorType != sharedauth.ActorStaff || strings.TrimSpace(claims.HospitalID) == "" {
+		writeJson(w, http.StatusForbidden, nil, &contracts.APIError{
+			Code:    "FORBIDDEN",
+			Message: "Hospital staff access is required",
+		})
+		return
+	}
+
+	healthAddr := os.Getenv("HEALTH_RECORDS_SERVICE_GRPC_ADDR")
+	if healthAddr == "" {
+		healthAddr = "health-records-service:50054"
+	}
+	conn, err := grpcclient.DialInsecure(healthAddr)
+	if err != nil {
+		writeJson(w, http.StatusInternalServerError, nil, &contracts.APIError{
+			Code:    "INTERNAL_SERVER_ERROR",
+			Message: "Failed to connect to health records service: " + err.Error(),
+		})
+		return
+	}
+	defer conn.Close()
+
+	ctx := metadata.AppendToOutgoingContext(
+		r.Context(),
+		"x-internal-token", os.Getenv("INTERNAL_SERVICE_SECRET"),
+		"x-forwarded-token", accessToken,
+	)
+	client := healthpb.NewHealthRecordServiceClient(conn)
+	resp, err := client.SummarizeRecords(ctx, &healthpb.SummarizeRequest{
+		PatientId:  strings.TrimSpace(reqBody.PatientID),
+		HospitalId: claims.HospitalID,
+		Focus:      strings.TrimSpace(reqBody.Focus),
+	})
+	if err != nil {
+		writeJson(w, http.StatusBadRequest, nil, &contracts.APIError{
+			Code:    "FORBIDDEN",
+			Message: "Failed to summarize patient records: " + err.Error(),
+		})
+		return
+	}
+	writeJson(w, http.StatusOK, HospitalPatientSummaryResponse{Summary: resp.GetSummary()}, nil)
+}
+
+func PatientProfileHandler(w http.ResponseWriter, r *http.Request) {
+	accessToken, claims, apiErr := requirePatientClaims(r)
+	if apiErr != nil {
+		writeJson(w, statusCodeForAPIError(apiErr), nil, apiErr)
+		return
+	}
+
+	patientClient, conn, err := newPatientPortalClient()
+	if err != nil {
+		writeJson(w, http.StatusInternalServerError, nil, &contracts.APIError{
+			Code:    "INTERNAL_SERVER_ERROR",
+			Message: "Failed to connect to patient service: " + err.Error(),
+		})
+		return
+	}
+	defer conn.Close()
+
+	resp, err := patientClient.GetProfile(grpcclient.WithForwardedToken(r.Context(), accessToken), &patientportalpb.GetPatientProfileRequest{
+		PatientId: claims.PatientID,
+	})
+	if err != nil {
+		writeJson(w, http.StatusInternalServerError, nil, &contracts.APIError{
+			Code:    "INTERNAL_SERVER_ERROR",
+			Message: "Failed to load patient profile: " + err.Error(),
+		})
+		return
+	}
+	profile := resp.GetProfile()
+	if profile == nil {
+		writeJson(w, http.StatusInternalServerError, nil, &contracts.APIError{
+			Code:    "INTERNAL_SERVER_ERROR",
+			Message: "Patient service returned an empty profile",
+		})
+		return
+	}
+
+	writeJson(w, http.StatusOK, PatientProfileResponse{
+		PatientID:     claims.PatientID,
+		FullName:      profile.GetFullName(),
+		Email:         profile.GetEmail(),
+		PhoneNumber:   profile.GetPhoneNumber(),
+		DateOfBirth:   profile.GetDateOfBirth(),
+		MedicalNotes:  profile.GetMedicalNotes(),
+		VoicePhone:    env.GetString("ZORBA_VOICE_PHONE_NUMBER", "+1-800-ZORBA-AI"),
+		VoiceEnabled:  true,
+		SupportWindow: env.GetString("ZORBA_SUPPORT_WINDOW", "24/7"),
+	}, nil)
+}
+
+func PatientListConsentsHandler(w http.ResponseWriter, r *http.Request) {
+	accessToken, claims, apiErr := requirePatientClaims(r)
+	if apiErr != nil {
+		writeJson(w, statusCodeForAPIError(apiErr), nil, apiErr)
+		return
+	}
+
+	auditClient, conn, err := newAuditPortalClient()
+	if err != nil {
+		writeJson(w, http.StatusInternalServerError, nil, &contracts.APIError{
+			Code:    "INTERNAL_SERVER_ERROR",
+			Message: "Failed to connect to audit service: " + err.Error(),
+		})
+		return
+	}
+	defer conn.Close()
+
+	resp, err := auditClient.ListPatientConsents(grpcclient.WithForwardedToken(r.Context(), accessToken), &auditportalpb.ListPatientConsentsRequest{
+		PatientId:      claims.PatientID,
+		IncludeRevoked: true,
+		Limit:          100,
+	})
+	if err != nil {
+		writeJson(w, http.StatusInternalServerError, nil, &contracts.APIError{
+			Code:    "INTERNAL_SERVER_ERROR",
+			Message: "Failed to load patient consents: " + err.Error(),
+		})
+		return
+	}
+
+	consents := make([]ConsentRecord, 0, len(resp.GetConsents()))
+	for _, consent := range resp.GetConsents() {
+		consents = append(consents, portalConsentFromProto(consent))
+	}
+
+	writeJson(w, http.StatusOK, PatientConsentListResponse{
+		PatientID: claims.PatientID,
+		Consents:  consents,
+	}, nil)
+}
+
+func PatientGrantConsentHandler(w http.ResponseWriter, r *http.Request) {
+	accessToken, claims, apiErr := requirePatientClaims(r)
+	if apiErr != nil {
+		writeJson(w, statusCodeForAPIError(apiErr), nil, apiErr)
+		return
+	}
+
+	var reqBody PatientConsentMutationRequest
+	if err := json.NewDecoder(r.Body).Decode(&reqBody); err != nil {
+		writeJson(w, http.StatusBadRequest, nil, &contracts.APIError{
+			Code:    "INVALID_REQUEST_BODY",
+			Message: "Invalid request body: " + err.Error(),
+		})
+		return
+	}
+	defer r.Body.Close()
+
+	if !isValidConsentType(reqBody.ConsentType) {
+		writeJson(w, http.StatusBadRequest, nil, &contracts.APIError{
+			Code:    "INVALID_REQUEST_BODY",
+			Message: "Unsupported consent_type",
+		})
+		return
+	}
+
+	auditClient, conn, err := newAuditClient()
+	if err != nil {
+		writeJson(w, http.StatusInternalServerError, nil, &contracts.APIError{
+			Code:    "INTERNAL_SERVER_ERROR",
+			Message: "Failed to connect to audit service: " + err.Error(),
+		})
+		return
+	}
+	defer conn.Close()
+
+	ctx := grpcclient.WithForwardedToken(r.Context(), accessToken)
+	resp, err := auditClient.GrantConsent(ctx, &auditpb.GrantConsentRequest{
+		PatientId:   claims.PatientID,
+		ConsentType: reqBody.ConsentType,
+		Scope:       strings.TrimSpace(reqBody.Scope),
+		Source:      fallbackString(strings.TrimSpace(reqBody.Source), "patient-portal"),
+		Metadata:    mapToStruct(reqBody.Metadata),
+	})
+	if err != nil {
+		writeJson(w, http.StatusBadRequest, nil, &contracts.APIError{
+			Code:    "FORBIDDEN",
+			Message: "Failed to grant consent: " + err.Error(),
+		})
+		return
+	}
+
+	writeJson(w, http.StatusOK, PatientConsentMutationResponse{
+		Message: "Consent granted.",
+		Consent: consentFromProto(resp.GetConsent()),
+	}, nil)
+}
+
+func PatientRevokeConsentHandler(w http.ResponseWriter, r *http.Request) {
+	accessToken, claims, apiErr := requirePatientClaims(r)
+	if apiErr != nil {
+		writeJson(w, statusCodeForAPIError(apiErr), nil, apiErr)
+		return
+	}
+
+	var reqBody PatientConsentMutationRequest
+	if err := json.NewDecoder(r.Body).Decode(&reqBody); err != nil {
+		writeJson(w, http.StatusBadRequest, nil, &contracts.APIError{
+			Code:    "INVALID_REQUEST_BODY",
+			Message: "Invalid request body: " + err.Error(),
+		})
+		return
+	}
+	defer r.Body.Close()
+
+	if !isValidConsentType(reqBody.ConsentType) {
+		writeJson(w, http.StatusBadRequest, nil, &contracts.APIError{
+			Code:    "INVALID_REQUEST_BODY",
+			Message: "Unsupported consent_type",
+		})
+		return
+	}
+
+	auditClient, conn, err := newAuditClient()
+	if err != nil {
+		writeJson(w, http.StatusInternalServerError, nil, &contracts.APIError{
+			Code:    "INTERNAL_SERVER_ERROR",
+			Message: "Failed to connect to audit service: " + err.Error(),
+		})
+		return
+	}
+	defer conn.Close()
+
+	ctx := grpcclient.WithForwardedToken(r.Context(), accessToken)
+	resp, err := auditClient.RevokeConsent(ctx, &auditpb.RevokeConsentRequest{
+		PatientId:   claims.PatientID,
+		ConsentType: reqBody.ConsentType,
+		Scope:       strings.TrimSpace(reqBody.Scope),
+		Source:      fallbackString(strings.TrimSpace(reqBody.Source), "patient-portal"),
+		Metadata:    mapToStruct(reqBody.Metadata),
+	})
+	if err != nil {
+		writeJson(w, http.StatusBadRequest, nil, &contracts.APIError{
+			Code:    "FORBIDDEN",
+			Message: "Failed to revoke consent: " + err.Error(),
+		})
+		return
+	}
+
+	writeJson(w, http.StatusOK, PatientConsentMutationResponse{
+		Message: "Consent revoked.",
+		Consent: consentFromProto(resp.GetConsent()),
+	}, nil)
+}
+
+func PatientHealthAnswerHandler(w http.ResponseWriter, r *http.Request) {
+	accessToken, claims, apiErr := requirePatientClaims(r)
+	if apiErr != nil {
+		writeJson(w, statusCodeForAPIError(apiErr), nil, apiErr)
+		return
+	}
+
+	var reqBody PatientHealthAnswerRequest
+	if err := json.NewDecoder(r.Body).Decode(&reqBody); err != nil {
+		writeJson(w, http.StatusBadRequest, nil, &contracts.APIError{
+			Code:    "INVALID_REQUEST_BODY",
+			Message: "Invalid request body: " + err.Error(),
+		})
+		return
+	}
+	defer r.Body.Close()
+
+	if strings.TrimSpace(reqBody.Question) == "" {
+		writeJson(w, http.StatusBadRequest, nil, &contracts.APIError{
+			Code:    "INVALID_REQUEST_BODY",
+			Message: "question is required",
+		})
+		return
+	}
+
+	healthClient, conn, err := newHealthRecordsClient()
+	if err != nil {
+		writeJson(w, http.StatusInternalServerError, nil, &contracts.APIError{
+			Code:    "INTERNAL_SERVER_ERROR",
+			Message: "Failed to connect to health records service: " + err.Error(),
+		})
+		return
+	}
+	defer conn.Close()
+
+	ctx := grpcclient.WithForwardedToken(r.Context(), accessToken)
+	resp, err := healthClient.AnswerPatientQuestion(ctx, &healthpb.AnswerPatientQuestionRequest{
+		PatientId: claims.PatientID,
+		Question:  strings.TrimSpace(reqBody.Question),
+		TopK:      defaultTopK(reqBody.TopK),
+	})
+	if err != nil {
+		writeJson(w, http.StatusBadRequest, nil, &contracts.APIError{
+			Code:    "FORBIDDEN",
+			Message: "Failed to answer health question: " + err.Error(),
+		})
+		return
+	}
+
+	citations := make([]PatientHealthCitation, 0, len(resp.GetCitations()))
+	for _, item := range resp.GetCitations() {
+		citations = append(citations, PatientHealthCitation{
+			Text:       item.GetText(),
+			SourceFile: item.GetSourceFile(),
+			Score:      item.GetScore(),
+		})
+	}
+
+	writeJson(w, http.StatusOK, PatientHealthAnswerResponse{
+		Answer:    resp.GetAnswer(),
+		Citations: citations,
+	}, nil)
+}
+
+func PatientCallsHandler(w http.ResponseWriter, r *http.Request) {
+	accessToken, claims, apiErr := requirePatientClaims(r)
+	if apiErr != nil {
+		writeJson(w, statusCodeForAPIError(apiErr), nil, apiErr)
+		return
+	}
+
+	patientClient, conn, err := newPatientPortalClient()
+	if err != nil {
+		writeJson(w, http.StatusInternalServerError, nil, &contracts.APIError{
+			Code:    "INTERNAL_SERVER_ERROR",
+			Message: "Failed to connect to patient service: " + err.Error(),
+		})
+		return
+	}
+	defer conn.Close()
+
+	resp, err := patientClient.ListCallSummaries(grpcclient.WithForwardedToken(r.Context(), accessToken), &patientportalpb.ListPatientCallSummariesRequest{
+		PatientId: claims.PatientID,
+		Limit:     10,
+	})
+	if err != nil {
+		writeJson(w, http.StatusInternalServerError, nil, &contracts.APIError{
+			Code:    "INTERNAL_SERVER_ERROR",
+			Message: "Failed to load call summaries: " + err.Error(),
+		})
+		return
+	}
+
+	calls := make([]PatientCallSummary, 0, len(resp.GetCalls()))
+	for _, call := range resp.GetCalls() {
+		calls = append(calls, PatientCallSummary{
+			ID:            call.GetId(),
+			Status:        call.GetStatus(),
+			StartedAt:     protoTimeOrEmpty(call.GetStartedAt()),
+			EndedAt:       protoTimeOrEmpty(call.GetEndedAt()),
+			RecordingURL:  call.GetRecordingUrl(),
+			Summary:       call.GetSummary(),
+			LivekitRoomID: call.GetLivekitRoomId(),
+		})
+	}
+
+	writeJson(w, http.StatusOK, PatientCallListResponse{
+		PatientID: claims.PatientID,
+		Calls:     calls,
+	}, nil)
+}
+
+func PatientAuditHandler(w http.ResponseWriter, r *http.Request) {
+	accessToken, claims, apiErr := requirePatientClaims(r)
+	if apiErr != nil {
+		writeJson(w, statusCodeForAPIError(apiErr), nil, apiErr)
+		return
+	}
+
+	auditClient, conn, err := newAuditPortalClient()
+	if err != nil {
+		writeJson(w, http.StatusInternalServerError, nil, &contracts.APIError{
+			Code:    "INTERNAL_SERVER_ERROR",
+			Message: "Failed to connect to audit service: " + err.Error(),
+		})
+		return
+	}
+	defer conn.Close()
+
+	resp, err := auditClient.ListPatientAuditEvents(grpcclient.WithForwardedToken(r.Context(), accessToken), &auditportalpb.ListPatientAuditEventsRequest{
+		PatientId: claims.PatientID,
+		Limit:     30,
+	})
+	if err != nil {
+		writeJson(w, http.StatusInternalServerError, nil, &contracts.APIError{
+			Code:    "INTERNAL_SERVER_ERROR",
+			Message: "Failed to load patient audit trail: " + err.Error(),
+		})
+		return
+	}
+
+	events := portalAuditEventsFromProto(resp.GetEvents())
+
+	writeJson(w, http.StatusOK, PatientAuditResponse{
+		PatientID: claims.PatientID,
+		Events:    events,
+	}, nil)
+}
+
+func HospitalIncidentsHandler(w http.ResponseWriter, r *http.Request) {
+	accessToken, claims, apiErr := requireStaffClaims(r)
+	if apiErr != nil {
+		writeJson(w, statusCodeForAPIError(apiErr), nil, apiErr)
+		return
+	}
+
+	auditClient, conn, err := newAuditPortalClient()
+	if err != nil {
+		writeJson(w, http.StatusInternalServerError, nil, &contracts.APIError{
+			Code:    "INTERNAL_SERVER_ERROR",
+			Message: "Failed to connect to audit service: " + err.Error(),
+		})
+		return
+	}
+	defer conn.Close()
+
+	resp, err := auditClient.ListHospitalIncidents(grpcclient.WithForwardedToken(r.Context(), accessToken), &auditportalpb.ListHospitalIncidentsRequest{
+		Limit: 30,
+	})
+	if err != nil {
+		writeJson(w, http.StatusInternalServerError, nil, &contracts.APIError{
+			Code:    "INTERNAL_SERVER_ERROR",
+			Message: "Failed to load emergency incidents: " + err.Error(),
+		})
+		return
+	}
+
+	events := portalAuditEventsFromProto(resp.GetIncidents())
+
+	incidents := make([]HospitalIncidentRecord, 0, len(events))
+	for _, event := range events {
+		if !incidentVisibleToHospital(event, claims.HospitalID) {
+			continue
+		}
+		incidents = append(incidents, HospitalIncidentRecord{
+			EventID:       event.EventID,
+			PatientID:     event.PatientID,
+			Timestamp:     event.Timestamp,
+			Severity:      stringMetadata(event.Metadata, "severity"),
+			SessionID:     stringMetadata(event.Metadata, "session_id"),
+			ServiceName:   event.ServiceName,
+			FailureReason: event.FailureReason,
+			Metadata:      scrubIncidentMetadata(event.Metadata),
+		})
+	}
+
+	writeJson(w, http.StatusOK, HospitalIncidentListResponse{Incidents: incidents}, nil)
+}
+
+func HospitalPatientAuditHandler(w http.ResponseWriter, r *http.Request) {
+	accessToken, _, apiErr := requireStaffClaims(r)
+	if apiErr != nil {
+		writeJson(w, statusCodeForAPIError(apiErr), nil, apiErr)
+		return
+	}
+
+	patientID := strings.TrimSpace(r.URL.Query().Get("patient_id"))
+	if patientID == "" {
+		writeJson(w, http.StatusBadRequest, nil, &contracts.APIError{
+			Code:    "INVALID_REQUEST_BODY",
+			Message: "patient_id query parameter is required",
+		})
+		return
+	}
+	auditClient, conn, err := newAuditPortalClient()
+	if err != nil {
+		writeJson(w, http.StatusInternalServerError, nil, &contracts.APIError{
+			Code:    "INTERNAL_SERVER_ERROR",
+			Message: "Failed to connect to audit service: " + err.Error(),
+		})
+		return
+	}
+	defer conn.Close()
+
+	resp, err := auditClient.ListHospitalPatientAuditEvents(grpcclient.WithForwardedToken(r.Context(), accessToken), &auditportalpb.ListHospitalPatientAuditEventsRequest{
+		PatientId: patientID,
+		Limit:     30,
+	})
+	if err != nil {
+		code := http.StatusInternalServerError
+		if s, ok := status.FromError(err); ok && s.Code() == codes.PermissionDenied {
+			code = http.StatusForbidden
+		}
+		writeJson(w, code, nil, &contracts.APIError{
+			Code:    "FORBIDDEN",
+			Message: "Failed to load patient audit trail: " + err.Error(),
+		})
+		return
+	}
+
+	events := portalAuditEventsFromProto(resp.GetEvents())
+
+	writeJson(w, http.StatusOK, HospitalPatientAuditResponse{
+		PatientID: patientID,
+		Events:    events,
+	}, nil)
+}
+
+func requirePatientClaims(r *http.Request) (string, *sharedauth.Claims, *contracts.APIError) {
+	accessToken := bearerToken(r)
+	if accessToken == "" {
+		return "", nil, &contracts.APIError{Code: "UNAUTHORIZED", Message: "Authorization bearer token is required"}
+	}
+	claims, err := sharedauth.VerifyToken(accessToken)
+	if err != nil {
+		return "", nil, &contracts.APIError{Code: "UNAUTHORIZED", Message: "Invalid patient token"}
+	}
+	if claims.ActorType != sharedauth.ActorPatient || strings.TrimSpace(claims.PatientID) == "" {
+		return "", nil, &contracts.APIError{Code: "FORBIDDEN", Message: "Patient access is required"}
+	}
+	return accessToken, claims, nil
+}
+
+func requireStaffClaims(r *http.Request) (string, *sharedauth.Claims, *contracts.APIError) {
+	accessToken := bearerToken(r)
+	if accessToken == "" {
+		return "", nil, &contracts.APIError{Code: "UNAUTHORIZED", Message: "Authorization bearer token is required"}
+	}
+	claims, err := sharedauth.VerifyToken(accessToken)
+	if err != nil {
+		return "", nil, &contracts.APIError{Code: "UNAUTHORIZED", Message: "Invalid hospital token"}
+	}
+	if claims.ActorType != sharedauth.ActorStaff || strings.TrimSpace(claims.HospitalID) == "" {
+		return "", nil, &contracts.APIError{Code: "FORBIDDEN", Message: "Hospital staff access is required"}
+	}
+	return accessToken, claims, nil
+}
+
+func bearerToken(r *http.Request) string {
+	return strings.TrimSpace(strings.TrimPrefix(r.Header.Get("Authorization"), "Bearer "))
+}
+
+func statusCodeForAPIError(err *contracts.APIError) int {
+	if err == nil {
+		return http.StatusInternalServerError
+	}
+	switch err.Code {
+	case "INVALID_REQUEST_BODY":
+		return http.StatusBadRequest
+	case "UNAUTHORIZED":
+		return http.StatusUnauthorized
+	case "FORBIDDEN":
+		return http.StatusForbidden
+	default:
+		return http.StatusInternalServerError
+	}
+}
+
+func newHealthRecordsClient() (healthpb.HealthRecordServiceClient, *grpc.ClientConn, error) {
+	healthAddr := os.Getenv("HEALTH_RECORDS_SERVICE_GRPC_ADDR")
+	if healthAddr == "" {
+		healthAddr = "health-records-service:50054"
+	}
+	conn, err := grpcclient.Dial(healthAddr)
+	if err != nil {
+		return nil, nil, err
+	}
+	return healthpb.NewHealthRecordServiceClient(conn), conn, nil
+}
+
+func newAuditClient() (auditpb.AuditServiceClient, *grpc.ClientConn, error) {
+	auditAddr := os.Getenv("AUDIT_SERVICE_GRPC_ADDR")
+	if auditAddr == "" {
+		auditAddr = "audit-service:50058"
+	}
+	conn, err := grpcclient.Dial(auditAddr)
+	if err != nil {
+		return nil, nil, err
+	}
+	return auditpb.NewAuditServiceClient(conn), conn, nil
+}
+
+func newAuditPortalClient() (auditportalpb.AuditPortalServiceClient, *grpc.ClientConn, error) {
+	auditAddr := os.Getenv("AUDIT_SERVICE_GRPC_ADDR")
+	if auditAddr == "" {
+		auditAddr = "audit-service:50058"
+	}
+	conn, err := grpcclient.Dial(auditAddr)
+	if err != nil {
+		return nil, nil, err
+	}
+	return auditportalpb.NewAuditPortalServiceClient(conn), conn, nil
+}
+
+func newPatientPortalClient() (patientportalpb.PatientPortalServiceClient, *grpc.ClientConn, error) {
+	patientAddr := os.Getenv("PATIENT_SERVICE_GRPC_ADDR")
+	if patientAddr == "" {
+		patientAddr = "patient-service:9093"
+	}
+	conn, err := grpcclient.Dial(patientAddr)
+	if err != nil {
+		return nil, nil, err
+	}
+	return patientportalpb.NewPatientPortalServiceClient(conn), conn, nil
+}
+
+func incidentVisibleToHospital(event AuditEventRecord, hospitalID string) bool {
+	if hospitalID == "" {
+		return false
+	}
+	target := stringMetadata(event.Metadata, "hospital_id")
+	return target == "" || target == hospitalID
+}
+
+func scrubIncidentMetadata(metadata map[string]any) map[string]any {
+	if len(metadata) == 0 {
+		return map[string]any{}
+	}
+	out := map[string]any{}
+	for _, key := range []string{"severity", "session_id", "transfer_requested", "transfer_target"} {
+		if value, ok := metadata[key]; ok {
+			out[key] = value
+		}
+	}
+	return out
+}
+
+func isValidConsentType(value string) bool {
+	for _, consentType := range sharedaudit.AllConsentTypes {
+		if value == consentType {
+			return true
+		}
+	}
+	return false
+}
+
+func defaultTopK(value int32) int32 {
+	if value <= 0 {
+		return 5
+	}
+	return value
+}
+
+func fallbackString(value, fallback string) string {
+	if value == "" {
+		return fallback
+	}
+	return value
+}
+
+func consentFromProto(consent *auditpb.Consent) ConsentRecord {
+	if consent == nil {
+		return ConsentRecord{}
+	}
+	return ConsentRecord{
+		ConsentID:      consent.GetConsentId(),
+		ConsentType:    consent.GetConsentType(),
+		GrantedBy:      consent.GetGrantedBy(),
+		GrantedAt:      protoTimeOrEmpty(consent.GetGrantedAt()),
+		RevokedAt:      protoTimeOrEmpty(consent.GetRevokedAt()),
+		Scope:          consent.GetScope(),
+		ExpirationTime: protoTimeOrEmpty(consent.GetExpirationTime()),
+		Source:         consent.GetSource(),
+		Status:         protoConsentStatus(consent),
+		Metadata:       consent.GetMetadata().AsMap(),
+	}
+}
+
+func portalConsentFromProto(consent *auditportalpb.PortalConsent) ConsentRecord {
+	if consent == nil {
+		return ConsentRecord{}
+	}
+	metadata := map[string]any{}
+	if consent.GetMetadata() != nil {
+		metadata = consent.GetMetadata().AsMap()
+	}
+	return ConsentRecord{
+		ConsentID:      consent.GetConsentId(),
+		ConsentType:    consent.GetConsentType(),
+		GrantedBy:      consent.GetGrantedBy(),
+		GrantedAt:      protoTimeOrEmpty(consent.GetGrantedAt()),
+		RevokedAt:      protoTimeOrEmpty(consent.GetRevokedAt()),
+		Scope:          consent.GetScope(),
+		ExpirationTime: protoTimeOrEmpty(consent.GetExpirationTime()),
+		Source:         consent.GetSource(),
+		Status:         portalConsentStatus(consent),
+		Metadata:       metadata,
+	}
+}
+
+func portalConsentStatus(consent *auditportalpb.PortalConsent) string {
+	if consent == nil {
+		return "unknown"
+	}
+	if consent.GetRevokedAt() != nil {
+		return "revoked"
+	}
+	if consent.GetExpirationTime() != nil && consent.GetExpirationTime().AsTime().Before(time.Now()) {
+		return "expired"
+	}
+	return "active"
+}
+
+func portalAuditEventsFromProto(events []*auditportalpb.PortalAuditEvent) []AuditEventRecord {
+	out := make([]AuditEventRecord, 0, len(events))
+	for _, event := range events {
+		metadata := map[string]any{}
+		if event.GetMetadata() != nil {
+			metadata = event.GetMetadata().AsMap()
+		}
+		out = append(out, AuditEventRecord{
+			EventID:       event.GetEventId(),
+			EventType:     event.GetEventType(),
+			ActorType:     event.GetActorType(),
+			ActorID:       event.GetActorId(),
+			PatientID:     event.GetPatientId(),
+			ServiceName:   event.GetServiceName(),
+			ResourceType:  event.GetResourceType(),
+			ResourceID:    event.GetResourceId(),
+			Timestamp:     protoTimeOrEmpty(event.GetTimestamp()),
+			CorrelationID: event.GetCorrelationId(),
+			ToolName:      event.GetToolName(),
+			SuccessStatus: event.GetSuccessStatus(),
+			FailureReason: event.GetFailureReason(),
+			Metadata:      metadata,
+		})
+	}
+	return out
+}
+
+func protoConsentStatus(consent *auditpb.Consent) string {
+	if consent == nil {
+		return "unknown"
+	}
+	if consent.GetRevokedAt() != nil {
+		return "revoked"
+	}
+	if consent.GetExpirationTime() != nil && consent.GetExpirationTime().AsTime().Before(time.Now()) {
+		return "expired"
+	}
+	return "active"
+}
+
+func mapToStruct(value map[string]any) *structpb.Struct {
+	if len(value) == 0 {
+		return &structpb.Struct{}
+	}
+	s, err := structpb.NewStruct(value)
+	if err != nil {
+		return &structpb.Struct{}
+	}
+	return s
+}
+
+func stringMetadata(metadata map[string]any, key string) string {
+	if metadata == nil {
+		return ""
+	}
+	value, ok := metadata[key]
+	if !ok || value == nil {
+		return ""
+	}
+	return fmt.Sprint(value)
+}
+
+func protoTimeOrEmpty(value *timestamppb.Timestamp) string {
+	if value == nil {
+		return ""
+	}
+	return value.AsTime().UTC().Format(time.RFC3339)
 }

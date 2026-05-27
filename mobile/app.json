@@ -1,0 +1,34 @@
+{
+  "expo": {
+    "name": "Zorba Health",
+    "slug": "zorba-health-mobile",
+    "version": "0.1.0",
+    "orientation": "portrait",
+    "scheme": "zorbahealth",
+    "userInterfaceStyle": "light",
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.zorbahealth.mobile",
+      "infoPlist": {
+        "NSLocationWhenInUseUsageDescription": "Zorba Health uses your location only during emergency voice sessions when you opt in."
+      }
+    },
+    "android": {
+      "package": "com.zorbahealth.mobile",
+      "permissions": [
+        "ACCESS_COARSE_LOCATION",
+        "ACCESS_FINE_LOCATION"
+      ]
+    },
+    "plugins": [
+      "expo-secure-store",
+      [
+        "expo-location",
+        {
+          "locationWhenInUsePermission": "Zorba Health uses your location only during emergency voice sessions when you opt in."
+        }
+      ],
+      "expo-asset"
+    ]
+  }
+}

@@ -5,6 +5,7 @@ import (
 	"log"
 	"net/http"
 
+	"github.com/KoiralaSam/ZorbaHealth/shared/db"
 	"github.com/KoiralaSam/ZorbaHealth/shared/env"
 	"github.com/KoiralaSam/ZorbaHealth/shared/tracing"
 	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
@@ -31,6 +32,15 @@ func main() {
 		}
 	}()
 
+	if dbURL := env.GetString("DATABASE_URL", ""); dbURL != "" {
+		if err := db.InitDB(context.Background(), dbURL); err != nil {
+			log.Printf("database unavailable; DB-backed routes disabled: %v", err)
+		}
+	}
+	if db.GetDB() != nil {
+		defer db.GetDB().Close()
+	}
+
 	mux := http.NewServeMux()
 
 	// CORS preflight: OPTIONS must be handled for each path (browser sends OPTIONS before POST)
@@ -40,12 +50,31 @@ func main() {
 	mux.HandleFunc("OPTIONS /api/v1/auth/patient/register/verify", optCORS)
 	mux.HandleFunc("OPTIONS /api/v1/auth/patient/register/verify-otp", optCORS)
 	mux.HandleFunc("OPTIONS /api/v1/auth/hospital/login", optCORS)
+	mux.HandleFunc("OPTIONS /api/v1/hospital/records/summary", optCORS)
+	mux.HandleFunc("OPTIONS /api/v1/patient/profile", optCORS)
+	mux.HandleFunc("OPTIONS /api/v1/patient/consents", optCORS)
+	mux.HandleFunc("OPTIONS /api/v1/patient/records/answer", optCORS)
+	mux.HandleFunc("OPTIONS /api/v1/patient/calls", optCORS)
+	mux.HandleFunc("OPTIONS /api/v1/patient/audit", optCORS)
+	mux.HandleFunc("OPTIONS /api/v1/hospital/incidents", optCORS)
+	mux.HandleFunc("OPTIONS /api/v1/hospital/patient/audit", optCORS)
 
 	// API routes with CORS (Go 1.22+ requires space between method and path)
 	mux.Handle("POST /api/v1/auth/patient/login", tracing.WrapHandlerFunc(corsMiddleware(PatientLoginHandler), "/api/v1/auth/patient/login"))
 	mux.Handle("POST /api/v1/auth/patient/register", tracing.WrapHandlerFunc(corsMiddleware(PatientRegisterHandler), "/api/v1/auth/patient/register"))
 	mux.Handle("POST /api/v1/auth/patient/register/verify", tracing.WrapHandlerFunc(corsMiddleware(PatientRegisterVerifyHandler), "/api/v1/auth/patient/register/verify"))
 	mux.Handle("POST /api/v1/auth/patient/register/verify-otp", tracing.WrapHandlerFunc(corsMiddleware(PatientRegisterVerifyOTPHandler), "/api/v1/auth/patient/register/verify-otp"))
+	mux.Handle("POST /api/v1/auth/hospital/login", tracing.WrapHandlerFunc(corsMiddleware(HospitalLoginHandler), "/api/v1/auth/hospital/login"))
+	mux.Handle("POST /api/v1/hospital/records/summary", tracing.WrapHandlerFunc(corsMiddleware(HospitalPatientSummaryHandler), "/api/v1/hospital/records/summary"))
+	mux.Handle("GET /api/v1/patient/profile", tracing.WrapHandlerFunc(corsMiddleware(PatientProfileHandler), "/api/v1/patient/profile"))
+	mux.Handle("GET /api/v1/patient/consents", tracing.WrapHandlerFunc(corsMiddleware(PatientListConsentsHandler), "/api/v1/patient/consents"))
+	mux.Handle("POST /api/v1/patient/consents", tracing.WrapHandlerFunc(corsMiddleware(PatientGrantConsentHandler), "/api/v1/patient/consents"))
+	mux.Handle("DELETE /api/v1/patient/consents", tracing.WrapHandlerFunc(corsMiddleware(PatientRevokeConsentHandler), "/api/v1/patient/consents"))
+	mux.Handle("POST /api/v1/patient/records/answer", tracing.WrapHandlerFunc(corsMiddleware(PatientHealthAnswerHandler), "/api/v1/patient/records/answer"))
+	mux.Handle("GET /api/v1/patient/calls", tracing.WrapHandlerFunc(corsMiddleware(PatientCallsHandler), "/api/v1/patient/calls"))
+	mux.Handle("GET /api/v1/patient/audit", tracing.WrapHandlerFunc(corsMiddleware(PatientAuditHandler), "/api/v1/patient/audit"))
+	mux.Handle("GET /api/v1/hospital/incidents", tracing.WrapHandlerFunc(corsMiddleware(HospitalIncidentsHandler), "/api/v1/hospital/incidents"))
+	mux.Handle("GET /api/v1/hospital/patient/audit", tracing.WrapHandlerFunc(corsMiddleware(HospitalPatientAuditHandler), "/api/v1/hospital/patient/audit"))
 
 	server := &http.Server{
 		Addr:    httpAddr,

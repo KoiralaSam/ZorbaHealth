@@ -15,10 +15,12 @@ export default function PatientLogin() {
   const [phoneNumber, setPhoneNumber] = useState("");
   const [password, setPassword] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState("");
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
+    setError("");
 
     const patientLoginRequest: HTTPPatientLoginRequest = {
       phone_number: phoneNumber,
@@ -35,9 +37,24 @@ export default function PatientLogin() {
       });
 
       const data: HTTPPatientLoginResponse = await response.json();
-      console.log(data);
+      if (!response.ok) {
+        setError(data.error?.message || "Login failed. Please try again.");
+        return;
+      }
+
+      const accessToken = data.data?.access_token;
+      const patientID = data.data?.patient_id;
+      if (!accessToken || !patientID) {
+        setError("Login succeeded but no patient session was returned.");
+        return;
+      }
+
+      window.sessionStorage.setItem("patient_access_token", accessToken);
+      window.sessionStorage.setItem("patient_id", patientID);
+      router.replace("/patient");
     } catch (error) {
       console.error("Network error - Please try again", error);
+      setError("Network error. Please try again.");
     } finally {
       setIsLoading(false);
     }
@@ -144,6 +161,12 @@ export default function PatientLogin() {
                 {isLoading ? "Logging in..." : "Continue"}
               </Button>
             </form>
+
+            {error ? (
+              <div className="mt-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+                {error}
+              </div>
+            ) : null}
 
             <div className="mt-6 text-center">
               <p className="text-sm text-gray-500">

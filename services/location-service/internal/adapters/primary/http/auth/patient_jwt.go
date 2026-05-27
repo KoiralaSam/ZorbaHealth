@@ -2,62 +2,31 @@ package auth
 
 import (
 	"errors"
-	"fmt"
 
-	"github.com/golang-jwt/jwt/v5"
+	sharedauth "github.com/KoiralaSam/ZorbaHealth/shared/auth"
 )
 
 // PatientJWTAuth validates WS bearer/query tokens and extracts patient identity from JWT claims.
-// Expects HS256 plus actorType=patient and a patient identifier claim.
-type PatientJWTAuth struct {
-	secret string
-}
+type PatientJWTAuth struct{}
 
-func NewPatientJWTAuth(secret string) *PatientJWTAuth {
-	return &PatientJWTAuth{secret: secret}
+func NewPatientJWTAuth(_ string) *PatientJWTAuth {
+	return &PatientJWTAuth{}
 }
 
 func (a *PatientJWTAuth) ExtractPatientID(token string) (string, error) {
-	if a.secret == "" {
-		return "", errors.New("PATIENT_SERVICE_JWT_SECRET is not set")
-	}
 	if token == "" {
 		return "", errors.New("missing token")
 	}
-
-	parsed, err := jwt.Parse(token, func(t *jwt.Token) (any, error) {
-		if _, ok := t.Method.(*jwt.SigningMethodHMAC); !ok {
-			return nil, fmt.Errorf("unexpected signing method: %v", t.Header["alg"])
-		}
-		return []byte(a.secret), nil
-	})
-	if err != nil || !parsed.Valid {
-		return "", errors.New("invalid token")
+	// Location-service uses the same patient JWTs as the portal (shared/auth).
+	claims, err := sharedauth.VerifyToken(token)
+	if err != nil {
+		return "", err
 	}
-
-	claims, ok := parsed.Claims.(jwt.MapClaims)
-	if !ok {
-		return "", errors.New("invalid token claims")
-	}
-
-	actorType, ok := claims["actorType"].(string)
-	if !ok || actorType != "patient" {
+	if claims.ActorType != sharedauth.ActorPatient {
 		return "", errors.New("invalid actorType claim")
 	}
-
-	if sessionID, ok := claims["sessionID"].(string); !ok || sessionID == "" {
-		return "", errors.New("sessionID claim missing")
+	if claims.PatientID == "" {
+		return "", errors.New("patient_id claim missing")
 	}
-
-	if pid, ok := claims["patientID"].(string); ok && pid != "" {
-		return pid, nil
-	}
-	if pid, ok := claims["patient_id"].(string); ok && pid != "" {
-		return pid, nil
-	}
-	if pid, ok := claims["patientId"].(string); ok && pid != "" {
-		return pid, nil
-	}
-
-	return "", errors.New("patient_id claim missing")
+	return claims.PatientID, nil
 }

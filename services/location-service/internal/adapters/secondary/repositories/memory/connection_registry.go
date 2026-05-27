@@ -12,14 +12,18 @@ import (
 var _ outbound.ConnectionRegistry = (*InMemoryConnectionRegistry)(nil)
 
 // InMemoryConnectionRegistry stores active patient WebSocket connections in-process.
+type connEntry struct {
+	conn outbound.Connection
+}
+
 type InMemoryConnectionRegistry struct {
 	mu    sync.RWMutex
-	conns map[string]outbound.Connection
+	conns map[string]connEntry
 }
 
 func NewInMemoryConnectionRegistry() outbound.ConnectionRegistry {
 	return &InMemoryConnectionRegistry{
-		conns: make(map[string]outbound.Connection),
+		conns: make(map[string]connEntry),
 	}
 }
 
@@ -27,9 +31,9 @@ func (r *InMemoryConnectionRegistry) Register(patientID string, conn outbound.Co
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	if existing, ok := r.conns[patientID]; ok {
-		existing.Close()
+		existing.conn.Close()
 	}
-	r.conns[patientID] = conn
+	r.conns[patientID] = connEntry{conn: conn}
 }
 
 func (r *InMemoryConnectionRegistry) Unregister(patientID string) {
@@ -38,9 +42,23 @@ func (r *InMemoryConnectionRegistry) Unregister(patientID string) {
 	delete(r.conns, patientID)
 }
 
+func (r *InMemoryConnectionRegistry) ClientIP(patientID string) (string, bool) {
+	r.mu.RLock()
+	entry, ok := r.conns[patientID]
+	r.mu.RUnlock()
+	if !ok {
+		return "", false
+	}
+	ip := entry.conn.ClientIP()
+	if ip == "" {
+		return "", false
+	}
+	return ip, true
+}
+
 func (r *InMemoryConnectionRegistry) Send(patientID string, cmd models.LocationCommand) error {
 	r.mu.RLock()
-	conn, ok := r.conns[patientID]
+	entry, ok := r.conns[patientID]
 	r.mu.RUnlock()
 	if !ok {
 		return domainerrors.ErrNoActiveConnection
@@ -49,5 +67,5 @@ func (r *InMemoryConnectionRegistry) Send(patientID string, cmd models.LocationC
 		Type: cmd.Command,
 		Data: map[string]any{"session_id": cmd.SessionID},
 	}
-	return conn.WriteJSON(msg)
+	return entry.conn.WriteJSON(msg)
 }

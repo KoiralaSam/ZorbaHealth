@@ -1,0 +1,49 @@
+syntax = "proto3";
+
+package patientportal;
+
+option go_package = "shared/proto/patientportal;patientportal";
+
+import "google/protobuf/timestamp.proto";
+
+service PatientPortalService {
+  rpc GetProfile(GetPatientProfileRequest) returns (GetPatientProfileResponse);
+  rpc ListCallSummaries(ListPatientCallSummariesRequest) returns (ListPatientCallSummariesResponse);
+}
+
+message GetPatientProfileRequest {
+  string patient_id = 1;
+}
+
+message PatientProfile {
+  string patient_id = 1;
+  string phone_number = 2;
+  string email = 3;
+  string full_name = 4;
+  string date_of_birth = 5;
+  string medical_notes = 6;
+}
+
+message GetPatientProfileResponse {
+  PatientProfile profile = 1;
+}
+
+message ListPatientCallSummariesRequest {
+  string patient_id = 1;
+  int32 limit = 2;
+  int32 offset = 3;
+}
+
+message PatientCallSummary {
+  int64 id = 1;
+  string status = 2;
+  google.protobuf.Timestamp started_at = 3;
+  google.protobuf.Timestamp ended_at = 4;
+  string recording_url = 5;
+  string summary = 6;
+  string livekit_room_id = 7;
+}
+
+message ListPatientCallSummariesResponse {
+  repeated PatientCallSummary calls = 1;
+}

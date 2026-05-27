@@ -13,7 +13,7 @@ import (
 
 const countFHIRResourcesByType = `-- name: CountFHIRResourcesByType :one
 SELECT COUNT(*)
-FROM fhir_resources
+FROM records.fhir_resources
 WHERE patient_id = $1
   AND resource_type = $2
 `
@@ -31,7 +31,7 @@ func (q *Queries) CountFHIRResourcesByType(ctx context.Context, arg CountFHIRRes
 }
 
 const deleteFHIRResourcesByPatientID = `-- name: DeleteFHIRResourcesByPatientID :exec
-DELETE FROM fhir_resources
+DELETE FROM records.fhir_resources
 WHERE patient_id = $1
 `
 
@@ -40,10 +40,62 @@ func (q *Queries) DeleteFHIRResourcesByPatientID(ctx context.Context, patientID 
 	return err
 }
 
+const getFHIRResourceByID = `-- name: GetFHIRResourceByID :one
+SELECT id, resource_type, resource_id, resource_json::text AS resource_json
+FROM records.fhir_resources
+WHERE patient_id = $1
+  AND resource_type = $2
+  AND resource_id = $3
+`
+
+type GetFHIRResourceByIDParams struct {
+	PatientID    pgtype.UUID `json:"patient_id"`
+	ResourceType string      `json:"resource_type"`
+	ResourceID   string      `json:"resource_id"`
+}
+
+type GetFHIRResourceByIDRow struct {
+	ID           pgtype.UUID `json:"id"`
+	ResourceType string      `json:"resource_type"`
+	ResourceID   string      `json:"resource_id"`
+	ResourceJson string      `json:"resource_json"`
+}
+
+func (q *Queries) GetFHIRResourceByID(ctx context.Context, arg GetFHIRResourceByIDParams) (GetFHIRResourceByIDRow, error) {
+	row := q.db.QueryRow(ctx, getFHIRResourceByID, arg.PatientID, arg.ResourceType, arg.ResourceID)
+	var i GetFHIRResourceByIDRow
+	err := row.Scan(
+		&i.ID,
+		&i.ResourceType,
+		&i.ResourceID,
+		&i.ResourceJson,
+	)
+	return i, err
+}
+
+const getInternalPatientIDByFHIR = `-- name: GetInternalPatientIDByFHIR :one
+SELECT internal_patient_id
+FROM records.fhir_patient_map
+WHERE fhir_patient_id = $1
+  AND source_system = $2
+`
+
+type GetInternalPatientIDByFHIRParams struct {
+	FhirPatientID string `json:"fhir_patient_id"`
+	SourceSystem  string `json:"source_system"`
+}
+
+func (q *Queries) GetInternalPatientIDByFHIR(ctx context.Context, arg GetInternalPatientIDByFHIRParams) (pgtype.UUID, error) {
+	row := q.db.QueryRow(ctx, getInternalPatientIDByFHIR, arg.FhirPatientID, arg.SourceSystem)
+	var internal_patient_id pgtype.UUID
+	err := row.Scan(&internal_patient_id)
+	return internal_patient_id, err
+}
+
 const listFHIRResourcesByType = `-- name: ListFHIRResourcesByType :many
 SELECT
   resource_json::text AS resource_json
-FROM fhir_resources
+FROM records.fhir_resources
 WHERE patient_id = $1
   AND resource_type = $2
 ORDER BY indexed_at DESC
@@ -85,10 +137,10 @@ func (q *Queries) ListFHIRResourcesByType(ctx context.Context, arg ListFHIRResou
 const listFHIRResourcesByTypeAndStatus = `-- name: ListFHIRResourcesByTypeAndStatus :many
 SELECT
   resource_json::text AS resource_json
-FROM fhir_resources
+FROM records.fhir_resources
 WHERE patient_id = $1
   AND resource_type = $2
-  AND ($3 = '' OR resource_json->>'status' = $3)
+  AND ($3 = '' OR resource_json->>'status' = $3 OR clinical_status = $3)
 ORDER BY indexed_at DESC
 LIMIT $4 OFFSET $5
 `
@@ -127,44 +179,129 @@ func (q *Queries) ListFHIRResourcesByTypeAndStatus(ctx context.Context, arg List
 	return items, nil
 }
 
+const listFHIRResourcesForPatient = `-- name: ListFHIRResourcesForPatient :many
+SELECT
+  id,
+  resource_type,
+  resource_id,
+  resource_json::text AS resource_json,
+  display_text,
+  clinical_status
+FROM records.fhir_resources
+WHERE patient_id = $1
+ORDER BY indexed_at DESC
+LIMIT $2
+`
+
+type ListFHIRResourcesForPatientParams struct {
+	PatientID pgtype.UUID `json:"patient_id"`
+	Limit     int32       `json:"limit"`
+}
+
+type ListFHIRResourcesForPatientRow struct {
+	ID             pgtype.UUID `json:"id"`
+	ResourceType   string      `json:"resource_type"`
+	ResourceID     string      `json:"resource_id"`
+	ResourceJson   string      `json:"resource_json"`
+	DisplayText    pgtype.Text `json:"display_text"`
+	ClinicalStatus pgtype.Text `json:"clinical_status"`
+}
+
+func (q *Queries) ListFHIRResourcesForPatient(ctx context.Context, arg ListFHIRResourcesForPatientParams) ([]ListFHIRResourcesForPatientRow, error) {
+	rows, err := q.db.Query(ctx, listFHIRResourcesForPatient, arg.PatientID, arg.Limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ListFHIRResourcesForPatientRow{}
+	for rows.Next() {
+		var i ListFHIRResourcesForPatientRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.ResourceType,
+			&i.ResourceID,
+			&i.ResourceJson,
+			&i.DisplayText,
+			&i.ClinicalStatus,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const upsertFHIRPatientMap = `-- name: UpsertFHIRPatientMap :exec
+INSERT INTO records.fhir_patient_map (fhir_patient_id, source_system, internal_patient_id)
+VALUES ($1, $2, $3)
+ON CONFLICT (fhir_patient_id, source_system)
+DO UPDATE SET internal_patient_id = EXCLUDED.internal_patient_id
+`
+
+type UpsertFHIRPatientMapParams struct {
+	FhirPatientID     string      `json:"fhir_patient_id"`
+	SourceSystem      string      `json:"source_system"`
+	InternalPatientID pgtype.UUID `json:"internal_patient_id"`
+}
+
+func (q *Queries) UpsertFHIRPatientMap(ctx context.Context, arg UpsertFHIRPatientMapParams) error {
+	_, err := q.db.Exec(ctx, upsertFHIRPatientMap, arg.FhirPatientID, arg.SourceSystem, arg.InternalPatientID)
+	return err
+}
+
 const upsertFHIRResource = `-- name: UpsertFHIRResource :one
 
-INSERT INTO fhir_resources (
+INSERT INTO records.fhir_resources (
   patient_id,
   resource_type,
   resource_id,
   source_system,
   resource_json,
+  display_text,
+  clinical_status,
+  effective_date,
   indexed_at
 ) VALUES (
-  $1, $2, $3, $4, $5::jsonb, now()
+  $1, $2, $3, $4, $5::jsonb, $6, $7, $8, now()
 )
 ON CONFLICT (patient_id, resource_type, resource_id)
 DO UPDATE SET
   source_system = EXCLUDED.source_system,
   resource_json = EXCLUDED.resource_json,
+  display_text = EXCLUDED.display_text,
+  clinical_status = EXCLUDED.clinical_status,
+  effective_date = EXCLUDED.effective_date,
   indexed_at = now()
-RETURNING id, patient_id, resource_type, resource_id, source_system, resource_json, indexed_at
+RETURNING id, patient_id, resource_type, resource_id, source_system, resource_json, display_text, clinical_status, effective_date, indexed_at
 `
 
 type UpsertFHIRResourceParams struct {
-	PatientID    pgtype.UUID `json:"patient_id"`
-	ResourceType string      `json:"resource_type"`
-	ResourceID   string      `json:"resource_id"`
-	SourceSystem pgtype.Text `json:"source_system"`
-	Column5      []byte      `json:"column_5"`
+	PatientID      pgtype.UUID        `json:"patient_id"`
+	ResourceType   string             `json:"resource_type"`
+	ResourceID     string             `json:"resource_id"`
+	SourceSystem   pgtype.Text        `json:"source_system"`
+	Column5        []byte             `json:"column_5"`
+	DisplayText    pgtype.Text        `json:"display_text"`
+	ClinicalStatus pgtype.Text        `json:"clinical_status"`
+	EffectiveDate  pgtype.Timestamptz `json:"effective_date"`
 }
 
-// Structured FHIR R4 resources (JSONB)
-func (q *Queries) UpsertFHIRResource(ctx context.Context, arg UpsertFHIRResourceParams) (FhirResource, error) {
+// Structured FHIR R4 resources (JSONB) in records schema
+func (q *Queries) UpsertFHIRResource(ctx context.Context, arg UpsertFHIRResourceParams) (RecordsFhirResource, error) {
 	row := q.db.QueryRow(ctx, upsertFHIRResource,
 		arg.PatientID,
 		arg.ResourceType,
 		arg.ResourceID,
 		arg.SourceSystem,
 		arg.Column5,
+		arg.DisplayText,
+		arg.ClinicalStatus,
+		arg.EffectiveDate,
 	)
-	var i FhirResource
+	var i RecordsFhirResource
 	err := row.Scan(
 		&i.ID,
 		&i.PatientID,
@@ -172,6 +309,9 @@ func (q *Queries) UpsertFHIRResource(ctx context.Context, arg UpsertFHIRResource
 		&i.ResourceID,
 		&i.SourceSystem,
 		&i.ResourceJson,
+		&i.DisplayText,
+		&i.ClinicalStatus,
+		&i.EffectiveDate,
 		&i.IndexedAt,
 	)
 	return i, err

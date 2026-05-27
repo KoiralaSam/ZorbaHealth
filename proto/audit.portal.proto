@@ -1,0 +1,81 @@
+syntax = "proto3";
+
+package auditportal;
+
+option go_package = "shared/proto/auditportal;auditportal";
+
+import "google/protobuf/struct.proto";
+import "google/protobuf/timestamp.proto";
+
+service AuditPortalService {
+  rpc ListPatientConsents(ListPatientConsentsRequest) returns (ListPatientConsentsResponse);
+  rpc ListPatientAuditEvents(ListPatientAuditEventsRequest) returns (ListPatientAuditEventsResponse);
+  rpc ListHospitalIncidents(ListHospitalIncidentsRequest) returns (ListHospitalIncidentsResponse);
+  rpc ListHospitalPatientAuditEvents(ListHospitalPatientAuditEventsRequest) returns (ListHospitalPatientAuditEventsResponse);
+}
+
+message PortalConsent {
+  string consent_id = 1;
+  string patient_id = 2;
+  string consent_type = 3;
+  string granted_by = 4;
+  google.protobuf.Timestamp granted_at = 5;
+  google.protobuf.Timestamp revoked_at = 6;
+  string scope = 7;
+  google.protobuf.Timestamp expiration_time = 8;
+  string source = 9;
+  google.protobuf.Struct metadata = 10;
+}
+
+message PortalAuditEvent {
+  string event_id = 1;
+  string event_type = 2;
+  string actor_type = 3;
+  string actor_id = 4;
+  string patient_id = 5;
+  string service_name = 6;
+  string resource_type = 7;
+  string resource_id = 8;
+  google.protobuf.Timestamp timestamp = 9;
+  string correlation_id = 10;
+  string tool_name = 11;
+  bool success_status = 12;
+  string failure_reason = 13;
+  google.protobuf.Struct metadata = 14;
+}
+
+message ListPatientConsentsRequest {
+  string patient_id = 1;
+  bool include_revoked = 2;
+  int32 limit = 3;
+}
+
+message ListPatientConsentsResponse {
+  repeated PortalConsent consents = 1;
+}
+
+message ListPatientAuditEventsRequest {
+  string patient_id = 1;
+  int32 limit = 2;
+}
+
+message ListPatientAuditEventsResponse {
+  repeated PortalAuditEvent events = 1;
+}
+
+message ListHospitalIncidentsRequest {
+  int32 limit = 1;
+}
+
+message ListHospitalIncidentsResponse {
+  repeated PortalAuditEvent incidents = 1;
+}
+
+message ListHospitalPatientAuditEventsRequest {
+  string patient_id = 1;
+  int32 limit = 2;
+}
+
+message ListHospitalPatientAuditEventsResponse {
+  repeated PortalAuditEvent events = 1;
+}

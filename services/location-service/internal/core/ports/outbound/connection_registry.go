@@ -11,6 +11,8 @@ type ConnectionRegistry interface {
 	Register(patientID string, conn Connection)
 	Unregister(patientID string)
 	Send(patientID string, cmd models.LocationCommand) error
+	// ClientIP returns the remote address observed when the patient WebSocket connected.
+	ClientIP(patientID string) (string, bool)
 }
 
 // Connection abstracts the underlying WebSocket connection.
@@ -18,4 +20,5 @@ type ConnectionRegistry interface {
 type Connection interface {
 	WriteJSON(v any) error
 	Close() error
+	ClientIP() string
 }

@@ -1,0 +1,40 @@
+{
+  "info": {
+    "name": "Zorba Health Sample Requests",
+    "description": "HTTP samples for the API gateway. gRPC health-record ingestion is documented in docs/local-setup.md (grpcurl).",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "Patient login (gateway)",
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"phone\": \"+15555550100\",\n  \"otp\": \"000000\"\n}"
+        },
+        "url": "{{baseUrl}}/api/v1/auth/patient/login"
+      }
+    },
+    {
+      "name": "Health records question (gateway proxy)",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Content-Type", "value": "application/json" },
+          { "key": "Authorization", "value": "Bearer {{patientToken}}" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"question\": \"What medications am I taking?\",\n  \"topK\": 5\n}"
+        },
+        "url": "{{baseUrl}}/api/v1/patient/records/question"
+      }
+    }
+  ],
+  "variable": [
+    { "key": "baseUrl", "value": "http://localhost:8081" },
+    { "key": "patientToken", "value": "" }
+  ]
+}

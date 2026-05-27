@@ -14,7 +14,15 @@ export enum APIEndpoints {
   PATIENT_REGISTER = "/api/v1/auth/patient/register",
   PATIENT_REGISTER_VERIFY = "/api/v1/auth/patient/register/verify",
   PATIENT_REGISTER_VERIFY_OTP = "/api/v1/auth/patient/register/verify-otp",
+  PATIENT_PROFILE = "/api/v1/patient/profile",
+  PATIENT_CONSENTS = "/api/v1/patient/consents",
+  PATIENT_RECORDS_ANSWER = "/api/v1/patient/records/answer",
+  PATIENT_CALLS = "/api/v1/patient/calls",
+  PATIENT_AUDIT = "/api/v1/patient/audit",
   HOSPITAL_REGISTER = "/api/v1/auth/hospital/register",
+  HOSPITAL_PATIENT_SUMMARY = "/api/v1/hospital/records/summary",
+  HOSPITAL_INCIDENTS = "/api/v1/hospital/incidents",
+  HOSPITAL_PATIENT_AUDIT = "/api/v1/hospital/patient/audit",
 }
 
 // HTTP Methods
@@ -69,6 +77,117 @@ export interface PatientLoginResponseData {
 
 export type HTTPPatientLoginResponse = APIResponse<PatientLoginResponseData>;
 
+export interface PatientProfileResponseData {
+  patient_id?: string;
+  full_name?: string;
+  email?: string;
+  phone_number?: string;
+  date_of_birth?: string;
+  medical_notes?: string;
+  voice_phone?: string;
+  voice_enabled?: boolean;
+  support_window?: string;
+}
+
+export type HTTPPatientProfileResponse = APIResponse<PatientProfileResponseData>;
+
+export interface ConsentRecord {
+  consent_id?: string;
+  consent_type?: string;
+  granted_by?: string;
+  granted_at?: string;
+  revoked_at?: string;
+  scope?: string;
+  expiration_time?: string;
+  source?: string;
+  status?: string;
+  metadata?: Record<string, unknown>;
+}
+
+export interface PatientConsentListResponseData {
+  patient_id?: string;
+  consents?: ConsentRecord[];
+}
+
+export type HTTPPatientConsentListResponse =
+  APIResponse<PatientConsentListResponseData>;
+
+export interface HTTPPatientConsentMutationRequest {
+  consent_type: string;
+  scope?: string;
+  source?: string;
+  metadata?: Record<string, unknown>;
+}
+
+export interface PatientConsentMutationResponseData {
+  message?: string;
+  consent?: ConsentRecord;
+}
+
+export type HTTPPatientConsentMutationResponse =
+  APIResponse<PatientConsentMutationResponseData>;
+
+export interface HTTPPatientHealthAnswerRequest {
+  question: string;
+  top_k?: number;
+}
+
+export interface PatientHealthCitation {
+  text?: string;
+  source_file?: string;
+  score?: number;
+}
+
+export interface PatientHealthAnswerResponseData {
+  answer?: string;
+  citations?: PatientHealthCitation[];
+}
+
+export type HTTPPatientHealthAnswerResponse =
+  APIResponse<PatientHealthAnswerResponseData>;
+
+export interface PatientCallSummary {
+  id: number;
+  status?: string;
+  started_at?: string;
+  ended_at?: string;
+  summary?: string;
+  recording_url?: string;
+  livekit_room_id?: string;
+}
+
+export interface PatientCallListResponseData {
+  patient_id?: string;
+  calls?: PatientCallSummary[];
+}
+
+export type HTTPPatientCallListResponse =
+  APIResponse<PatientCallListResponseData>;
+
+export interface AuditEventRecord {
+  event_id?: string;
+  event_type?: string;
+  actor_type?: string;
+  actor_id?: string;
+  patient_id?: string;
+  service_name?: string;
+  resource_type?: string;
+  resource_id?: string;
+  timestamp?: string;
+  correlation_id?: string;
+  tool_name?: string;
+  success_status?: boolean;
+  failure_reason?: string;
+  metadata?: Record<string, unknown>;
+}
+
+export interface PatientAuditResponseData {
+  patient_id?: string;
+  events?: AuditEventRecord[];
+}
+
+export type HTTPPatientAuditResponse = APIResponse<PatientAuditResponseData>;
+
 // Patient Register - POST /api/v1/auth/patient/register
 export interface HTTPPatientRegisterRequest {
   phone_number: string;
@@ -113,6 +232,44 @@ export interface HospitalLoginResponseData {
 }
 
 export type HTTPHospitalLoginResponse = APIResponse<HospitalLoginResponseData>;
+
+export interface HTTPHospitalPatientSummaryRequest {
+  patient_id: string;
+  focus?: string;
+}
+
+export interface HospitalPatientSummaryResponseData {
+  summary?: string;
+}
+
+export type HTTPHospitalPatientSummaryResponse =
+  APIResponse<HospitalPatientSummaryResponseData>;
+
+export interface HospitalIncidentRecord {
+  event_id?: string;
+  patient_id?: string;
+  timestamp?: string;
+  severity?: string;
+  session_id?: string;
+  service_name?: string;
+  failure_reason?: string;
+  metadata?: Record<string, unknown>;
+}
+
+export interface HospitalIncidentListResponseData {
+  incidents?: HospitalIncidentRecord[];
+}
+
+export type HTTPHospitalIncidentListResponse =
+  APIResponse<HospitalIncidentListResponseData>;
+
+export interface HospitalPatientAuditResponseData {
+  patient_id?: string;
+  events?: AuditEventRecord[];
+}
+
+export type HTTPHospitalPatientAuditResponse =
+  APIResponse<HospitalPatientAuditResponseData>;
 
 // =============================================================================
 // Type Guards & Validators

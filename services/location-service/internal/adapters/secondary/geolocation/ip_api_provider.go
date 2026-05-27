@@ -42,6 +42,9 @@ func NewIPAPIProvider() (outbound.GeolocationProvider, error) {
 var _ outbound.GeolocationProvider = (*IPAPIProvider)(nil)
 
 func (p *IPAPIProvider) Geolocate(ctx context.Context, ip string) (*models.Location, error) {
+	if IsUngeolocatableIP(ip) {
+		return nil, fmt.Errorf("%w: cannot geolocate local/private ip %q", coreerrors.ErrNoLocationFound, ip)
+	}
 	if ip == "" {
 		return nil, fmt.Errorf("%w: empty ip", coreerrors.ErrNoLocationFound)
 	}

@@ -9,15 +9,18 @@ import (
 	"github.com/KoiralaSam/ZorbaHealth/services/patient-service/internal/core/domain/models"
 	"github.com/KoiralaSam/ZorbaHealth/services/patient-service/internal/core/ports/inbound"
 	pb "github.com/KoiralaSam/ZorbaHealth/shared/proto/patient"
+	patientportalpb "github.com/KoiralaSam/ZorbaHealth/shared/proto/patientportal"
 	"github.com/KoiralaSam/ZorbaHealth/shared/proto/patient/registration_verification"
 	"github.com/jackc/pgx/v5"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
+	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
 type gRPCHandler struct {
 	pb.UnimplementedLoginServiceServer
+	patientportalpb.UnimplementedPatientPortalServiceServer
 	registration_verification.UnimplementedRegistrationVerificationServiceServer
 	svc inbound.PatientService
 }
@@ -27,6 +30,7 @@ func NewGRPCHandler(server *grpc.Server, svc inbound.PatientService) *gRPCHandle
 		svc: svc,
 	}
 	pb.RegisterLoginServiceServer(server, handler)
+	patientportalpb.RegisterPatientPortalServiceServer(server, handler)
 	registration_verification.RegisterRegistrationVerificationServiceServer(server, handler)
 	return handler
 }
@@ -74,8 +78,7 @@ func (h *gRPCHandler) StartRegistration(ctx context.Context, req *registration_v
 	_ = token
 	_ = otp
 	return &registration_verification.StartRegistrationResponse{
-		Message:           "Verification started. Ask the caller for the SMS code to continue.",
-		RegistrationToken: token,
+		Message: "Verification email sent. Please check your inbox and verify your phone with the SMS code.",
 	}, nil
 }
 
@@ -141,30 +144,92 @@ func (h *gRPCHandler) VerifyExistingPhoneOTP(ctx context.Context, req *registrat
 	if req.PhoneNumber == "" || req.Otp == "" {
 		return nil, status.Error(codes.InvalidArgument, "phone_number and otp are required")
 	}
-	patient, err := h.svc.VerifyExistingPhoneOTP(ctx, req.PhoneNumber, req.Otp)
+	session, err := h.svc.VerifyExistingPhoneOTP(ctx, req.PhoneNumber, req.Otp)
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, "Failed to verify OTP: "+err.Error())
 	}
 	return &registration_verification.VerifyExistingPhoneOTPResponse{
-		Message:   "Existing patient verified successfully",
-		PatientId: patient.ID.String(),
-	}, nil
-}
-
-func (h *gRPCHandler) CompletePhoneRegistration(ctx context.Context, req *registration_verification.CompletePhoneRegistrationRequest) (*registration_verification.CompletePhoneRegistrationResponse, error) {
-	if req.RegistrationToken == "" {
-		return nil, status.Error(codes.InvalidArgument, "registration_token is required")
-	}
-	patient, err := h.svc.CompletePhoneRegistration(ctx, req.RegistrationToken)
-	if err != nil {
-		return nil, status.Error(codes.InvalidArgument, "Failed to complete phone registration: "+err.Error())
-	}
-	return &registration_verification.CompletePhoneRegistrationResponse{
-		Message:   "Phone registration completed successfully",
-		PatientId: patient.ID.String(),
+		Message:     "Existing patient verified successfully",
+		PatientId:   session.PatientID,
+		AccessToken: session.AccessToken,
 	}, nil
 }
 
 func (h *gRPCHandler) Login(ctx context.Context, req *pb.LoginRequest) (*pb.LoginResponse, error) {
-	return nil, status.Error(codes.Unimplemented, "method Login not implemented")
+	if req == nil {
+		return nil, status.Error(codes.InvalidArgument, "request required")
+	}
+	session, err := h.svc.LoginPatient(ctx, &models.Patient{
+		PhoneNumber: req.PhoneNumber,
+		Email:       req.Email,
+		MedicalNotes: req.Password,
+	})
+	if err != nil {
+		return nil, status.Error(codes.Unauthenticated, "patient login failed: "+err.Error())
+	}
+	return &pb.LoginResponse{
+		Message:     "patient login successful",
+		AccessToken: session.AccessToken,
+		PatientID:   session.PatientID,
+	}, nil
+}
+
+func (h *gRPCHandler) GetProfile(ctx context.Context, req *patientportalpb.GetPatientProfileRequest) (*patientportalpb.GetPatientProfileResponse, error) {
+	if req == nil || req.GetPatientId() == "" {
+		return nil, status.Error(codes.InvalidArgument, "patient_id is required")
+	}
+	profile, err := h.svc.GetPatientProfile(ctx, req.GetPatientId())
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, status.Error(codes.NotFound, "patient not found")
+		}
+		return nil, status.Error(codes.Internal, "failed to load patient profile: "+err.Error())
+	}
+	return &patientportalpb.GetPatientProfileResponse{
+		Profile: &patientportalpb.PatientProfile{
+			PatientId:    profile.PatientID,
+			PhoneNumber:  profile.PhoneNumber,
+			Email:        profile.Email,
+			FullName:     profile.FullName,
+			DateOfBirth:  dateOnly(profile.DateOfBirth),
+			MedicalNotes: profile.MedicalNotes,
+		},
+	}, nil
+}
+
+func (h *gRPCHandler) ListCallSummaries(ctx context.Context, req *patientportalpb.ListPatientCallSummariesRequest) (*patientportalpb.ListPatientCallSummariesResponse, error) {
+	if req == nil || req.GetPatientId() == "" {
+		return nil, status.Error(codes.InvalidArgument, "patient_id is required")
+	}
+	calls, err := h.svc.ListPatientCallSummaries(ctx, req.GetPatientId(), req.GetLimit(), req.GetOffset())
+	if err != nil {
+		return nil, status.Error(codes.Internal, "failed to load patient calls: "+err.Error())
+	}
+	out := make([]*patientportalpb.PatientCallSummary, 0, len(calls))
+	for _, call := range calls {
+		out = append(out, &patientportalpb.PatientCallSummary{
+			Id:            call.ID,
+			Status:        call.Status,
+			StartedAt:     timeToProto(call.StartedAt),
+			EndedAt:       timeToProto(call.EndedAt),
+			RecordingUrl:  call.RecordingURL,
+			Summary:       call.Summary,
+			LivekitRoomId: call.LivekitRoomID,
+		})
+	}
+	return &patientportalpb.ListPatientCallSummariesResponse{Calls: out}, nil
+}
+
+func timeToProto(value *time.Time) *timestamppb.Timestamp {
+	if value == nil || value.IsZero() {
+		return nil
+	}
+	return timestamppb.New(*value)
+}
+
+func dateOnly(value time.Time) string {
+	if value.IsZero() {
+		return ""
+	}
+	return value.Format("2006-01-02")
 }

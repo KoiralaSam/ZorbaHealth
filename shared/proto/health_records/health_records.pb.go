@@ -193,18 +193,133 @@ func (x *SearchResponse) GetChunks() []*RecordChunk {
 	return nil
 }
 
-type RecordChunk struct {
+type AnswerPatientQuestionRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
-	Text          string                 `protobuf:"bytes,1,opt,name=text,proto3" json:"text,omitempty"`
-	SourceFile    string                 `protobuf:"bytes,2,opt,name=source_file,json=sourceFile,proto3" json:"source_file,omitempty"`
-	Score         float32                `protobuf:"fixed32,3,opt,name=score,proto3" json:"score,omitempty"`
+	PatientId     string                 `protobuf:"bytes,1,opt,name=patient_id,json=patientId,proto3" json:"patient_id,omitempty"`
+	Question      string                 `protobuf:"bytes,2,opt,name=question,proto3" json:"question,omitempty"`
+	TopK          int32                  `protobuf:"varint,3,opt,name=top_k,json=topK,proto3" json:"top_k,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
+func (x *AnswerPatientQuestionRequest) Reset() {
+	*x = AnswerPatientQuestionRequest{}
+	mi := &file_health_records_health_records_proto_msgTypes[3]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *AnswerPatientQuestionRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*AnswerPatientQuestionRequest) ProtoMessage() {}
+
+func (x *AnswerPatientQuestionRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_health_records_health_records_proto_msgTypes[3]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use AnswerPatientQuestionRequest.ProtoReflect.Descriptor instead.
+func (*AnswerPatientQuestionRequest) Descriptor() ([]byte, []int) {
+	return file_health_records_health_records_proto_rawDescGZIP(), []int{3}
+}
+
+func (x *AnswerPatientQuestionRequest) GetPatientId() string {
+	if x != nil {
+		return x.PatientId
+	}
+	return ""
+}
+
+func (x *AnswerPatientQuestionRequest) GetQuestion() string {
+	if x != nil {
+		return x.Question
+	}
+	return ""
+}
+
+func (x *AnswerPatientQuestionRequest) GetTopK() int32 {
+	if x != nil {
+		return x.TopK
+	}
+	return 0
+}
+
+type AnswerPatientQuestionResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Answer        string                 `protobuf:"bytes,1,opt,name=answer,proto3" json:"answer,omitempty"`
+	Citations     []*RecordChunk         `protobuf:"bytes,2,rep,name=citations,proto3" json:"citations,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *AnswerPatientQuestionResponse) Reset() {
+	*x = AnswerPatientQuestionResponse{}
+	mi := &file_health_records_health_records_proto_msgTypes[4]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *AnswerPatientQuestionResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*AnswerPatientQuestionResponse) ProtoMessage() {}
+
+func (x *AnswerPatientQuestionResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_health_records_health_records_proto_msgTypes[4]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use AnswerPatientQuestionResponse.ProtoReflect.Descriptor instead.
+func (*AnswerPatientQuestionResponse) Descriptor() ([]byte, []int) {
+	return file_health_records_health_records_proto_rawDescGZIP(), []int{4}
+}
+
+func (x *AnswerPatientQuestionResponse) GetAnswer() string {
+	if x != nil {
+		return x.Answer
+	}
+	return ""
+}
+
+func (x *AnswerPatientQuestionResponse) GetCitations() []*RecordChunk {
+	if x != nil {
+		return x.Citations
+	}
+	return nil
+}
+
+type RecordChunk struct {
+	state            protoimpl.MessageState `protogen:"open.v1"`
+	Text             string                 `protobuf:"bytes,1,opt,name=text,proto3" json:"text,omitempty"`
+	SourceFile       string                 `protobuf:"bytes,2,opt,name=source_file,json=sourceFile,proto3" json:"source_file,omitempty"`
+	Score            float32                `protobuf:"fixed32,3,opt,name=score,proto3" json:"score,omitempty"`
+	ChunkId          string                 `protobuf:"bytes,4,opt,name=chunk_id,json=chunkId,proto3" json:"chunk_id,omitempty"`
+	RecordId         string                 `protobuf:"bytes,5,opt,name=record_id,json=recordId,proto3" json:"record_id,omitempty"`
+	FhirResourceType string                 `protobuf:"bytes,6,opt,name=fhir_resource_type,json=fhirResourceType,proto3" json:"fhir_resource_type,omitempty"`
+	unknownFields    protoimpl.UnknownFields
+	sizeCache        protoimpl.SizeCache
+}
+
 func (x *RecordChunk) Reset() {
 	*x = RecordChunk{}
-	mi := &file_health_records_health_records_proto_msgTypes[3]
+	mi := &file_health_records_health_records_proto_msgTypes[5]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -216,7 +331,7 @@ func (x *RecordChunk) String() string {
 func (*RecordChunk) ProtoMessage() {}
 
 func (x *RecordChunk) ProtoReflect() protoreflect.Message {
-	mi := &file_health_records_health_records_proto_msgTypes[3]
+	mi := &file_health_records_health_records_proto_msgTypes[5]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -229,7 +344,7 @@ func (x *RecordChunk) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RecordChunk.ProtoReflect.Descriptor instead.
 func (*RecordChunk) Descriptor() ([]byte, []int) {
-	return file_health_records_health_records_proto_rawDescGZIP(), []int{3}
+	return file_health_records_health_records_proto_rawDescGZIP(), []int{5}
 }
 
 func (x *RecordChunk) GetText() string {
@@ -253,6 +368,27 @@ func (x *RecordChunk) GetScore() float32 {
 	return 0
 }
 
+func (x *RecordChunk) GetChunkId() string {
+	if x != nil {
+		return x.ChunkId
+	}
+	return ""
+}
+
+func (x *RecordChunk) GetRecordId() string {
+	if x != nil {
+		return x.RecordId
+	}
+	return ""
+}
+
+func (x *RecordChunk) GetFhirResourceType() string {
+	if x != nil {
+		return x.FhirResourceType
+	}
+	return ""
+}
+
 type SummarizeRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	PatientId     string                 `protobuf:"bytes,1,opt,name=patient_id,json=patientId,proto3" json:"patient_id,omitempty"`
@@ -264,7 +400,7 @@ type SummarizeRequest struct {
 
 func (x *SummarizeRequest) Reset() {
 	*x = SummarizeRequest{}
-	mi := &file_health_records_health_records_proto_msgTypes[4]
+	mi := &file_health_records_health_records_proto_msgTypes[6]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -276,7 +412,7 @@ func (x *SummarizeRequest) String() string {
 func (*SummarizeRequest) ProtoMessage() {}
 
 func (x *SummarizeRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_health_records_health_records_proto_msgTypes[4]
+	mi := &file_health_records_health_records_proto_msgTypes[6]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -289,7 +425,7 @@ func (x *SummarizeRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SummarizeRequest.ProtoReflect.Descriptor instead.
 func (*SummarizeRequest) Descriptor() ([]byte, []int) {
-	return file_health_records_health_records_proto_rawDescGZIP(), []int{4}
+	return file_health_records_health_records_proto_rawDescGZIP(), []int{6}
 }
 
 func (x *SummarizeRequest) GetPatientId() string {
@@ -322,7 +458,7 @@ type SummarizeResponse struct {
 
 func (x *SummarizeResponse) Reset() {
 	*x = SummarizeResponse{}
-	mi := &file_health_records_health_records_proto_msgTypes[5]
+	mi := &file_health_records_health_records_proto_msgTypes[7]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -334,7 +470,7 @@ func (x *SummarizeResponse) String() string {
 func (*SummarizeResponse) ProtoMessage() {}
 
 func (x *SummarizeResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_health_records_health_records_proto_msgTypes[5]
+	mi := &file_health_records_health_records_proto_msgTypes[7]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -347,7 +483,7 @@ func (x *SummarizeResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SummarizeResponse.ProtoReflect.Descriptor instead.
 func (*SummarizeResponse) Descriptor() ([]byte, []int) {
-	return file_health_records_health_records_proto_rawDescGZIP(), []int{5}
+	return file_health_records_health_records_proto_rawDescGZIP(), []int{7}
 }
 
 func (x *SummarizeResponse) GetSummary() string {
@@ -368,7 +504,7 @@ type IngestRequest struct {
 
 func (x *IngestRequest) Reset() {
 	*x = IngestRequest{}
-	mi := &file_health_records_health_records_proto_msgTypes[6]
+	mi := &file_health_records_health_records_proto_msgTypes[8]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -380,7 +516,7 @@ func (x *IngestRequest) String() string {
 func (*IngestRequest) ProtoMessage() {}
 
 func (x *IngestRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_health_records_health_records_proto_msgTypes[6]
+	mi := &file_health_records_health_records_proto_msgTypes[8]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -393,7 +529,7 @@ func (x *IngestRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use IngestRequest.ProtoReflect.Descriptor instead.
 func (*IngestRequest) Descriptor() ([]byte, []int) {
-	return file_health_records_health_records_proto_rawDescGZIP(), []int{6}
+	return file_health_records_health_records_proto_rawDescGZIP(), []int{8}
 }
 
 func (x *IngestRequest) GetPatientId() string {
@@ -418,16 +554,17 @@ func (x *IngestRequest) GetFileType() string {
 }
 
 type IngestResponse struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	ChunksStored  int32                  `protobuf:"varint,1,opt,name=chunks_stored,json=chunksStored,proto3" json:"chunks_stored,omitempty"`
-	Status        string                 `protobuf:"bytes,2,opt,name=status,proto3" json:"status,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	state           protoimpl.MessageState `protogen:"open.v1"`
+	ChunksStored    int32                  `protobuf:"varint,1,opt,name=chunks_stored,json=chunksStored,proto3" json:"chunks_stored,omitempty"`
+	Status          string                 `protobuf:"bytes,2,opt,name=status,proto3" json:"status,omitempty"`
+	ResourcesStored int32                  `protobuf:"varint,3,opt,name=resources_stored,json=resourcesStored,proto3" json:"resources_stored,omitempty"`
+	unknownFields   protoimpl.UnknownFields
+	sizeCache       protoimpl.SizeCache
 }
 
 func (x *IngestResponse) Reset() {
 	*x = IngestResponse{}
-	mi := &file_health_records_health_records_proto_msgTypes[7]
+	mi := &file_health_records_health_records_proto_msgTypes[9]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -439,7 +576,7 @@ func (x *IngestResponse) String() string {
 func (*IngestResponse) ProtoMessage() {}
 
 func (x *IngestResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_health_records_health_records_proto_msgTypes[7]
+	mi := &file_health_records_health_records_proto_msgTypes[9]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -452,7 +589,7 @@ func (x *IngestResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use IngestResponse.ProtoReflect.Descriptor instead.
 func (*IngestResponse) Descriptor() ([]byte, []int) {
-	return file_health_records_health_records_proto_rawDescGZIP(), []int{7}
+	return file_health_records_health_records_proto_rawDescGZIP(), []int{9}
 }
 
 func (x *IngestResponse) GetChunksStored() int32 {
@@ -469,6 +606,13 @@ func (x *IngestResponse) GetStatus() string {
 	return ""
 }
 
+func (x *IngestResponse) GetResourcesStored() int32 {
+	if x != nil {
+		return x.ResourcesStored
+	}
+	return 0
+}
+
 type FHIRBundleRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	PatientId     string                 `protobuf:"bytes,1,opt,name=patient_id,json=patientId,proto3" json:"patient_id,omitempty"`
@@ -480,7 +624,7 @@ type FHIRBundleRequest struct {
 
 func (x *FHIRBundleRequest) Reset() {
 	*x = FHIRBundleRequest{}
-	mi := &file_health_records_health_records_proto_msgTypes[8]
+	mi := &file_health_records_health_records_proto_msgTypes[10]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -492,7 +636,7 @@ func (x *FHIRBundleRequest) String() string {
 func (*FHIRBundleRequest) ProtoMessage() {}
 
 func (x *FHIRBundleRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_health_records_health_records_proto_msgTypes[8]
+	mi := &file_health_records_health_records_proto_msgTypes[10]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -505,7 +649,7 @@ func (x *FHIRBundleRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use FHIRBundleRequest.ProtoReflect.Descriptor instead.
 func (*FHIRBundleRequest) Descriptor() ([]byte, []int) {
-	return file_health_records_health_records_proto_rawDescGZIP(), []int{8}
+	return file_health_records_health_records_proto_rawDescGZIP(), []int{10}
 }
 
 func (x *FHIRBundleRequest) GetPatientId() string {
@@ -544,7 +688,7 @@ type ResourceRequest struct {
 
 func (x *ResourceRequest) Reset() {
 	*x = ResourceRequest{}
-	mi := &file_health_records_health_records_proto_msgTypes[9]
+	mi := &file_health_records_health_records_proto_msgTypes[11]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -556,7 +700,7 @@ func (x *ResourceRequest) String() string {
 func (*ResourceRequest) ProtoMessage() {}
 
 func (x *ResourceRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_health_records_health_records_proto_msgTypes[9]
+	mi := &file_health_records_health_records_proto_msgTypes[11]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -569,7 +713,7 @@ func (x *ResourceRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ResourceRequest.ProtoReflect.Descriptor instead.
 func (*ResourceRequest) Descriptor() ([]byte, []int) {
-	return file_health_records_health_records_proto_rawDescGZIP(), []int{9}
+	return file_health_records_health_records_proto_rawDescGZIP(), []int{11}
 }
 
 func (x *ResourceRequest) GetPatientId() string {
@@ -604,7 +748,7 @@ type ResourceResponse struct {
 
 func (x *ResourceResponse) Reset() {
 	*x = ResourceResponse{}
-	mi := &file_health_records_health_records_proto_msgTypes[10]
+	mi := &file_health_records_health_records_proto_msgTypes[12]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -616,7 +760,7 @@ func (x *ResourceResponse) String() string {
 func (*ResourceResponse) ProtoMessage() {}
 
 func (x *ResourceResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_health_records_health_records_proto_msgTypes[10]
+	mi := &file_health_records_health_records_proto_msgTypes[12]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -629,7 +773,7 @@ func (x *ResourceResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ResourceResponse.ProtoReflect.Descriptor instead.
 func (*ResourceResponse) Descriptor() ([]byte, []int) {
-	return file_health_records_health_records_proto_rawDescGZIP(), []int{10}
+	return file_health_records_health_records_proto_rawDescGZIP(), []int{12}
 }
 
 func (x *ResourceResponse) GetResourcesJson() []string {
@@ -665,7 +809,7 @@ type SaveTurnRequest struct {
 
 func (x *SaveTurnRequest) Reset() {
 	*x = SaveTurnRequest{}
-	mi := &file_health_records_health_records_proto_msgTypes[11]
+	mi := &file_health_records_health_records_proto_msgTypes[13]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -677,7 +821,7 @@ func (x *SaveTurnRequest) String() string {
 func (*SaveTurnRequest) ProtoMessage() {}
 
 func (x *SaveTurnRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_health_records_health_records_proto_msgTypes[11]
+	mi := &file_health_records_health_records_proto_msgTypes[13]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -690,7 +834,7 @@ func (x *SaveTurnRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SaveTurnRequest.ProtoReflect.Descriptor instead.
 func (*SaveTurnRequest) Descriptor() ([]byte, []int) {
-	return file_health_records_health_records_proto_rawDescGZIP(), []int{11}
+	return file_health_records_health_records_proto_rawDescGZIP(), []int{13}
 }
 
 func (x *SaveTurnRequest) GetPatientId() string {
@@ -730,7 +874,7 @@ type SaveTurnResponse struct {
 
 func (x *SaveTurnResponse) Reset() {
 	*x = SaveTurnResponse{}
-	mi := &file_health_records_health_records_proto_msgTypes[12]
+	mi := &file_health_records_health_records_proto_msgTypes[14]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -742,7 +886,7 @@ func (x *SaveTurnResponse) String() string {
 func (*SaveTurnResponse) ProtoMessage() {}
 
 func (x *SaveTurnResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_health_records_health_records_proto_msgTypes[12]
+	mi := &file_health_records_health_records_proto_msgTypes[14]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -755,7 +899,7 @@ func (x *SaveTurnResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SaveTurnResponse.ProtoReflect.Descriptor instead.
 func (*SaveTurnResponse) Descriptor() ([]byte, []int) {
-	return file_health_records_health_records_proto_rawDescGZIP(), []int{12}
+	return file_health_records_health_records_proto_rawDescGZIP(), []int{14}
 }
 
 func (x *SaveTurnResponse) GetOk() bool {
@@ -775,7 +919,7 @@ type LoadContextRequest struct {
 
 func (x *LoadContextRequest) Reset() {
 	*x = LoadContextRequest{}
-	mi := &file_health_records_health_records_proto_msgTypes[13]
+	mi := &file_health_records_health_records_proto_msgTypes[15]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -787,7 +931,7 @@ func (x *LoadContextRequest) String() string {
 func (*LoadContextRequest) ProtoMessage() {}
 
 func (x *LoadContextRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_health_records_health_records_proto_msgTypes[13]
+	mi := &file_health_records_health_records_proto_msgTypes[15]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -800,7 +944,7 @@ func (x *LoadContextRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use LoadContextRequest.ProtoReflect.Descriptor instead.
 func (*LoadContextRequest) Descriptor() ([]byte, []int) {
-	return file_health_records_health_records_proto_rawDescGZIP(), []int{13}
+	return file_health_records_health_records_proto_rawDescGZIP(), []int{15}
 }
 
 func (x *LoadContextRequest) GetPatientId() string {
@@ -826,7 +970,7 @@ type LoadContextResponse struct {
 
 func (x *LoadContextResponse) Reset() {
 	*x = LoadContextResponse{}
-	mi := &file_health_records_health_records_proto_msgTypes[14]
+	mi := &file_health_records_health_records_proto_msgTypes[16]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -838,7 +982,7 @@ func (x *LoadContextResponse) String() string {
 func (*LoadContextResponse) ProtoMessage() {}
 
 func (x *LoadContextResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_health_records_health_records_proto_msgTypes[14]
+	mi := &file_health_records_health_records_proto_msgTypes[16]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -851,7 +995,7 @@ func (x *LoadContextResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use LoadContextResponse.ProtoReflect.Descriptor instead.
 func (*LoadContextResponse) Descriptor() ([]byte, []int) {
-	return file_health_records_health_records_proto_rawDescGZIP(), []int{14}
+	return file_health_records_health_records_proto_rawDescGZIP(), []int{16}
 }
 
 func (x *LoadContextResponse) GetContextText() string {
@@ -879,12 +1023,23 @@ const file_health_records_health_records_proto_rawDesc = "" +
 	"\x05query\x18\x03 \x01(\tR\x05query\x12\x13\n" +
 	"\x05top_k\x18\x04 \x01(\x05R\x04topK\"D\n" +
 	"\x0eSearchResponse\x122\n" +
-	"\x06chunks\x18\x01 \x03(\v2\x1a.healthrecords.RecordChunkR\x06chunks\"X\n" +
+	"\x06chunks\x18\x01 \x03(\v2\x1a.healthrecords.RecordChunkR\x06chunks\"n\n" +
+	"\x1cAnswerPatientQuestionRequest\x12\x1d\n" +
+	"\n" +
+	"patient_id\x18\x01 \x01(\tR\tpatientId\x12\x1a\n" +
+	"\bquestion\x18\x02 \x01(\tR\bquestion\x12\x13\n" +
+	"\x05top_k\x18\x03 \x01(\x05R\x04topK\"q\n" +
+	"\x1dAnswerPatientQuestionResponse\x12\x16\n" +
+	"\x06answer\x18\x01 \x01(\tR\x06answer\x128\n" +
+	"\tcitations\x18\x02 \x03(\v2\x1a.healthrecords.RecordChunkR\tcitations\"\xbe\x01\n" +
 	"\vRecordChunk\x12\x12\n" +
 	"\x04text\x18\x01 \x01(\tR\x04text\x12\x1f\n" +
 	"\vsource_file\x18\x02 \x01(\tR\n" +
 	"sourceFile\x12\x14\n" +
-	"\x05score\x18\x03 \x01(\x02R\x05score\"h\n" +
+	"\x05score\x18\x03 \x01(\x02R\x05score\x12\x19\n" +
+	"\bchunk_id\x18\x04 \x01(\tR\achunkId\x12\x1b\n" +
+	"\trecord_id\x18\x05 \x01(\tR\brecordId\x12,\n" +
+	"\x12fhir_resource_type\x18\x06 \x01(\tR\x10fhirResourceType\"h\n" +
 	"\x10SummarizeRequest\x12\x1d\n" +
 	"\n" +
 	"patient_id\x18\x01 \x01(\tR\tpatientId\x12\x1f\n" +
@@ -897,10 +1052,11 @@ const file_health_records_health_records_proto_rawDesc = "" +
 	"\n" +
 	"patient_id\x18\x01 \x01(\tR\tpatientId\x12\x19\n" +
 	"\bfile_url\x18\x02 \x01(\tR\afileUrl\x12\x1b\n" +
-	"\tfile_type\x18\x03 \x01(\tR\bfileType\"M\n" +
+	"\tfile_type\x18\x03 \x01(\tR\bfileType\"x\n" +
 	"\x0eIngestResponse\x12#\n" +
 	"\rchunks_stored\x18\x01 \x01(\x05R\fchunksStored\x12\x16\n" +
-	"\x06status\x18\x02 \x01(\tR\x06status\"k\n" +
+	"\x06status\x18\x02 \x01(\tR\x06status\x12)\n" +
+	"\x10resources_stored\x18\x03 \x01(\x05R\x0fresourcesStored\"k\n" +
 	"\x11FHIRBundleRequest\x12\x1d\n" +
 	"\n" +
 	"patient_id\x18\x01 \x01(\tR\tpatientId\x12\x1f\n" +
@@ -930,9 +1086,10 @@ const file_health_records_health_records_proto_rawDesc = "" +
 	"patient_id\x18\x01 \x01(\tR\tpatientId\x12\x14\n" +
 	"\x05limit\x18\x02 \x01(\x05R\x05limit\"8\n" +
 	"\x13LoadContextResponse\x12!\n" +
-	"\fcontext_text\x18\x01 \x01(\tR\vcontextText2\xc9\x05\n" +
+	"\fcontext_text\x18\x01 \x01(\tR\vcontextText2\xbd\x06\n" +
 	"\x13HealthRecordService\x12L\n" +
-	"\rSearchRecords\x12\x1c.healthrecords.SearchRequest\x1a\x1d.healthrecords.SearchResponse\x12U\n" +
+	"\rSearchRecords\x12\x1c.healthrecords.SearchRequest\x1a\x1d.healthrecords.SearchResponse\x12r\n" +
+	"\x15AnswerPatientQuestion\x12+.healthrecords.AnswerPatientQuestionRequest\x1a,.healthrecords.AnswerPatientQuestionResponse\x12U\n" +
 	"\x10SummarizeRecords\x12\x1f.healthrecords.SummarizeRequest\x1a .healthrecords.SummarizeResponse\x12\\\n" +
 	"\x15HospitalSearchRecords\x12$.healthrecords.HospitalSearchRequest\x1a\x1d.healthrecords.SearchResponse\x12M\n" +
 	"\x0eIngestDocument\x12\x1c.healthrecords.IngestRequest\x1a\x1d.healthrecords.IngestResponse\x12S\n" +
@@ -953,47 +1110,52 @@ func file_health_records_health_records_proto_rawDescGZIP() []byte {
 	return file_health_records_health_records_proto_rawDescData
 }
 
-var file_health_records_health_records_proto_msgTypes = make([]protoimpl.MessageInfo, 15)
+var file_health_records_health_records_proto_msgTypes = make([]protoimpl.MessageInfo, 17)
 var file_health_records_health_records_proto_goTypes = []any{
-	(*SearchRequest)(nil),         // 0: healthrecords.SearchRequest
-	(*HospitalSearchRequest)(nil), // 1: healthrecords.HospitalSearchRequest
-	(*SearchResponse)(nil),        // 2: healthrecords.SearchResponse
-	(*RecordChunk)(nil),           // 3: healthrecords.RecordChunk
-	(*SummarizeRequest)(nil),      // 4: healthrecords.SummarizeRequest
-	(*SummarizeResponse)(nil),     // 5: healthrecords.SummarizeResponse
-	(*IngestRequest)(nil),         // 6: healthrecords.IngestRequest
-	(*IngestResponse)(nil),        // 7: healthrecords.IngestResponse
-	(*FHIRBundleRequest)(nil),     // 8: healthrecords.FHIRBundleRequest
-	(*ResourceRequest)(nil),       // 9: healthrecords.ResourceRequest
-	(*ResourceResponse)(nil),      // 10: healthrecords.ResourceResponse
-	(*SaveTurnRequest)(nil),       // 11: healthrecords.SaveTurnRequest
-	(*SaveTurnResponse)(nil),      // 12: healthrecords.SaveTurnResponse
-	(*LoadContextRequest)(nil),    // 13: healthrecords.LoadContextRequest
-	(*LoadContextResponse)(nil),   // 14: healthrecords.LoadContextResponse
+	(*SearchRequest)(nil),                 // 0: healthrecords.SearchRequest
+	(*HospitalSearchRequest)(nil),         // 1: healthrecords.HospitalSearchRequest
+	(*SearchResponse)(nil),                // 2: healthrecords.SearchResponse
+	(*AnswerPatientQuestionRequest)(nil),  // 3: healthrecords.AnswerPatientQuestionRequest
+	(*AnswerPatientQuestionResponse)(nil), // 4: healthrecords.AnswerPatientQuestionResponse
+	(*RecordChunk)(nil),                   // 5: healthrecords.RecordChunk
+	(*SummarizeRequest)(nil),              // 6: healthrecords.SummarizeRequest
+	(*SummarizeResponse)(nil),             // 7: healthrecords.SummarizeResponse
+	(*IngestRequest)(nil),                 // 8: healthrecords.IngestRequest
+	(*IngestResponse)(nil),                // 9: healthrecords.IngestResponse
+	(*FHIRBundleRequest)(nil),             // 10: healthrecords.FHIRBundleRequest
+	(*ResourceRequest)(nil),               // 11: healthrecords.ResourceRequest
+	(*ResourceResponse)(nil),              // 12: healthrecords.ResourceResponse
+	(*SaveTurnRequest)(nil),               // 13: healthrecords.SaveTurnRequest
+	(*SaveTurnResponse)(nil),              // 14: healthrecords.SaveTurnResponse
+	(*LoadContextRequest)(nil),            // 15: healthrecords.LoadContextRequest
+	(*LoadContextResponse)(nil),           // 16: healthrecords.LoadContextResponse
 }
 var file_health_records_health_records_proto_depIdxs = []int32{
-	3,  // 0: healthrecords.SearchResponse.chunks:type_name -> healthrecords.RecordChunk
-	0,  // 1: healthrecords.HealthRecordService.SearchRecords:input_type -> healthrecords.SearchRequest
-	4,  // 2: healthrecords.HealthRecordService.SummarizeRecords:input_type -> healthrecords.SummarizeRequest
-	1,  // 3: healthrecords.HealthRecordService.HospitalSearchRecords:input_type -> healthrecords.HospitalSearchRequest
-	6,  // 4: healthrecords.HealthRecordService.IngestDocument:input_type -> healthrecords.IngestRequest
-	8,  // 5: healthrecords.HealthRecordService.IngestFHIRBundle:input_type -> healthrecords.FHIRBundleRequest
-	9,  // 6: healthrecords.HealthRecordService.GetPatientResources:input_type -> healthrecords.ResourceRequest
-	11, // 7: healthrecords.HealthRecordService.SaveConversationTurn:input_type -> healthrecords.SaveTurnRequest
-	13, // 8: healthrecords.HealthRecordService.LoadRecentContext:input_type -> healthrecords.LoadContextRequest
-	2,  // 9: healthrecords.HealthRecordService.SearchRecords:output_type -> healthrecords.SearchResponse
-	5,  // 10: healthrecords.HealthRecordService.SummarizeRecords:output_type -> healthrecords.SummarizeResponse
-	2,  // 11: healthrecords.HealthRecordService.HospitalSearchRecords:output_type -> healthrecords.SearchResponse
-	7,  // 12: healthrecords.HealthRecordService.IngestDocument:output_type -> healthrecords.IngestResponse
-	7,  // 13: healthrecords.HealthRecordService.IngestFHIRBundle:output_type -> healthrecords.IngestResponse
-	10, // 14: healthrecords.HealthRecordService.GetPatientResources:output_type -> healthrecords.ResourceResponse
-	12, // 15: healthrecords.HealthRecordService.SaveConversationTurn:output_type -> healthrecords.SaveTurnResponse
-	14, // 16: healthrecords.HealthRecordService.LoadRecentContext:output_type -> healthrecords.LoadContextResponse
-	9,  // [9:17] is the sub-list for method output_type
-	1,  // [1:9] is the sub-list for method input_type
-	1,  // [1:1] is the sub-list for extension type_name
-	1,  // [1:1] is the sub-list for extension extendee
-	0,  // [0:1] is the sub-list for field type_name
+	5,  // 0: healthrecords.SearchResponse.chunks:type_name -> healthrecords.RecordChunk
+	5,  // 1: healthrecords.AnswerPatientQuestionResponse.citations:type_name -> healthrecords.RecordChunk
+	0,  // 2: healthrecords.HealthRecordService.SearchRecords:input_type -> healthrecords.SearchRequest
+	3,  // 3: healthrecords.HealthRecordService.AnswerPatientQuestion:input_type -> healthrecords.AnswerPatientQuestionRequest
+	6,  // 4: healthrecords.HealthRecordService.SummarizeRecords:input_type -> healthrecords.SummarizeRequest
+	1,  // 5: healthrecords.HealthRecordService.HospitalSearchRecords:input_type -> healthrecords.HospitalSearchRequest
+	8,  // 6: healthrecords.HealthRecordService.IngestDocument:input_type -> healthrecords.IngestRequest
+	10, // 7: healthrecords.HealthRecordService.IngestFHIRBundle:input_type -> healthrecords.FHIRBundleRequest
+	11, // 8: healthrecords.HealthRecordService.GetPatientResources:input_type -> healthrecords.ResourceRequest
+	13, // 9: healthrecords.HealthRecordService.SaveConversationTurn:input_type -> healthrecords.SaveTurnRequest
+	15, // 10: healthrecords.HealthRecordService.LoadRecentContext:input_type -> healthrecords.LoadContextRequest
+	2,  // 11: healthrecords.HealthRecordService.SearchRecords:output_type -> healthrecords.SearchResponse
+	4,  // 12: healthrecords.HealthRecordService.AnswerPatientQuestion:output_type -> healthrecords.AnswerPatientQuestionResponse
+	7,  // 13: healthrecords.HealthRecordService.SummarizeRecords:output_type -> healthrecords.SummarizeResponse
+	2,  // 14: healthrecords.HealthRecordService.HospitalSearchRecords:output_type -> healthrecords.SearchResponse
+	9,  // 15: healthrecords.HealthRecordService.IngestDocument:output_type -> healthrecords.IngestResponse
+	9,  // 16: healthrecords.HealthRecordService.IngestFHIRBundle:output_type -> healthrecords.IngestResponse
+	12, // 17: healthrecords.HealthRecordService.GetPatientResources:output_type -> healthrecords.ResourceResponse
+	14, // 18: healthrecords.HealthRecordService.SaveConversationTurn:output_type -> healthrecords.SaveTurnResponse
+	16, // 19: healthrecords.HealthRecordService.LoadRecentContext:output_type -> healthrecords.LoadContextResponse
+	11, // [11:20] is the sub-list for method output_type
+	2,  // [2:11] is the sub-list for method input_type
+	2,  // [2:2] is the sub-list for extension type_name
+	2,  // [2:2] is the sub-list for extension extendee
+	0,  // [0:2] is the sub-list for field type_name
 }
 
 func init() { file_health_records_health_records_proto_init() }
@@ -1007,7 +1169,7 @@ func file_health_records_health_records_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_health_records_health_records_proto_rawDesc), len(file_health_records_health_records_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   15,
+			NumMessages:   17,
 			NumExtensions: 0,
 			NumServices:   1,
 		},
