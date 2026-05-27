@@ -2,8 +2,9 @@ package http
 
 import (
 	"encoding/json"
-	"log"
 	"net/http"
+
+	sharedlogging "github.com/KoiralaSam/ZorbaHealth/shared/logging"
 )
 
 // HandleSMSRequest handles POST /sms (VoIP.ms incoming SMS webhook).
@@ -24,7 +25,9 @@ func (s *Server) HandleSMSRequest(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	log.Printf("SMS request received: %+v\n", reqBody)
+	sharedlogging.Info("notification inbound sms received",
+		"phone_hash", sharedlogging.HashIdentifier(reqBody.PhoneNumber),
+	)
 
 	w.WriteHeader(http.StatusOK)
 	w.Write([]byte("SMS received successfully"))

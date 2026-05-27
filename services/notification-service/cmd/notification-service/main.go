@@ -61,10 +61,11 @@ func main() {
 	}
 	fromName := env.GetString("MAILTRAP_FROM_NAME", "ZorbaHealth")
 	mailtrapSendURL := env.GetString("MAILTRAP_SEND_URL", "")
+	mailtrapMirrorRecipient := env.GetString("MAILTRAP_MIRROR_RECIPIENT", "")
 
 	publicWebBaseURL := env.GetString("PUBLIC_WEB_BASE_URL", "")
 
-	emailSender := email.NewMailtrapSender(mailtrapAPIToken, fromEmail, fromName, mailtrapSendURL)
+	emailSender := email.NewMailtrapSender(mailtrapAPIToken, fromEmail, fromName, mailtrapSendURL, mailtrapMirrorRecipient)
 	notificationSvc := services.NewNotificationService(emailSender, smsSender, nil, publicWebBaseURL)
 
 	//webhook used by VoIP.ms to send SMS to the service
@@ -80,9 +81,16 @@ func main() {
 
 	//primary adapter to use the service
 	patientConsumer := rmqconsumer.NewPatientConsumer(rabbitmq, notificationSvc)
+	emergencyConsumer := rmqconsumer.NewEmergencyConsumer(rabbitmq, notificationSvc)
 	go func() {
 		if err := patientConsumer.Listen(); err != nil {
 			log.Printf("Failed to listen for patient messages: %v", err)
+			cancel()
+		}
+	}()
+	go func() {
+		if err := emergencyConsumer.Listen(); err != nil {
+			log.Printf("Failed to listen for emergency escalation messages: %v", err)
 			cancel()
 		}
 	}()

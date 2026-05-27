@@ -10,11 +10,14 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
+    from auth import SessionAuth
     from tools.mcp_client import MCPClient
 
 
 @dataclass
 class SessionUserData:
+    verification_state: str = "anonymous"
+
     # Stable identifiers set at provision time.
     room_name: str = ""
     room_sid: str = ""
@@ -27,20 +30,28 @@ class SessionUserData:
     provisional_token: str = ""
     patient_token: str | None = None
 
-    # Set after OTP verification or registration.
+    # Set after OTP verification.
     verified_patient_id: str | None = None
 
-    # In-flight registration token returned by start-registration.
-    registration_token: str | None = None
-
     # Tracks the active verification path so tools know which OTP to submit.
-    verification_mode: str = ""  # "existing" | "registration" | ""
+    verification_mode: str = ""  # "existing" | ""
 
     # Health context loaded after verification; summarised by Go.
     health_context: str = ""
 
+    # Safety / escalation state for the current voice session.
+    escalation_triggered: bool = False
+    escalation_reason: str = ""
+    escalation_guidance: str = ""
+    transfer_requested: bool = False
+    transfer_target: str = ""
+    last_user_transcript: str = ""
+    last_user_transcript_language: str = "en"
+    alert_phone_numbers: list[str] | None = None
+
     # HTTP MCP client (set once per job in agent entrypoint).
     mcp_client: "MCPClient | None" = None
+    session_auth: "SessionAuth | None" = None
 
     @property
     def active_token(self) -> str:
@@ -56,5 +67,5 @@ class SessionUserData:
         """Record a successful verification and store the upgraded token."""
         self.verified_patient_id = patient_id
         self.patient_token = patient_token
+        self.verification_state = "verified_patient"
         self.verification_mode = ""
-        self.registration_token = None

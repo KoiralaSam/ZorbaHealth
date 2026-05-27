@@ -6,6 +6,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 
+	sharedaudit "github.com/KoiralaSam/ZorbaHealth/shared/audit"
 	sharedauth "github.com/KoiralaSam/ZorbaHealth/shared/auth"
 	transpb "github.com/KoiralaSam/ZorbaHealth/shared/proto/translation"
 )
@@ -34,10 +35,13 @@ func RegisterTranslate(s *mcp.Server, db *pgxpool.Pool, client transpb.Translati
 		switch claims.ActorType {
 		case sharedauth.ActorPatient, sharedauth.ActorStaff:
 		default:
-			audit(db, claims, "translate", "forbidden", "forbidden: unsupported actor type")
+			auditCompat(db, claims, "translate", "forbidden", "forbidden: unsupported actor type")
 			return errorResult("forbidden: unsupported actor type"), nil, nil
 		}
 
+		correlationID := auditStart(ctx, claims, sharedaudit.EventTranslationRequested, "translate", map[string]any{
+			"target_lang": in.TargetLang,
+		})
 		ctx = ctxWithForwardedToken(ctx, in.Auth)
 
 		resp, err := client.Translate(ctx, &transpb.TranslateRequest{
@@ -46,11 +50,11 @@ func RegisterTranslate(s *mcp.Server, db *pgxpool.Pool, client transpb.Translati
 			SourceLang: in.SourceLang,
 		})
 		if err != nil {
-			audit(db, claims, "translate", "error", err.Error())
+			auditComplete(ctx, db, claims, sharedaudit.EventTranslationRequested, "translate", "error", err.Error(), correlationID, nil)
 			return errorResult(err.Error()), nil, nil
 		}
 
-		audit(db, claims, "translate", "success", "")
+		auditComplete(ctx, db, claims, sharedaudit.EventTranslationRequested, "translate", "success", "", correlationID, nil)
 		return textResult(resp.GetTranslatedText()), nil, nil
 	})
 }

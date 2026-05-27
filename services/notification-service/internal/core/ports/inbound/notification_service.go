@@ -11,6 +11,8 @@ import (
 type NotificationService interface {
 	SendPendingVerificationEmail(ctx context.Context, req *events.PendingRegistrationData, token string) error
 	SendOTP(ctx context.Context, phone string, otp string) error
+	SendEmergencyEscalationSMS(ctx context.Context, phone string, reason string) error
+	SendEmergencyEscalationAlerts(ctx context.Context, phones []string, reason string) []error
 	ReceiveSMS(ctx context.Context, phoneNumber, message string) error
 }
 

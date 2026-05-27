@@ -5,4 +5,5 @@ package inbound
 type PatientLiveChannel interface {
 	WriteJSON(v any) error
 	Close() error
+	ClientIP() string
 }

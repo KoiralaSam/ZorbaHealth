@@ -4,10 +4,10 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"log"
 
 	"github.com/KoiralaSam/ZorbaHealth/shared/contracts"
 	"github.com/KoiralaSam/ZorbaHealth/shared/events"
+	sharedlogging "github.com/KoiralaSam/ZorbaHealth/shared/logging"
 	"github.com/KoiralaSam/ZorbaHealth/shared/tracing"
 	amqp "github.com/rabbitmq/amqp091-go"
 )
@@ -121,14 +121,20 @@ func (r *RabbitMQ) ConsumeMessages(queueName string, handler MessageHandler) err
 	go func() {
 		for msg := range msgs {
 			if err := tracing.TracedConsumer(msg, func(ctx context.Context, d amqp.Delivery) error {
-				log.Printf("Received a message: %s", msg.Body)
+				sharedlogging.Info("rabbitmq message received",
+					"exchange", msg.Exchange,
+					"routing_key", msg.RoutingKey,
+				)
 
 				if err := handler(ctx, msg); err != nil {
-					log.Printf("failed to handle message: %v. Message Body: %s", err, msg.Body)
+					sharedlogging.Error("rabbitmq handler failed", err,
+						"exchange", msg.Exchange,
+						"routing_key", msg.RoutingKey,
+					)
 
 					// Requeue by default so transient failures can be retried.
 					if nackErr := msg.Nack(false, true); nackErr != nil {
-						log.Printf("failed to nack message (will likely be redelivered on consumer restart): %v", nackErr)
+						sharedlogging.Error("rabbitmq nack failed", nackErr)
 					}
 
 					//continue to the next message
@@ -136,11 +142,11 @@ func (r *RabbitMQ) ConsumeMessages(queueName string, handler MessageHandler) err
 				}
 				//only ack the message if the handler succeeds
 				if ackErr := msg.Ack(false); ackErr != nil {
-					log.Printf("failed to ack message: %v. Message Body: %s", ackErr, msg.Body)
+					sharedlogging.Error("rabbitmq ack failed", ackErr)
 				}
 				return nil
 			}); err != nil {
-				log.Printf("failed to consume message: %v", err)
+				sharedlogging.Error("rabbitmq consume failed", err)
 			}
 
 		}
@@ -150,7 +156,10 @@ func (r *RabbitMQ) ConsumeMessages(queueName string, handler MessageHandler) err
 }
 
 func (r *RabbitMQ) PublishMessage(ctx context.Context, exhange string, routingKey string, messagage contracts.AmqpMessage) error {
-	log.Printf("Publishing message to %s with routing key %s", exhange, routingKey)
+	sharedlogging.Info("rabbitmq publish",
+		"exchange", exhange,
+		"routing_key", routingKey,
+	)
 
 	jsonMsg, err := json.Marshal(messagage)
 	if err != nil {

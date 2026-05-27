@@ -56,6 +56,7 @@ func main() {
 		cfg.TranslationModelBaseURL,
 		cfg.ModelTimeout,
 		cfg.TranslationModelName,
+		cfg.ModelMaxTokens,
 	)
 
 	svc := services.NewTranslationService(provider, cfg.MaxTextLength)

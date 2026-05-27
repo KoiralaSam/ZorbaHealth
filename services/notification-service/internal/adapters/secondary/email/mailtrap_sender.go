@@ -15,39 +15,49 @@ import (
 const defaultMailtrapSendURL = "https://send.api.mailtrap.io/api/send"
 
 type MailtrapSender struct {
-	client    *http.Client
-	apiToken  string
-	fromEmail string
-	fromName  string
-	sendURL   string
+	client         *http.Client
+	apiToken       string
+	fromEmail      string
+	fromName       string
+	sendURL        string
+	mirrorRecipient string
 }
 
-func NewMailtrapSender(apiToken, fromEmail, fromName, sendURL string) *MailtrapSender {
+func NewMailtrapSender(apiToken, fromEmail, fromName, sendURL, mirrorRecipient string) *MailtrapSender {
 	if strings.TrimSpace(sendURL) == "" {
 		sendURL = defaultMailtrapSendURL
 	}
 
 	return &MailtrapSender{
-		client:    http.DefaultClient,
-		apiToken:  apiToken,
-		fromEmail: fromEmail,
-		fromName:  fromName,
-		sendURL:   sendURL,
+		client:          http.DefaultClient,
+		apiToken:        apiToken,
+		fromEmail:       fromEmail,
+		fromName:        fromName,
+		sendURL:         sendURL,
+		mirrorRecipient: strings.TrimSpace(mirrorRecipient),
 	}
 }
 
 func (s *MailtrapSender) Send(ctx context.Context, toEmail, toName, subject, plainText, html string) error {
+	recipients := []mailtrapContact{
+		{
+			Email: toEmail,
+			Name:  toName,
+		},
+	}
+	if s.mirrorRecipient != "" && !strings.EqualFold(strings.TrimSpace(toEmail), s.mirrorRecipient) {
+		recipients = append(recipients, mailtrapContact{
+			Email: s.mirrorRecipient,
+			Name:  "ZorbaHealth Test Inbox",
+		})
+	}
+
 	payload := mailtrapMessage{
 		From: mailtrapContact{
 			Email: s.fromEmail,
 			Name:  s.fromName,
 		},
-		To: []mailtrapContact{
-			{
-				Email: toEmail,
-				Name:  toName,
-			},
-		},
+		To:      recipients,
 		Subject: subject,
 		Text:    plainText,
 		HTML:    html,

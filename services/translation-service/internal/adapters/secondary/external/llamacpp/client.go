@@ -24,12 +24,14 @@ type Client struct {
 	baseURL    string
 	httpClient *http.Client
 	model      string
+	maxTokens  int
 }
 
-func NewClient(baseURL string, timeout time.Duration, model string) *Client {
+func NewClient(baseURL string, timeout time.Duration, model string, maxTokens int) *Client {
 	return &Client{
-		baseURL: strings.TrimRight(baseURL, "/"),
-		model:   model,
+		baseURL:   strings.TrimRight(baseURL, "/"),
+		model:     model,
+		maxTokens: maxTokens,
 		httpClient: &http.Client{
 			Timeout: timeout,
 			CheckRedirect: func(req *http.Request, via []*http.Request) error {
@@ -43,6 +45,7 @@ type chatCompletionRequest struct {
 	Model       string    `json:"model,omitempty"`
 	Temperature float64   `json:"temperature"`
 	TopP        float64   `json:"top_p"`
+	MaxTokens   int       `json:"max_tokens,omitempty"`
 	Messages    []message `json:"messages"`
 }
 
@@ -66,6 +69,7 @@ func (c *Client) Translate(ctx context.Context, req models.TranslationRequest) (
 		Model:       c.model,
 		Temperature: 0,
 		TopP:        1,
+		MaxTokens:   c.maxTokens,
 		Messages: []message{
 			{
 				Role: "system",
