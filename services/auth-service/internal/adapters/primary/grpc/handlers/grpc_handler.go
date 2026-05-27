@@ -18,6 +18,7 @@ type AuthGRPCHandler struct {
 	pb.UnimplementedLoginServiceServer
 	pb.UnimplementedRegisterPatientServiceServer
 	pb.UnimplementedRegisterHealthProviderServiceServer
+	pb.UnimplementedCreatePatientSessionServiceServer
 	pb.UnimplementedVerifyTokenServiceServer
 	pb.UnimplementedLogoutServiceServer
 	svc inbound.AuthService
@@ -29,9 +30,26 @@ func NewAuthGRPCHandler(server *grpc.Server, svc inbound.AuthService) *AuthGRPCH
 	pb.RegisterLoginServiceServer(server, h)
 	pb.RegisterRegisterPatientServiceServer(server, h)
 	pb.RegisterRegisterHealthProviderServiceServer(server, h)
+	pb.RegisterCreatePatientSessionServiceServer(server, h)
 	pb.RegisterVerifyTokenServiceServer(server, h)
 	pb.RegisterLogoutServiceServer(server, h)
 	return h
+}
+
+func (h *AuthGRPCHandler) CreatePatientSession(ctx context.Context, req *pb.CreatePatientSessionRequest) (*pb.CreatePatientSessionResponse, error) {
+	if req == nil || req.UserId == "" {
+		return nil, status.Error(codes.InvalidArgument, "user_id required")
+	}
+	token, auth, err := h.svc.CreatePatientSession(ctx, req.UserId, req.Scopes)
+	if err != nil {
+		return nil, status.Error(codes.Internal, err.Error())
+	}
+	return &pb.CreatePatientSessionResponse{
+		Message:     "patient session created",
+		AccessToken: token,
+		UserId:      auth.UserID,
+		AuthUuid:    auth.AuthUUID,
+	}, nil
 }
 
 // Login implements auth.LoginService.

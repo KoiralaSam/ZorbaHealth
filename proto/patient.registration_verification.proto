@@ -20,8 +20,6 @@ service RegistrationVerificationService {
   rpc VerifyPhoneOTP(VerifyPhoneOTPRequest) returns (VerifyPhoneOTPResponse);
   // VerifyExistingPhoneOTP verifies an OTP for an existing patient and returns the patient id.
   rpc VerifyExistingPhoneOTP(VerifyExistingPhoneOTPRequest) returns (VerifyExistingPhoneOTPResponse);
-  // CompletePhoneRegistration creates a patient after phone verification for voice-only registration flows.
-  rpc CompletePhoneRegistration(CompletePhoneRegistrationRequest) returns (CompletePhoneRegistrationResponse);
   // VerifyEmail consumes the token from the verification link, creates user and patient, returns ids.
   rpc VerifyEmail(VerifyEmailRequest) returns (VerifyEmailResponse);
 }
@@ -36,7 +34,6 @@ message StartRegistrationRequest {
 
 message StartRegistrationResponse {
   string message = 1;  // e.g. "Verification email sent. Please check your inbox."
-  string registration_token = 2;
 }
 
 message LookupPatientByPhoneRequest {
@@ -74,15 +71,7 @@ message VerifyExistingPhoneOTPRequest {
 message VerifyExistingPhoneOTPResponse {
   string message = 1;
   string patient_id = 2;
-}
-
-message CompletePhoneRegistrationRequest {
-  string registration_token = 1;
-}
-
-message CompletePhoneRegistrationResponse {
-  string message = 1;
-  string patient_id = 2;
+  string access_token = 3;
 }
 
 message VerifyEmailRequest {

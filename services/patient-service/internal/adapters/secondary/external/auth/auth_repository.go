@@ -14,6 +14,7 @@ import (
 type authService struct {
 	Login       pb.LoginServiceClient
 	Register    pb.RegisterPatientServiceClient
+	CreateSession pb.CreatePatientSessionServiceClient
 	VerifyToken pb.VerifyTokenServiceClient
 	conn        *grpc.ClientConn
 }
@@ -27,10 +28,11 @@ func NewAuthServiceClient(authServiceGRPCAddr string) (*authService, error) {
 		return nil, err
 	}
 	return &authService{
-		Login:       pb.NewLoginServiceClient(conn),
-		Register:    pb.NewRegisterPatientServiceClient(conn),
-		VerifyToken: pb.NewVerifyTokenServiceClient(conn),
-		conn:        conn,
+		Login:         pb.NewLoginServiceClient(conn),
+		Register:      pb.NewRegisterPatientServiceClient(conn),
+		CreateSession: pb.NewCreatePatientSessionServiceClient(conn),
+		VerifyToken:   pb.NewVerifyTokenServiceClient(conn),
+		conn:          conn,
 	}, nil
 }
 
@@ -102,6 +104,21 @@ func (r *authRepository) RegisterPatient(ctx context.Context, req *models.Regist
 	return &models.RegisterResult{
 		Message: resp.Message,
 		UserID:  resp.UserId,
+	}, nil
+}
+
+func (r *authRepository) CreatePatientSession(ctx context.Context, userID string, scopes []string) (*models.LoginResult, error) {
+	resp, err := r.client.CreateSession.CreatePatientSession(ctx, &pb.CreatePatientSessionRequest{
+		UserId: userID,
+		Scopes: scopes,
+	})
+	if err != nil {
+		return nil, err
+	}
+	return &models.LoginResult{
+		Message:     resp.Message,
+		UserID:      resp.UserId,
+		AccessToken: resp.AccessToken,
 	}, nil
 }
 

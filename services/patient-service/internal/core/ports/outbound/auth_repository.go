@@ -9,4 +9,5 @@ import (
 type AuthRepository interface {
 	Login(ctx context.Context, req *models.LoginRequest) (*models.LoginResult, error)
 	RegisterPatient(ctx context.Context, req *models.RegisterPatientRequest) (*models.RegisterResult, error)
+	CreatePatientSession(ctx context.Context, userID string, scopes []string) (*models.LoginResult, error)
 }

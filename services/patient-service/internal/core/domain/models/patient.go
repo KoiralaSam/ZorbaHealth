@@ -18,6 +18,25 @@ type Patient struct {
 	UpdatedAt    time.Time `json:"updated_at"`
 }
 
+type PatientProfile struct {
+	PatientID    string
+	PhoneNumber  string
+	Email        string
+	FullName     string
+	DateOfBirth  time.Time
+	MedicalNotes string
+}
+
+type CallSummary struct {
+	ID            int64
+	Status        string
+	StartedAt     *time.Time
+	EndedAt       *time.Time
+	RecordingURL  string
+	Summary       string
+	LivekitRoomID string
+}
+
 // PendingRegistration is stored in Redis until the user verifies. Do not persist password in plain text in production; hash before storing or use short TTL.
 type PendingRegistration struct {
 	Email          string    `json:"email"`

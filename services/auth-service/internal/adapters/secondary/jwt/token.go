@@ -16,9 +16,12 @@ type SessionActor = *models.SessionActor
 
 // GenerateToken creates a signed JWT for the given auth/session.
 func GenerateToken(claims Auth, actor SessionActor) (string, error) {
-	secret := env.GetString("AUTH_SERVICE_JWT_SECRET", "")
 	if actor == nil {
 		return "", errors.New("session actor required")
+	}
+	secret, err := secretForActor(actor.ActorType)
+	if err != nil {
+		return "", err
 	}
 
 	tokenClaims := jwt.MapClaims{
@@ -51,7 +54,21 @@ func GenerateToken(claims Auth, actor SessionActor) (string, error) {
 
 // VerifyToken parses and validates a JWT and returns the associated Auth claims.
 func VerifyToken(token string) (*models.Auth, error) {
-	secret := env.GetString("AUTH_SERVICE_JWT_SECRET", "")
+	parser := jwt.NewParser()
+	unverified := jwt.MapClaims{}
+	if _, _, err := parser.ParseUnverified(token, unverified); err != nil {
+		return nil, errors.New("invalid token")
+	}
+
+	actorType, ok := unverified["actorType"].(string)
+	if !ok || actorType == "" {
+		return nil, errors.New("missing actorType")
+	}
+	secret, err := secretForActor(actorType)
+	if err != nil {
+		return nil, err
+	}
+
 	parsedToken, err := jwt.Parse(token, func(token *jwt.Token) (any, error) {
 		_, ok := token.Method.(*jwt.SigningMethodHMAC)
 		if !ok {
@@ -89,4 +106,23 @@ func VerifyToken(token string) (*models.Auth, error) {
 	}
 
 	return authDetails, nil
+}
+
+func secretForActor(actorType string) (string, error) {
+	switch actorType {
+	case "patient":
+		secret := env.GetString("PATIENT_SERVICE_JWT_SECRET", "")
+		if secret == "" {
+			return "", errors.New("missing patient jwt secret")
+		}
+		return secret, nil
+	case "staff", "admin":
+		secret := env.GetString("AUTH_SERVICE_JWT_SECRET", "")
+		if secret == "" {
+			return "", errors.New("missing auth jwt secret")
+		}
+		return secret, nil
+	default:
+		return "", errors.New("unsupported actor type")
+	}
 }

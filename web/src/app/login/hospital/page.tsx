@@ -3,7 +3,11 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "../../../components/ui/button";
-import { HTTPHospitalLoginRequest, APIEndpoints } from "../../../contracts";
+import {
+  APIEndpoints,
+  HTTPHospitalLoginRequest,
+  HTTPHospitalLoginResponse,
+} from "../../../contracts";
 import { API_URL } from "../../../constants";
 
 export default function HospitalLogin() {
@@ -30,11 +34,16 @@ export default function HospitalLogin() {
         body: JSON.stringify(hospitalLoginRequest),
       });
 
-      const data: { error?: { message?: string } } = await response.json();
+      const data: HTTPHospitalLoginResponse = await response.json();
 
       if (response.ok) {
-        // router.push("/hospital/dashboard");
-        alert("Hospital login successful!");
+        const accessToken = data.data?.access_token;
+        if (!accessToken) {
+          alert("Login succeeded but no access token was returned.");
+          return;
+        }
+        window.sessionStorage.setItem("hospital_access_token", accessToken);
+        router.push("/hospital/records/summary");
       } else {
         alert(`Login failed: ${data.error?.message || "Unknown error"}`);
       }

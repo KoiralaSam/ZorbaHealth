@@ -27,7 +27,6 @@ var (
 	ErrExistingPatientNotFound              = errors.New("patient not found for phone number")
 	ErrExistingPatientVerificationState     = errors.New("existing patient verification state not found or expired")
 	ErrAmbiguousPhoneNumber                 = errors.New("multiple patients found for phone number")
-	ErrPhoneNumberAlreadyRegistered         = errors.New("phone number is already registered")
 
 	ErrInvalidPhoneNumberNoDigits = errors.New("invalid phone number: no digits")
 	ErrEmailRequired              = errors.New("email is required")

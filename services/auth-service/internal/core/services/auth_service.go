@@ -93,6 +93,32 @@ func (s *AuthService) CreateSession(ctx context.Context, userID string, _ string
 	return token, auth, nil
 }
 
+func (s *AuthService) CreatePatientSession(ctx context.Context, userID string, scopes []string) (string, *models.Auth, error) {
+	auth, err := s.authRepo.CreateAuth(ctx, userID, "")
+	if err != nil {
+		return "", nil, err
+	}
+	user, err := s.userRepo.GetUserByID(ctx, userID)
+	if err != nil {
+		return "", nil, err
+	}
+	actor, err := s.userRepo.ResolveSessionActor(ctx, user.ID, user.Role, auth.AuthUUID)
+	if err != nil {
+		return "", nil, err
+	}
+	if actor.ActorType != "patient" {
+		return "", nil, errors.New("patient session can only be created for patient users")
+	}
+	if len(scopes) > 0 {
+		actor.Scopes = scopes
+	}
+	token, err := jwt.GenerateToken(auth, actor)
+	if err != nil {
+		return "", nil, err
+	}
+	return token, auth, nil
+}
+
 // Logout verifies the token, deletes the auth session, and returns success or error message.
 func (s *AuthService) Logout(ctx context.Context, accessToken string) (string, error) {
 	auth, err := jwt.VerifyToken(accessToken)
