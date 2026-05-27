@@ -21,10 +21,10 @@ spec:
             - containerPort: 8090
           resources:
             requests:
-              memory: "512Mi"
+              memory: "1Gi"
               cpu: "1000m"
             limits:
-              memory: "1Gi"
+              memory: "2Gi"
               cpu: "2000m"
           env:
             - name: ENVIRONMENT
@@ -75,7 +75,7 @@ spec:
             - name: DEEPGRAM_TTS_MODEL
               value: "aura-2-andromeda-en"
             - name: ENABLE_TURN_DETECTOR
-              value: "false"
+              value: "true"
             - name: DEEPGRAM_API_KEY
               valueFrom:
                 secretKeyRef:

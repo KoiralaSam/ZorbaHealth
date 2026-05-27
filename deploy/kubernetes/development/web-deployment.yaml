@@ -31,10 +31,8 @@ spec:
           env:
             - name: NODE_ENV
               value: "development"
-            - name: NEXT_PUBLIC_API_URL
-              value: "http://api-gateway:8081"
-            - name: NEXT_PUBLIC_GRPC_URL
-              value: "http://api-gateway:8081"
+            # Client URLs are baked in at `docker build` (see web.Dockerfile + Tilt build_args).
+            # Do not use cluster DNS here — the browser runs on your machine, not inside the cluster.
           readinessProbe:
             httpGet:
               path: /

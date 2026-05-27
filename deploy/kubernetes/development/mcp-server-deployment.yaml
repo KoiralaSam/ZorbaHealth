@@ -81,6 +81,21 @@ spec:
                 configMapKeyRef:
                   key: ANALYTICS_SERVICE_GRPC_ADDR
                   name: app-config
+            - name: PATIENT_SERVICE_GRPC_ADDR
+              valueFrom:
+                configMapKeyRef:
+                  key: PATIENT_SERVICE_GRPC_ADDR
+                  name: app-config
+            - name: AUDIT_SERVICE_GRPC_ADDR
+              valueFrom:
+                configMapKeyRef:
+                  key: AUDIT_SERVICE_GRPC_ADDR
+                  name: app-config
+            - name: RABBITMQ_URI
+              valueFrom:
+                secretKeyRef:
+                  key: uri
+                  name: rabbitmq-credentials
 ---
 apiVersion: v1
 kind: Service
