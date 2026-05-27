@@ -14,9 +14,7 @@ This document records the current security posture and the planned hardening dir
 
 - no centralized refresh-token and revocation design is documented yet
 - no uniform role and policy model is fully documented at the repository level
-- no repo-wide PHI-safe logging standard is codified yet
 - no mTLS between services yet
-- no formal audit/compliance service yet
 - no standardized provider abstraction layer yet
 
 ## Security principles for contributors
@@ -25,6 +23,30 @@ This document records the current security posture and the planned hardening dir
 - never log full patient names, phone numbers, emails, addresses, raw transcripts, or complete medical records
 - prefer request IDs, correlation IDs, service names, statuses, and hashed identifiers in logs
 - keep external provider credentials isolated in environment variables or secret stores
+
+## PHI-safe logging standard
+
+The shared helper in `shared/logging/safe.go` is the default path for hot logging paths that might otherwise expose PHI.
+
+Allowed log fields:
+
+- request IDs
+- correlation IDs
+- service names
+- event types
+- status / duration
+- hashed identifiers such as hashed phone numbers or emails
+
+Disallowed log content:
+
+- raw phone numbers
+- raw email addresses
+- raw SMS bodies or transcripts
+- full patient names
+- addresses
+- full medical notes or record blobs
+
+When in doubt, hash identifiers and log only operational metadata.
 
 ## Secrets handling
 
@@ -51,6 +73,7 @@ Planned future support:
 - mTLS and service identity for internal gRPC calls
 - stronger webhook signature verification
 - field-level encryption for especially sensitive PHI
+- broader automated checks to catch unsafe log patterns in CI
 
 ## Related documents
 

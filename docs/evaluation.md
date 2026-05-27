@@ -23,6 +23,15 @@ Phase 1 adds:
 
 Later phases are expected to add executable evaluation scripts and datasets.
 
+## Current feature-aligned deliverables
+
+The repository now also includes implementation-oriented references for the next useful evaluation slice:
+
+- `docs/product-purpose.md` for the user and system goals being evaluated
+- `docs/phase3-rag-slice.md` for the minimum grounded-answer path
+- `scripts/evaluation/README.md` for concrete near-term scenarios
+- `scripts/seed-data/README.md` for demo mode and synthetic data alignment
+
 ## Reference document
 
 For the full target measurement list, hypotheses, and dataset directions, see:

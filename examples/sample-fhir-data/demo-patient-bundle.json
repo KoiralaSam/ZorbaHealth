@@ -1,0 +1,60 @@
+{
+  "resourceType": "Bundle",
+  "type": "collection",
+  "id": "demo-patient-bundle",
+  "entry": [
+    {
+      "resource": {
+        "resourceType": "Patient",
+        "id": "demo-patient-001",
+        "name": [{ "family": "Demo", "given": ["Alex"] }],
+        "gender": "female",
+        "birthDate": "1990-04-12"
+      }
+    },
+    {
+      "resource": {
+        "resourceType": "Condition",
+        "id": "cond-asthma",
+        "clinicalStatus": {
+          "coding": [{ "code": "active" }]
+        },
+        "code": {
+          "text": "Mild persistent asthma"
+        },
+        "subject": { "reference": "Patient/demo-patient-001" }
+      }
+    },
+    {
+      "resource": {
+        "resourceType": "Observation",
+        "id": "obs-peak-flow",
+        "status": "final",
+        "code": { "text": "Peak expiratory flow" },
+        "valueQuantity": { "value": 410, "unit": "L/min" },
+        "effectiveDateTime": "2026-01-15T09:30:00Z",
+        "subject": { "reference": "Patient/demo-patient-001" }
+      }
+    },
+    {
+      "resource": {
+        "resourceType": "MedicationRequest",
+        "id": "med-albuterol",
+        "status": "active",
+        "medicationCodeableConcept": { "text": "Albuterol inhaler" },
+        "subject": { "reference": "Patient/demo-patient-001" }
+      }
+    },
+    {
+      "resource": {
+        "resourceType": "AllergyIntolerance",
+        "id": "allergy-penicillin",
+        "clinicalStatus": {
+          "coding": [{ "code": "active" }]
+        },
+        "code": { "text": "Penicillin" },
+        "patient": { "reference": "Patient/demo-patient-001" }
+      }
+    }
+  ]
+}
