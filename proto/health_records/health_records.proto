@@ -6,6 +6,9 @@ service HealthRecordService {
     // Called by MCP tool: search_health_records (patient)
     rpc SearchRecords(SearchRequest) returns (SearchResponse);
 
+    // Called by MCP tool: answer_health_question (patient)
+    rpc AnswerPatientQuestion(AnswerPatientQuestionRequest) returns (AnswerPatientQuestionResponse);
+
     // Called by MCP tool: summarize_patient_record (hospital staff)
     rpc SummarizeRecords(SummarizeRequest) returns (SummarizeResponse);
 
@@ -45,10 +48,24 @@ message SearchResponse {
     repeated RecordChunk chunks = 1;
 }
 
+message AnswerPatientQuestionRequest {
+    string patient_id = 1;
+    string question = 2;
+    int32 top_k = 3;
+}
+
+message AnswerPatientQuestionResponse {
+    string answer = 1;
+    repeated RecordChunk citations = 2;
+}
+
 message RecordChunk {
-    string text        = 1;
-    string source_file = 2;
-    float  score       = 3;
+    string text               = 1;
+    string source_file        = 2;
+    float  score              = 3;
+    string chunk_id           = 4;
+    string record_id          = 5;
+    string fhir_resource_type = 6;
 }
 
 message SummarizeRequest {
@@ -68,8 +85,9 @@ message IngestRequest {
 }
 
 message IngestResponse {
-    int32  chunks_stored = 1;
-    string status        = 2;
+    int32  chunks_stored    = 1;
+    string status           = 2;
+    int32  resources_stored = 3;
 }
 
 message FHIRBundleRequest {

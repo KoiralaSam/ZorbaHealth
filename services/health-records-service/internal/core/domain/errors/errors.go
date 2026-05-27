@@ -13,6 +13,7 @@ var (
 
 	ErrFetchChunksFailed = errors.New("fetch chunks: ")
 	ErrNoRecordsFound    = errors.New("no records found")
+	ErrConsentDenied     = errors.New("consent denied for health record access")
 
 	ErrSourceFileRequired = errors.New("source_file required")
 	ErrTextRequired        = errors.New("text required")

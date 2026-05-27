@@ -12,6 +12,8 @@ import (
 	"github.com/KoiralaSam/ZorbaHealth/services/health-records-service/internal/core/domain/models"
 	"github.com/KoiralaSam/ZorbaHealth/services/health-records-service/internal/core/ports/inbound"
 	"github.com/KoiralaSam/ZorbaHealth/services/health-records-service/internal/core/ports/outbound"
+	"github.com/KoiralaSam/ZorbaHealth/services/health-records-service/internal/fhir"
+	"github.com/KoiralaSam/ZorbaHealth/services/health-records-service/internal/rag"
 )
 
 // HealthRecordsService implements inbound.HealthRecordsService using outbound ports:
@@ -22,42 +24,53 @@ type HealthRecordsService struct {
 	embedder   outbound.Embedder
 	store      outbound.Store
 	summarizer outbound.Summarizer
+	rag        *rag.Pipeline
+	ingestor   *fhir.Ingestor
 }
 
 func NewHealthRecordsService(
 	embedder outbound.Embedder,
 	store outbound.Store,
 	summarizer outbound.Summarizer,
+	ragPipeline *rag.Pipeline,
 ) inbound.HealthRecordsService {
 	return &HealthRecordsService{
 		embedder:   embedder,
 		store:      store,
 		summarizer: summarizer,
+		rag:        ragPipeline,
+		ingestor:   fhir.NewIngestor(store, embedder, "text-embedding-3-small"),
 	}
 }
 
 func (s *HealthRecordsService) SearchRecords(ctx context.Context, patientID, query string, topK int32) ([]models.ScoredChunk, error) {
-	if strings.TrimSpace(patientID) == "" {
-		return nil, domainErrors.ErrPatientIDRequired
-	}
-	if strings.TrimSpace(query) == "" {
-		return nil, domainErrors.ErrQueryRequired
-	}
-	if topK <= 0 {
-		topK = 5
-	}
-
-	pid, err := uuid.Parse(patientID)
+	result, err := s.rag.Run(ctx, rag.QueryRequest{
+		PatientID: patientID,
+		Query:     query,
+		TopK:      topK,
+	})
 	if err != nil {
-		return nil, domainErrors.ErrInvalidPatientID
+		return nil, err
 	}
+	return result.Citations, nil
+}
 
-	embedding, err := s.embedder.Embed(ctx, query)
+func (s *HealthRecordsService) AnswerPatientQuestion(
+	ctx context.Context,
+	patientID,
+	question string,
+	topK int32,
+) (string, []models.ScoredChunk, error) {
+	result, err := s.rag.Run(ctx, rag.QueryRequest{
+		PatientID: patientID,
+		Query:     question,
+		TopK:      topK,
+		Summarize: true,
+	})
 	if err != nil {
-		return nil, domainErrors.ErrEmbedQueryFailed
+		return "", nil, err
 	}
-
-	return s.store.SearchRecordChunks(ctx, pid, embedding, topK)
+	return result.Answer, result.Citations, nil
 }
 
 func (s *HealthRecordsService) HospitalSearchRecords(ctx context.Context, patientID, hospitalID, query string, topK int32) ([]models.ScoredChunk, error) {
@@ -241,6 +254,27 @@ func (s *HealthRecordsService) GetPatientResources(
 		out = append(out, json.RawMessage([]byte(r)))
 	}
 	return out, nil
+}
+
+func (s *HealthRecordsService) IngestFHIRBundle(ctx context.Context, patientID, bundleJSON, sourceSystem string) (resourcesStored, chunksStored int32, err error) {
+	if strings.TrimSpace(patientID) == "" {
+		return 0, 0, domainErrors.ErrPatientIDRequired
+	}
+	if strings.TrimSpace(bundleJSON) == "" {
+		return 0, 0, domainErrors.ErrTextRequired
+	}
+	pid, err := uuid.Parse(patientID)
+	if err != nil {
+		return 0, 0, domainErrors.ErrInvalidPatientID
+	}
+	if sourceSystem == "" {
+		sourceSystem = "manual-upload"
+	}
+	result, err := s.ingestor.IngestBundle(ctx, pid, bundleJSON, sourceSystem)
+	if err != nil {
+		return 0, 0, err
+	}
+	return result.ResourcesStored, result.ChunksStored, nil
 }
 
 // chunkText splits text into overlapping windows by word count.

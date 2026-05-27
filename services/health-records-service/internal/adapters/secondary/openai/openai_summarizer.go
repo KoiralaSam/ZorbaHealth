@@ -68,3 +68,43 @@ func (c *SummarizerClient) Summarize(ctx context.Context, chunks []string, focus
 	}
 	return resp.OutputText(), nil
 }
+
+func (c *SummarizerClient) AnswerQuestion(ctx context.Context, question string, chunks []string) (string, error) {
+	if strings.TrimSpace(question) == "" {
+		return "", domainErrors.ErrQueryRequired
+	}
+	if len(chunks) == 0 {
+		return "", domainErrors.ErrSummarizeNoChunksProvided
+	}
+
+	var sb strings.Builder
+	for _, ch := range chunks {
+		if strings.TrimSpace(ch) == "" {
+			continue
+		}
+		sb.WriteString("- ")
+		sb.WriteString(ch)
+		sb.WriteString("\n")
+	}
+	if sb.Len() == 0 {
+		return "", domainErrors.ErrSummarizeAllChunksEmpty
+	}
+
+	prompt := fmt.Sprintf(
+		"You answer patient questions using only the provided medical record excerpts.\n\n"+
+			"Question: %s\n\n"+
+			"Record excerpts:\n%s\n\n"+
+			"Write a brief, plain-English answer. If the excerpts do not contain the answer, say that you do not see it in the available records.",
+		strings.TrimSpace(question),
+		sb.String(),
+	)
+
+	resp, err := c.oai.Responses.New(ctx, responses.ResponseNewParams{
+		Input: responses.ResponseNewParamsInputUnion{OfString: openai.String(prompt)},
+		Model: openai.ChatModelGPT4oMini,
+	})
+	if err != nil {
+		return "", domainErrors.ErrSummarizeFailed
+	}
+	return resp.OutputText(), nil
+}

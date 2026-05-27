@@ -20,6 +20,7 @@ const _ = grpc.SupportPackageIsVersion9
 
 const (
 	HealthRecordService_SearchRecords_FullMethodName         = "/healthrecords.HealthRecordService/SearchRecords"
+	HealthRecordService_AnswerPatientQuestion_FullMethodName = "/healthrecords.HealthRecordService/AnswerPatientQuestion"
 	HealthRecordService_SummarizeRecords_FullMethodName      = "/healthrecords.HealthRecordService/SummarizeRecords"
 	HealthRecordService_HospitalSearchRecords_FullMethodName = "/healthrecords.HealthRecordService/HospitalSearchRecords"
 	HealthRecordService_IngestDocument_FullMethodName        = "/healthrecords.HealthRecordService/IngestDocument"
@@ -35,6 +36,8 @@ const (
 type HealthRecordServiceClient interface {
 	// Called by MCP tool: search_health_records (patient)
 	SearchRecords(ctx context.Context, in *SearchRequest, opts ...grpc.CallOption) (*SearchResponse, error)
+	// Called by MCP tool: answer_health_question (patient)
+	AnswerPatientQuestion(ctx context.Context, in *AnswerPatientQuestionRequest, opts ...grpc.CallOption) (*AnswerPatientQuestionResponse, error)
 	// Called by MCP tool: summarize_patient_record (hospital staff)
 	SummarizeRecords(ctx context.Context, in *SummarizeRequest, opts ...grpc.CallOption) (*SummarizeResponse, error)
 	// Called by MCP tool: hospital_search_patient_records (hospital staff)
@@ -63,6 +66,16 @@ func (c *healthRecordServiceClient) SearchRecords(ctx context.Context, in *Searc
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(SearchResponse)
 	err := c.cc.Invoke(ctx, HealthRecordService_SearchRecords_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *healthRecordServiceClient) AnswerPatientQuestion(ctx context.Context, in *AnswerPatientQuestionRequest, opts ...grpc.CallOption) (*AnswerPatientQuestionResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(AnswerPatientQuestionResponse)
+	err := c.cc.Invoke(ctx, HealthRecordService_AnswerPatientQuestion_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
@@ -145,6 +158,8 @@ func (c *healthRecordServiceClient) LoadRecentContext(ctx context.Context, in *L
 type HealthRecordServiceServer interface {
 	// Called by MCP tool: search_health_records (patient)
 	SearchRecords(context.Context, *SearchRequest) (*SearchResponse, error)
+	// Called by MCP tool: answer_health_question (patient)
+	AnswerPatientQuestion(context.Context, *AnswerPatientQuestionRequest) (*AnswerPatientQuestionResponse, error)
 	// Called by MCP tool: summarize_patient_record (hospital staff)
 	SummarizeRecords(context.Context, *SummarizeRequest) (*SummarizeResponse, error)
 	// Called by MCP tool: hospital_search_patient_records (hospital staff)
@@ -171,6 +186,9 @@ type UnimplementedHealthRecordServiceServer struct{}
 
 func (UnimplementedHealthRecordServiceServer) SearchRecords(context.Context, *SearchRequest) (*SearchResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method SearchRecords not implemented")
+}
+func (UnimplementedHealthRecordServiceServer) AnswerPatientQuestion(context.Context, *AnswerPatientQuestionRequest) (*AnswerPatientQuestionResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method AnswerPatientQuestion not implemented")
 }
 func (UnimplementedHealthRecordServiceServer) SummarizeRecords(context.Context, *SummarizeRequest) (*SummarizeResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method SummarizeRecords not implemented")
@@ -228,6 +246,24 @@ func _HealthRecordService_SearchRecords_Handler(srv interface{}, ctx context.Con
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(HealthRecordServiceServer).SearchRecords(ctx, req.(*SearchRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _HealthRecordService_AnswerPatientQuestion_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(AnswerPatientQuestionRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(HealthRecordServiceServer).AnswerPatientQuestion(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: HealthRecordService_AnswerPatientQuestion_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(HealthRecordServiceServer).AnswerPatientQuestion(ctx, req.(*AnswerPatientQuestionRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -368,6 +404,10 @@ var HealthRecordService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "SearchRecords",
 			Handler:    _HealthRecordService_SearchRecords_Handler,
+		},
+		{
+			MethodName: "AnswerPatientQuestion",
+			Handler:    _HealthRecordService_AnswerPatientQuestion_Handler,
 		},
 		{
 			MethodName: "SummarizeRecords",

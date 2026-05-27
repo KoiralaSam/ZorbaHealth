@@ -28,6 +28,10 @@ func (s *stubHealthRecordsService) SearchRecords(context.Context, string, string
 	return nil, nil
 }
 
+func (s *stubHealthRecordsService) AnswerPatientQuestion(context.Context, string, string, int32) (string, []models.ScoredChunk, error) {
+	return "answer", nil, nil
+}
+
 func (s *stubHealthRecordsService) HospitalSearchRecords(context.Context, string, string, string, int32) ([]models.ScoredChunk, error) {
 	return nil, nil
 }
@@ -38,6 +42,10 @@ func (s *stubHealthRecordsService) SummarizeRecords(context.Context, string, str
 
 func (s *stubHealthRecordsService) IngestText(context.Context, string, string, string) (int32, error) {
 	return 0, nil
+}
+
+func (s *stubHealthRecordsService) IngestFHIRBundle(context.Context, string, string, string) (int32, int32, error) {
+	return 0, 0, nil
 }
 
 func (s *stubHealthRecordsService) SaveConversationTurn(_ context.Context, patientID, sessionID, role, content string) error {
@@ -93,6 +101,27 @@ func TestSearchRecordsRejectsPatientMismatch(t *testing.T) {
 	}
 	if stub.searchRecordsCalled {
 		t.Fatal("expected service not to be called")
+	}
+}
+
+func TestAnswerPatientQuestionAllowsMatchingPatient(t *testing.T) {
+	stub := &stubHealthRecordsService{}
+	handler := &GRPCHandler{svc: stub}
+	ctx := sharedauth.WithClaims(context.Background(), &sharedauth.Claims{
+		ActorType: sharedauth.ActorPatient,
+		PatientID: "patient-1",
+	})
+
+	resp, err := handler.AnswerPatientQuestion(ctx, &pb.AnswerPatientQuestionRequest{
+		PatientId: "patient-1",
+		Question:  "What medications am I taking?",
+		TopK:      3,
+	})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if resp.GetAnswer() != "answer" {
+		t.Fatalf("unexpected answer: %q", resp.GetAnswer())
 	}
 }
 

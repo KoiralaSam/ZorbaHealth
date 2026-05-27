@@ -14,21 +14,26 @@ type Querier interface {
 	CountFHIRResourcesByType(ctx context.Context, arg CountFHIRResourcesByTypeParams) (int64, error)
 	// Conversation memory for agent-worker sessions
 	CreateConversationTurn(ctx context.Context, arg CreateConversationTurnParams) (ConversationTurn, error)
-	// Vector search and ingestion for record_chunks
-	CreateRecordChunk(ctx context.Context, arg CreateRecordChunkParams) (RecordChunk, error)
+	// Vector search and ingestion for records.record_chunks
+	CreateRecordChunk(ctx context.Context, arg CreateRecordChunkParams) (RecordsRecordChunk, error)
 	DeleteConversationTurnsByPatientID(ctx context.Context, patientID pgtype.UUID) error
 	DeleteFHIRResourcesByPatientID(ctx context.Context, patientID pgtype.UUID) error
 	DeleteRecordChunksByPatientID(ctx context.Context, patientID pgtype.UUID) error
 	FetchChunksForSummary(ctx context.Context, arg FetchChunksForSummaryParams) ([]string, error)
+	GetFHIRResourceByID(ctx context.Context, arg GetFHIRResourceByIDParams) (GetFHIRResourceByIDRow, error)
+	GetInternalPatientIDByFHIR(ctx context.Context, arg GetInternalPatientIDByFHIRParams) (pgtype.UUID, error)
 	HospitalSearchRecordChunksByEmbedding(ctx context.Context, arg HospitalSearchRecordChunksByEmbeddingParams) ([]HospitalSearchRecordChunksByEmbeddingRow, error)
 	ListFHIRResourcesByType(ctx context.Context, arg ListFHIRResourcesByTypeParams) ([]string, error)
 	ListFHIRResourcesByTypeAndStatus(ctx context.Context, arg ListFHIRResourcesByTypeAndStatusParams) ([]string, error)
+	ListFHIRResourcesForPatient(ctx context.Context, arg ListFHIRResourcesForPatientParams) ([]ListFHIRResourcesForPatientRow, error)
 	ListRecentConversationTurns(ctx context.Context, arg ListRecentConversationTurnsParams) ([]ConversationTurn, error)
 	ListRecentConversationTurnsBySession(ctx context.Context, arg ListRecentConversationTurnsBySessionParams) ([]ConversationTurn, error)
-	ListRecordChunksByPatientID(ctx context.Context, arg ListRecordChunksByPatientIDParams) ([]RecordChunk, error)
+	ListRecordChunksByPatientID(ctx context.Context, arg ListRecordChunksByPatientIDParams) ([]RecordsRecordChunk, error)
 	SearchRecordChunksByEmbedding(ctx context.Context, arg SearchRecordChunksByEmbeddingParams) ([]SearchRecordChunksByEmbeddingRow, error)
-	// Structured FHIR R4 resources (JSONB)
-	UpsertFHIRResource(ctx context.Context, arg UpsertFHIRResourceParams) (FhirResource, error)
+	SearchRecordChunksCandidates(ctx context.Context, arg SearchRecordChunksCandidatesParams) ([]SearchRecordChunksCandidatesRow, error)
+	UpsertFHIRPatientMap(ctx context.Context, arg UpsertFHIRPatientMapParams) error
+	// Structured FHIR R4 resources (JSONB) in records schema
+	UpsertFHIRResource(ctx context.Context, arg UpsertFHIRResourceParams) (RecordsFhirResource, error)
 }
 
 var _ Querier = (*Queries)(nil)

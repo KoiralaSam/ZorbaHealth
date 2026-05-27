@@ -15,9 +15,11 @@ type SearchChunk struct {
 
 type HealthRecordsService interface {
 	SearchRecords(ctx context.Context, patientID, query string, topK int32) ([]models.ScoredChunk, error)
+	AnswerPatientQuestion(ctx context.Context, patientID, question string, topK int32) (string, []models.ScoredChunk, error)
 	HospitalSearchRecords(ctx context.Context, patientID, hospitalID, query string, topK int32) ([]models.ScoredChunk, error)
 	SummarizeRecords(ctx context.Context, patientID, focus string) (string, error)
 	IngestText(ctx context.Context, patientID, sourceFile, text string) (int32, error)
+	IngestFHIRBundle(ctx context.Context, patientID, bundleJSON, sourceSystem string) (resourcesStored, chunksStored int32, err error)
 	SaveConversationTurn(ctx context.Context, patientID, sessionID, role, content string) error
 	LoadRecentContext(ctx context.Context, patientID string, limit int32) (string, error)
 	GetPatientResources(ctx context.Context, patientID, resourceType, status string, limit, offset int32) ([]json.RawMessage, error)
