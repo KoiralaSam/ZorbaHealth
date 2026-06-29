@@ -11,6 +11,8 @@ import (
 type AuthRepository interface {
 	CreateAuth(ctx context.Context, userID, authUUID string) (*domain.Auth, error)
 	GetAuthByUserIDAndAuthUUID(ctx context.Context, userID, authUUID string) (*domain.Auth, error)
+	GetAuthByAuthUUID(ctx context.Context, authUUID string) (*domain.Auth, error)
 	DeleteAuth(ctx context.Context, userID, authUUID string) error
+	RevokeAuth(ctx context.Context, authUUID, reason string) error
 }
 

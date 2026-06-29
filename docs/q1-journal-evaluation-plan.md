@@ -57,6 +57,33 @@ The following metrics are part of the target evaluation scope and are intentiona
 - sample data under `examples/`
 - automated tests aligned with safety, retrieval, and messaging behavior
 
+## Current runnable commands
+
+Use these commands as the canonical evidence trail for the current repository state:
+
+```bash
+node scripts/evaluation/demo-smoke.mjs all
+./scripts/evaluation/run_all.sh
+k6 run scripts/evaluation/load/api-gateway.js
+go test ./services/health-records-service/internal/fhir/... -count=1
+```
+
+Supporting datasets and templates:
+
+- `scripts/evaluation/datasets/rag-qrels.jsonl`
+- `scripts/evaluation/datasets/translation-cases.jsonl`
+- `scripts/evaluation/report-template.md`
+
+## Claim-to-evidence map
+
+| Claim | Current evidence path |
+| --- | --- |
+| Open-source voice architecture | `docs/architecture.md`, `docs/service-map.md`, `services/voice-agent-service/README.md` |
+| Controlled MCP gateway | `services/mcp-server/internal/gateway/`, `docs/compliance.md`, smoke tests |
+| FHIR-compatible RAG | `docs/phase3-rag-slice.md`, `examples/sample-fhir-data/`, `scripts/seed-fhir-data/`, `rag-groundedness-check` |
+| Safety / consent / audit | `docs/security.md`, `docs/compliance.md`, `audit-service`, consent gating smoke test |
+| Reproducible deploy + evaluation | `deploy/docker/docker-compose.yml`, `docs/local-setup.md`, `scripts/evaluation/run_all.sh`, `.github/workflows/ci.yml` |
+
 ## Ethics and data handling note
 
 This project should use synthetic, demo, or otherwise non-production data for public evaluation artifacts unless a separate approved governance process exists.

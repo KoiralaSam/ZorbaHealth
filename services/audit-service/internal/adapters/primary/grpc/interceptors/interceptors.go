@@ -2,9 +2,9 @@ package interceptors
 
 import (
 	"context"
-	"os"
 
 	sharedauth "github.com/KoiralaSam/ZorbaHealth/shared/auth"
+	sharedgrpcauth "github.com/KoiralaSam/ZorbaHealth/shared/grpc/auth"
 	grpcserver "google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/metadata"
@@ -14,20 +14,12 @@ import (
 func InternalAuthInterceptor(
 	ctx context.Context,
 	req any,
-	_ *grpcserver.UnaryServerInfo,
+	info *grpcserver.UnaryServerInfo,
 	handler grpcserver.UnaryHandler,
 ) (any, error) {
-	md, ok := metadata.FromIncomingContext(ctx)
-	if !ok {
-		return nil, status.Error(codes.Unauthenticated, "missing metadata")
-	}
-
-	tokens := md.Get("x-internal-token")
-	if len(tokens) == 0 || tokens[0] != os.Getenv("INTERNAL_SERVICE_SECRET") {
-		return nil, status.Error(codes.Unauthenticated, "invalid internal token")
-	}
-
-	return handler(ctx, req)
+	return sharedgrpcauth.UnaryServerInterceptor(sharedgrpcauth.InternalServerConfig{
+		RequireServiceID: false,
+	})(ctx, req, info, handler)
 }
 
 func ClaimsInterceptor(
@@ -57,6 +49,18 @@ func ClaimsInterceptor(
 func Chain() grpcserver.ServerOption {
 	return grpcserver.ChainUnaryInterceptor(
 		InternalAuthInterceptor,
-		ClaimsInterceptor,
+		optionalClaimsInterceptor,
 	)
+}
+
+func optionalClaimsInterceptor(
+	ctx context.Context,
+	req any,
+	info *grpcserver.UnaryServerInfo,
+	handler grpcserver.UnaryHandler,
+) (any, error) {
+	if info.FullMethod == "/audit.AuditService/AppendAuditEvent" {
+		return handler(ctx, req)
+	}
+	return ClaimsInterceptor(ctx, req, info, handler)
 }

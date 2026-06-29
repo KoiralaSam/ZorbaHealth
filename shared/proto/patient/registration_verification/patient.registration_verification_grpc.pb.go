@@ -25,6 +25,8 @@ const (
 	RegistrationVerificationService_VerifyPhoneOTP_FullMethodName                 = "/patient.registration_verification.RegistrationVerificationService/VerifyPhoneOTP"
 	RegistrationVerificationService_VerifyExistingPhoneOTP_FullMethodName         = "/patient.registration_verification.RegistrationVerificationService/VerifyExistingPhoneOTP"
 	RegistrationVerificationService_VerifyEmail_FullMethodName                    = "/patient.registration_verification.RegistrationVerificationService/VerifyEmail"
+	RegistrationVerificationService_ProcessInboundVoiceSms_FullMethodName         = "/patient.registration_verification.RegistrationVerificationService/ProcessInboundVoiceSms"
+	RegistrationVerificationService_ConsumeVoiceVerification_FullMethodName       = "/patient.registration_verification.RegistrationVerificationService/ConsumeVoiceVerification"
 )
 
 // RegistrationVerificationServiceClient is the client API for RegistrationVerificationService service.
@@ -47,6 +49,10 @@ type RegistrationVerificationServiceClient interface {
 	VerifyExistingPhoneOTP(ctx context.Context, in *VerifyExistingPhoneOTPRequest, opts ...grpc.CallOption) (*VerifyExistingPhoneOTPResponse, error)
 	// VerifyEmail consumes the token from the verification link, creates user and patient, returns ids.
 	VerifyEmail(ctx context.Context, in *VerifyEmailRequest, opts ...grpc.CallOption) (*VerifyEmailResponse, error)
+	// ProcessInboundVoiceSms handles an inbound SMS reply during an active voice OTP wait (internal).
+	ProcessInboundVoiceSms(ctx context.Context, in *ProcessInboundVoiceSmsRequest, opts ...grpc.CallOption) (*ProcessInboundVoiceSmsResponse, error)
+	// ConsumeVoiceVerification returns a patient id verified via SMS for a voice session (internal).
+	ConsumeVoiceVerification(ctx context.Context, in *ConsumeVoiceVerificationRequest, opts ...grpc.CallOption) (*ConsumeVoiceVerificationResponse, error)
 }
 
 type registrationVerificationServiceClient struct {
@@ -117,6 +123,26 @@ func (c *registrationVerificationServiceClient) VerifyEmail(ctx context.Context,
 	return out, nil
 }
 
+func (c *registrationVerificationServiceClient) ProcessInboundVoiceSms(ctx context.Context, in *ProcessInboundVoiceSmsRequest, opts ...grpc.CallOption) (*ProcessInboundVoiceSmsResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ProcessInboundVoiceSmsResponse)
+	err := c.cc.Invoke(ctx, RegistrationVerificationService_ProcessInboundVoiceSms_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *registrationVerificationServiceClient) ConsumeVoiceVerification(ctx context.Context, in *ConsumeVoiceVerificationRequest, opts ...grpc.CallOption) (*ConsumeVoiceVerificationResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ConsumeVoiceVerificationResponse)
+	err := c.cc.Invoke(ctx, RegistrationVerificationService_ConsumeVoiceVerification_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // RegistrationVerificationServiceServer is the server API for RegistrationVerificationService service.
 // All implementations must embed UnimplementedRegistrationVerificationServiceServer
 // for forward compatibility.
@@ -137,6 +163,10 @@ type RegistrationVerificationServiceServer interface {
 	VerifyExistingPhoneOTP(context.Context, *VerifyExistingPhoneOTPRequest) (*VerifyExistingPhoneOTPResponse, error)
 	// VerifyEmail consumes the token from the verification link, creates user and patient, returns ids.
 	VerifyEmail(context.Context, *VerifyEmailRequest) (*VerifyEmailResponse, error)
+	// ProcessInboundVoiceSms handles an inbound SMS reply during an active voice OTP wait (internal).
+	ProcessInboundVoiceSms(context.Context, *ProcessInboundVoiceSmsRequest) (*ProcessInboundVoiceSmsResponse, error)
+	// ConsumeVoiceVerification returns a patient id verified via SMS for a voice session (internal).
+	ConsumeVoiceVerification(context.Context, *ConsumeVoiceVerificationRequest) (*ConsumeVoiceVerificationResponse, error)
 	mustEmbedUnimplementedRegistrationVerificationServiceServer()
 }
 
@@ -164,6 +194,12 @@ func (UnimplementedRegistrationVerificationServiceServer) VerifyExistingPhoneOTP
 }
 func (UnimplementedRegistrationVerificationServiceServer) VerifyEmail(context.Context, *VerifyEmailRequest) (*VerifyEmailResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method VerifyEmail not implemented")
+}
+func (UnimplementedRegistrationVerificationServiceServer) ProcessInboundVoiceSms(context.Context, *ProcessInboundVoiceSmsRequest) (*ProcessInboundVoiceSmsResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method ProcessInboundVoiceSms not implemented")
+}
+func (UnimplementedRegistrationVerificationServiceServer) ConsumeVoiceVerification(context.Context, *ConsumeVoiceVerificationRequest) (*ConsumeVoiceVerificationResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method ConsumeVoiceVerification not implemented")
 }
 func (UnimplementedRegistrationVerificationServiceServer) mustEmbedUnimplementedRegistrationVerificationServiceServer() {
 }
@@ -295,6 +331,42 @@ func _RegistrationVerificationService_VerifyEmail_Handler(srv interface{}, ctx c
 	return interceptor(ctx, in, info, handler)
 }
 
+func _RegistrationVerificationService_ProcessInboundVoiceSms_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ProcessInboundVoiceSmsRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(RegistrationVerificationServiceServer).ProcessInboundVoiceSms(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: RegistrationVerificationService_ProcessInboundVoiceSms_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(RegistrationVerificationServiceServer).ProcessInboundVoiceSms(ctx, req.(*ProcessInboundVoiceSmsRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _RegistrationVerificationService_ConsumeVoiceVerification_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ConsumeVoiceVerificationRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(RegistrationVerificationServiceServer).ConsumeVoiceVerification(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: RegistrationVerificationService_ConsumeVoiceVerification_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(RegistrationVerificationServiceServer).ConsumeVoiceVerification(ctx, req.(*ConsumeVoiceVerificationRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // RegistrationVerificationService_ServiceDesc is the grpc.ServiceDesc for RegistrationVerificationService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -325,6 +397,14 @@ var RegistrationVerificationService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "VerifyEmail",
 			Handler:    _RegistrationVerificationService_VerifyEmail_Handler,
+		},
+		{
+			MethodName: "ProcessInboundVoiceSms",
+			Handler:    _RegistrationVerificationService_ProcessInboundVoiceSms_Handler,
+		},
+		{
+			MethodName: "ConsumeVoiceVerification",
+			Handler:    _RegistrationVerificationService_ConsumeVoiceVerification_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

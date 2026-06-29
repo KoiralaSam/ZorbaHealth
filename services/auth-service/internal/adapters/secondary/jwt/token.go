@@ -24,13 +24,16 @@ func GenerateToken(claims Auth, actor SessionActor) (string, error) {
 		return "", err
 	}
 
+	ttl := accessTokenTTL()
+	now := time.Now()
 	tokenClaims := jwt.MapClaims{
 		"authorized": true,
 		"auth_uuid":  claims.AuthUUID,
 		"user_id":    claims.UserID,
 		"actorType":  actor.ActorType,
 		"scopes":     actor.Scopes,
-		"iat":        time.Now().Unix(),
+		"iat":        now.Unix(),
+		"exp":        now.Add(ttl).Unix(),
 	}
 
 	switch actor.ActorType {
@@ -106,6 +109,15 @@ func VerifyToken(token string) (*models.Auth, error) {
 	}
 
 	return authDetails, nil
+}
+
+func accessTokenTTL() time.Duration {
+	if s := env.GetString("ACCESS_TOKEN_TTL", "15m"); s != "" {
+		if d, err := time.ParseDuration(s); err == nil {
+			return d
+		}
+	}
+	return 15 * time.Minute
 }
 
 func secretForActor(actorType string) (string, error) {

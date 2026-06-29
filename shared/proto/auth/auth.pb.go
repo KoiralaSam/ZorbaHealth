@@ -88,6 +88,8 @@ type LoginResponse struct {
 	AccessToken   string                 `protobuf:"bytes,2,opt,name=access_token,json=accessToken,proto3" json:"access_token,omitempty"`
 	UserId        string                 `protobuf:"bytes,3,opt,name=user_id,json=userId,proto3" json:"user_id,omitempty"`
 	Role          string                 `protobuf:"bytes,4,opt,name=role,proto3" json:"role,omitempty"` // "patient" or "health_provider" — use user_id + role to call respective service for entity id
+	RefreshToken  string                 `protobuf:"bytes,5,opt,name=refresh_token,json=refreshToken,proto3" json:"refresh_token,omitempty"`
+	AuthUuid      string                 `protobuf:"bytes,6,opt,name=auth_uuid,json=authUuid,proto3" json:"auth_uuid,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -146,6 +148,20 @@ func (x *LoginResponse) GetUserId() string {
 func (x *LoginResponse) GetRole() string {
 	if x != nil {
 		return x.Role
+	}
+	return ""
+}
+
+func (x *LoginResponse) GetRefreshToken() string {
+	if x != nil {
+		return x.RefreshToken
+	}
+	return ""
+}
+
+func (x *LoginResponse) GetAuthUuid() string {
+	if x != nil {
+		return x.AuthUuid
 	}
 	return ""
 }
@@ -285,6 +301,10 @@ type RegisterHealthProviderRequest struct {
 	Password         string                 `protobuf:"bytes,3,opt,name=password,proto3" json:"password,omitempty"`
 	OrganizationName string                 `protobuf:"bytes,4,opt,name=organization_name,json=organizationName,proto3" json:"organization_name,omitempty"`
 	ServiceType      string                 `protobuf:"bytes,5,opt,name=service_type,json=serviceType,proto3" json:"service_type,omitempty"`
+	LicenseNo        string                 `protobuf:"bytes,6,opt,name=license_no,json=licenseNo,proto3" json:"license_no,omitempty"`
+	StaffName        string                 `protobuf:"bytes,7,opt,name=staff_name,json=staffName,proto3" json:"staff_name,omitempty"`
+	StaffRole        string                 `protobuf:"bytes,8,opt,name=staff_role,json=staffRole,proto3" json:"staff_role,omitempty"`
+	HospitalId       string                 `protobuf:"bytes,9,opt,name=hospital_id,json=hospitalId,proto3" json:"hospital_id,omitempty"`
 	unknownFields    protoimpl.UnknownFields
 	sizeCache        protoimpl.SizeCache
 }
@@ -354,10 +374,41 @@ func (x *RegisterHealthProviderRequest) GetServiceType() string {
 	return ""
 }
 
+func (x *RegisterHealthProviderRequest) GetLicenseNo() string {
+	if x != nil {
+		return x.LicenseNo
+	}
+	return ""
+}
+
+func (x *RegisterHealthProviderRequest) GetStaffName() string {
+	if x != nil {
+		return x.StaffName
+	}
+	return ""
+}
+
+func (x *RegisterHealthProviderRequest) GetStaffRole() string {
+	if x != nil {
+		return x.StaffRole
+	}
+	return ""
+}
+
+func (x *RegisterHealthProviderRequest) GetHospitalId() string {
+	if x != nil {
+		return x.HospitalId
+	}
+	return ""
+}
+
 type RegisterHealthProviderResponse struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Message       string                 `protobuf:"bytes,1,opt,name=message,proto3" json:"message,omitempty"`
 	UserId        string                 `protobuf:"bytes,2,opt,name=user_id,json=userId,proto3" json:"user_id,omitempty"`
+	HospitalId    string                 `protobuf:"bytes,3,opt,name=hospital_id,json=hospitalId,proto3" json:"hospital_id,omitempty"`
+	StaffId       string                 `protobuf:"bytes,4,opt,name=staff_id,json=staffId,proto3" json:"staff_id,omitempty"`
+	StaffRole     string                 `protobuf:"bytes,5,opt,name=staff_role,json=staffRole,proto3" json:"staff_role,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -402,6 +453,27 @@ func (x *RegisterHealthProviderResponse) GetMessage() string {
 func (x *RegisterHealthProviderResponse) GetUserId() string {
 	if x != nil {
 		return x.UserId
+	}
+	return ""
+}
+
+func (x *RegisterHealthProviderResponse) GetHospitalId() string {
+	if x != nil {
+		return x.HospitalId
+	}
+	return ""
+}
+
+func (x *RegisterHealthProviderResponse) GetStaffId() string {
+	if x != nil {
+		return x.StaffId
+	}
+	return ""
+}
+
+func (x *RegisterHealthProviderResponse) GetStaffRole() string {
+	if x != nil {
+		return x.StaffRole
 	}
 	return ""
 }
@@ -464,6 +536,7 @@ type CreatePatientSessionResponse struct {
 	AccessToken   string                 `protobuf:"bytes,2,opt,name=access_token,json=accessToken,proto3" json:"access_token,omitempty"`
 	UserId        string                 `protobuf:"bytes,3,opt,name=user_id,json=userId,proto3" json:"user_id,omitempty"`
 	AuthUuid      string                 `protobuf:"bytes,4,opt,name=auth_uuid,json=authUuid,proto3" json:"auth_uuid,omitempty"`
+	RefreshToken  string                 `protobuf:"bytes,5,opt,name=refresh_token,json=refreshToken,proto3" json:"refresh_token,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -522,6 +595,13 @@ func (x *CreatePatientSessionResponse) GetUserId() string {
 func (x *CreatePatientSessionResponse) GetAuthUuid() string {
 	if x != nil {
 		return x.AuthUuid
+	}
+	return ""
+}
+
+func (x *CreatePatientSessionResponse) GetRefreshToken() string {
+	if x != nil {
+		return x.RefreshToken
 	}
 	return ""
 }
@@ -736,6 +816,194 @@ func (x *LogoutResponse) GetMessage() string {
 	return ""
 }
 
+type RefreshSessionRequest struct {
+	state             protoimpl.MessageState `protogen:"open.v1"`
+	RefreshToken      string                 `protobuf:"bytes,1,opt,name=refresh_token,json=refreshToken,proto3" json:"refresh_token,omitempty"`
+	ExpectedActorType string                 `protobuf:"bytes,2,opt,name=expected_actor_type,json=expectedActorType,proto3" json:"expected_actor_type,omitempty"`
+	ClientKind        string                 `protobuf:"bytes,3,opt,name=client_kind,json=clientKind,proto3" json:"client_kind,omitempty"`
+	unknownFields     protoimpl.UnknownFields
+	sizeCache         protoimpl.SizeCache
+}
+
+func (x *RefreshSessionRequest) Reset() {
+	*x = RefreshSessionRequest{}
+	mi := &file_auth_proto_msgTypes[12]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *RefreshSessionRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*RefreshSessionRequest) ProtoMessage() {}
+
+func (x *RefreshSessionRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_auth_proto_msgTypes[12]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use RefreshSessionRequest.ProtoReflect.Descriptor instead.
+func (*RefreshSessionRequest) Descriptor() ([]byte, []int) {
+	return file_auth_proto_rawDescGZIP(), []int{12}
+}
+
+func (x *RefreshSessionRequest) GetRefreshToken() string {
+	if x != nil {
+		return x.RefreshToken
+	}
+	return ""
+}
+
+func (x *RefreshSessionRequest) GetExpectedActorType() string {
+	if x != nil {
+		return x.ExpectedActorType
+	}
+	return ""
+}
+
+func (x *RefreshSessionRequest) GetClientKind() string {
+	if x != nil {
+		return x.ClientKind
+	}
+	return ""
+}
+
+type RefreshSessionResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	AccessToken   string                 `protobuf:"bytes,1,opt,name=access_token,json=accessToken,proto3" json:"access_token,omitempty"`
+	RefreshToken  string                 `protobuf:"bytes,2,opt,name=refresh_token,json=refreshToken,proto3" json:"refresh_token,omitempty"`
+	UserId        string                 `protobuf:"bytes,3,opt,name=user_id,json=userId,proto3" json:"user_id,omitempty"`
+	AuthUuid      string                 `protobuf:"bytes,4,opt,name=auth_uuid,json=authUuid,proto3" json:"auth_uuid,omitempty"`
+	Role          string                 `protobuf:"bytes,5,opt,name=role,proto3" json:"role,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *RefreshSessionResponse) Reset() {
+	*x = RefreshSessionResponse{}
+	mi := &file_auth_proto_msgTypes[13]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *RefreshSessionResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*RefreshSessionResponse) ProtoMessage() {}
+
+func (x *RefreshSessionResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_auth_proto_msgTypes[13]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use RefreshSessionResponse.ProtoReflect.Descriptor instead.
+func (*RefreshSessionResponse) Descriptor() ([]byte, []int) {
+	return file_auth_proto_rawDescGZIP(), []int{13}
+}
+
+func (x *RefreshSessionResponse) GetAccessToken() string {
+	if x != nil {
+		return x.AccessToken
+	}
+	return ""
+}
+
+func (x *RefreshSessionResponse) GetRefreshToken() string {
+	if x != nil {
+		return x.RefreshToken
+	}
+	return ""
+}
+
+func (x *RefreshSessionResponse) GetUserId() string {
+	if x != nil {
+		return x.UserId
+	}
+	return ""
+}
+
+func (x *RefreshSessionResponse) GetAuthUuid() string {
+	if x != nil {
+		return x.AuthUuid
+	}
+	return ""
+}
+
+func (x *RefreshSessionResponse) GetRole() string {
+	if x != nil {
+		return x.Role
+	}
+	return ""
+}
+
+type ValidateUserCredentialsResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	UserId        string                 `protobuf:"bytes,1,opt,name=user_id,json=userId,proto3" json:"user_id,omitempty"`
+	Role          string                 `protobuf:"bytes,2,opt,name=role,proto3" json:"role,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ValidateUserCredentialsResponse) Reset() {
+	*x = ValidateUserCredentialsResponse{}
+	mi := &file_auth_proto_msgTypes[14]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ValidateUserCredentialsResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ValidateUserCredentialsResponse) ProtoMessage() {}
+
+func (x *ValidateUserCredentialsResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_auth_proto_msgTypes[14]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ValidateUserCredentialsResponse.ProtoReflect.Descriptor instead.
+func (*ValidateUserCredentialsResponse) Descriptor() ([]byte, []int) {
+	return file_auth_proto_rawDescGZIP(), []int{14}
+}
+
+func (x *ValidateUserCredentialsResponse) GetUserId() string {
+	if x != nil {
+		return x.UserId
+	}
+	return ""
+}
+
+func (x *ValidateUserCredentialsResponse) GetRole() string {
+	if x != nil {
+		return x.Role
+	}
+	return ""
+}
+
 var File_auth_proto protoreflect.FileDescriptor
 
 const file_auth_proto_rawDesc = "" +
@@ -745,12 +1013,14 @@ const file_auth_proto_rawDesc = "" +
 	"\fLoginRequest\x12\x14\n" +
 	"\x05email\x18\x01 \x01(\tR\x05email\x12!\n" +
 	"\fphone_number\x18\x02 \x01(\tR\vphoneNumber\x12\x1a\n" +
-	"\bpassword\x18\x03 \x01(\tR\bpassword\"y\n" +
+	"\bpassword\x18\x03 \x01(\tR\bpassword\"\xbb\x01\n" +
 	"\rLoginResponse\x12\x18\n" +
 	"\amessage\x18\x01 \x01(\tR\amessage\x12!\n" +
 	"\faccess_token\x18\x02 \x01(\tR\vaccessToken\x12\x17\n" +
 	"\auser_id\x18\x03 \x01(\tR\x06userId\x12\x12\n" +
-	"\x04role\x18\x04 \x01(\tR\x04role\"\xca\x01\n" +
+	"\x04role\x18\x04 \x01(\tR\x04role\x12#\n" +
+	"\rrefresh_token\x18\x05 \x01(\tR\frefreshToken\x12\x1b\n" +
+	"\tauth_uuid\x18\x06 \x01(\tR\bauthUuid\"\xca\x01\n" +
 	"\x16RegisterPatientRequest\x12!\n" +
 	"\fphone_number\x18\x01 \x01(\tR\vphoneNumber\x12\x14\n" +
 	"\x05email\x18\x02 \x01(\tR\x05email\x12\x1a\n" +
@@ -759,24 +1029,38 @@ const file_auth_proto_rawDesc = "" +
 	"\rdate_of_birth\x18\x05 \x01(\v2\x1a.google.protobuf.TimestampR\vdateOfBirth\"L\n" +
 	"\x17RegisterPatientResponse\x12\x18\n" +
 	"\amessage\x18\x01 \x01(\tR\amessage\x12\x17\n" +
-	"\auser_id\x18\x02 \x01(\tR\x06userId\"\xc4\x01\n" +
+	"\auser_id\x18\x02 \x01(\tR\x06userId\"\xc2\x02\n" +
 	"\x1dRegisterHealthProviderRequest\x12\x14\n" +
 	"\x05email\x18\x01 \x01(\tR\x05email\x12!\n" +
 	"\fphone_number\x18\x02 \x01(\tR\vphoneNumber\x12\x1a\n" +
 	"\bpassword\x18\x03 \x01(\tR\bpassword\x12+\n" +
 	"\x11organization_name\x18\x04 \x01(\tR\x10organizationName\x12!\n" +
-	"\fservice_type\x18\x05 \x01(\tR\vserviceType\"S\n" +
+	"\fservice_type\x18\x05 \x01(\tR\vserviceType\x12\x1d\n" +
+	"\n" +
+	"license_no\x18\x06 \x01(\tR\tlicenseNo\x12\x1d\n" +
+	"\n" +
+	"staff_name\x18\a \x01(\tR\tstaffName\x12\x1d\n" +
+	"\n" +
+	"staff_role\x18\b \x01(\tR\tstaffRole\x12\x1f\n" +
+	"\vhospital_id\x18\t \x01(\tR\n" +
+	"hospitalId\"\xae\x01\n" +
 	"\x1eRegisterHealthProviderResponse\x12\x18\n" +
 	"\amessage\x18\x01 \x01(\tR\amessage\x12\x17\n" +
-	"\auser_id\x18\x02 \x01(\tR\x06userId\"N\n" +
+	"\auser_id\x18\x02 \x01(\tR\x06userId\x12\x1f\n" +
+	"\vhospital_id\x18\x03 \x01(\tR\n" +
+	"hospitalId\x12\x19\n" +
+	"\bstaff_id\x18\x04 \x01(\tR\astaffId\x12\x1d\n" +
+	"\n" +
+	"staff_role\x18\x05 \x01(\tR\tstaffRole\"N\n" +
 	"\x1bCreatePatientSessionRequest\x12\x17\n" +
 	"\auser_id\x18\x01 \x01(\tR\x06userId\x12\x16\n" +
-	"\x06scopes\x18\x02 \x03(\tR\x06scopes\"\x91\x01\n" +
+	"\x06scopes\x18\x02 \x03(\tR\x06scopes\"\xb6\x01\n" +
 	"\x1cCreatePatientSessionResponse\x12\x18\n" +
 	"\amessage\x18\x01 \x01(\tR\amessage\x12!\n" +
 	"\faccess_token\x18\x02 \x01(\tR\vaccessToken\x12\x17\n" +
 	"\auser_id\x18\x03 \x01(\tR\x06userId\x12\x1b\n" +
-	"\tauth_uuid\x18\x04 \x01(\tR\bauthUuid\"7\n" +
+	"\tauth_uuid\x18\x04 \x01(\tR\bauthUuid\x12#\n" +
+	"\rrefresh_token\x18\x05 \x01(\tR\frefreshToken\"7\n" +
 	"\x12VerifyTokenRequest\x12!\n" +
 	"\faccess_token\x18\x01 \x01(\tR\vaccessToken\"\x8f\x01\n" +
 	"\x13VerifyTokenResponse\x12\x14\n" +
@@ -788,7 +1072,21 @@ const file_auth_proto_rawDesc = "" +
 	"\rLogoutRequest\x12!\n" +
 	"\faccess_token\x18\x01 \x01(\tR\vaccessToken\"*\n" +
 	"\x0eLogoutResponse\x12\x18\n" +
-	"\amessage\x18\x01 \x01(\tR\amessage2@\n" +
+	"\amessage\x18\x01 \x01(\tR\amessage\"\x8d\x01\n" +
+	"\x15RefreshSessionRequest\x12#\n" +
+	"\rrefresh_token\x18\x01 \x01(\tR\frefreshToken\x12.\n" +
+	"\x13expected_actor_type\x18\x02 \x01(\tR\x11expectedActorType\x12\x1f\n" +
+	"\vclient_kind\x18\x03 \x01(\tR\n" +
+	"clientKind\"\xaa\x01\n" +
+	"\x16RefreshSessionResponse\x12!\n" +
+	"\faccess_token\x18\x01 \x01(\tR\vaccessToken\x12#\n" +
+	"\rrefresh_token\x18\x02 \x01(\tR\frefreshToken\x12\x17\n" +
+	"\auser_id\x18\x03 \x01(\tR\x06userId\x12\x1b\n" +
+	"\tauth_uuid\x18\x04 \x01(\tR\bauthUuid\x12\x12\n" +
+	"\x04role\x18\x05 \x01(\tR\x04role\"N\n" +
+	"\x1fValidateUserCredentialsResponse\x12\x17\n" +
+	"\auser_id\x18\x01 \x01(\tR\x06userId\x12\x12\n" +
+	"\x04role\x18\x02 \x01(\tR\x04role2@\n" +
 	"\fLoginService\x120\n" +
 	"\x05Login\x12\x12.auth.LoginRequest\x1a\x13.auth.LoginResponse2h\n" +
 	"\x16RegisterPatientService\x12N\n" +
@@ -800,7 +1098,11 @@ const file_auth_proto_rawDesc = "" +
 	"\x12VerifyTokenService\x12B\n" +
 	"\vVerifyToken\x12\x18.auth.VerifyTokenRequest\x1a\x19.auth.VerifyTokenResponse2D\n" +
 	"\rLogoutService\x123\n" +
-	"\x06Logout\x12\x13.auth.LogoutRequest\x1a\x14.auth.LogoutResponseB\x18Z\x16shared/proto/auth;authb\x06proto3"
+	"\x06Logout\x12\x13.auth.LogoutRequest\x1a\x14.auth.LogoutResponse2d\n" +
+	"\x15RefreshSessionService\x12K\n" +
+	"\x0eRefreshSession\x12\x1b.auth.RefreshSessionRequest\x1a\x1c.auth.RefreshSessionResponse2n\n" +
+	"\x16UserCredentialsService\x12T\n" +
+	"\x17ValidateUserCredentials\x12\x12.auth.LoginRequest\x1a%.auth.ValidateUserCredentialsResponseB\x18Z\x16shared/proto/auth;authb\x06proto3"
 
 var (
 	file_auth_proto_rawDescOnce sync.Once
@@ -814,38 +1116,45 @@ func file_auth_proto_rawDescGZIP() []byte {
 	return file_auth_proto_rawDescData
 }
 
-var file_auth_proto_msgTypes = make([]protoimpl.MessageInfo, 12)
+var file_auth_proto_msgTypes = make([]protoimpl.MessageInfo, 15)
 var file_auth_proto_goTypes = []any{
-	(*LoginRequest)(nil),                   // 0: auth.LoginRequest
-	(*LoginResponse)(nil),                  // 1: auth.LoginResponse
-	(*RegisterPatientRequest)(nil),         // 2: auth.RegisterPatientRequest
-	(*RegisterPatientResponse)(nil),        // 3: auth.RegisterPatientResponse
-	(*RegisterHealthProviderRequest)(nil),  // 4: auth.RegisterHealthProviderRequest
-	(*RegisterHealthProviderResponse)(nil), // 5: auth.RegisterHealthProviderResponse
-	(*CreatePatientSessionRequest)(nil),    // 6: auth.CreatePatientSessionRequest
-	(*CreatePatientSessionResponse)(nil),   // 7: auth.CreatePatientSessionResponse
-	(*VerifyTokenRequest)(nil),             // 8: auth.VerifyTokenRequest
-	(*VerifyTokenResponse)(nil),            // 9: auth.VerifyTokenResponse
-	(*LogoutRequest)(nil),                  // 10: auth.LogoutRequest
-	(*LogoutResponse)(nil),                 // 11: auth.LogoutResponse
-	(*timestamppb.Timestamp)(nil),          // 12: google.protobuf.Timestamp
+	(*LoginRequest)(nil),                    // 0: auth.LoginRequest
+	(*LoginResponse)(nil),                   // 1: auth.LoginResponse
+	(*RegisterPatientRequest)(nil),          // 2: auth.RegisterPatientRequest
+	(*RegisterPatientResponse)(nil),         // 3: auth.RegisterPatientResponse
+	(*RegisterHealthProviderRequest)(nil),   // 4: auth.RegisterHealthProviderRequest
+	(*RegisterHealthProviderResponse)(nil),  // 5: auth.RegisterHealthProviderResponse
+	(*CreatePatientSessionRequest)(nil),     // 6: auth.CreatePatientSessionRequest
+	(*CreatePatientSessionResponse)(nil),    // 7: auth.CreatePatientSessionResponse
+	(*VerifyTokenRequest)(nil),              // 8: auth.VerifyTokenRequest
+	(*VerifyTokenResponse)(nil),             // 9: auth.VerifyTokenResponse
+	(*LogoutRequest)(nil),                   // 10: auth.LogoutRequest
+	(*LogoutResponse)(nil),                  // 11: auth.LogoutResponse
+	(*RefreshSessionRequest)(nil),           // 12: auth.RefreshSessionRequest
+	(*RefreshSessionResponse)(nil),          // 13: auth.RefreshSessionResponse
+	(*ValidateUserCredentialsResponse)(nil), // 14: auth.ValidateUserCredentialsResponse
+	(*timestamppb.Timestamp)(nil),           // 15: google.protobuf.Timestamp
 }
 var file_auth_proto_depIdxs = []int32{
-	12, // 0: auth.RegisterPatientRequest.date_of_birth:type_name -> google.protobuf.Timestamp
+	15, // 0: auth.RegisterPatientRequest.date_of_birth:type_name -> google.protobuf.Timestamp
 	0,  // 1: auth.LoginService.Login:input_type -> auth.LoginRequest
 	2,  // 2: auth.RegisterPatientService.RegisterPatient:input_type -> auth.RegisterPatientRequest
 	4,  // 3: auth.RegisterHealthProviderService.RegisterHealthProvider:input_type -> auth.RegisterHealthProviderRequest
 	6,  // 4: auth.CreatePatientSessionService.CreatePatientSession:input_type -> auth.CreatePatientSessionRequest
 	8,  // 5: auth.VerifyTokenService.VerifyToken:input_type -> auth.VerifyTokenRequest
 	10, // 6: auth.LogoutService.Logout:input_type -> auth.LogoutRequest
-	1,  // 7: auth.LoginService.Login:output_type -> auth.LoginResponse
-	3,  // 8: auth.RegisterPatientService.RegisterPatient:output_type -> auth.RegisterPatientResponse
-	5,  // 9: auth.RegisterHealthProviderService.RegisterHealthProvider:output_type -> auth.RegisterHealthProviderResponse
-	7,  // 10: auth.CreatePatientSessionService.CreatePatientSession:output_type -> auth.CreatePatientSessionResponse
-	9,  // 11: auth.VerifyTokenService.VerifyToken:output_type -> auth.VerifyTokenResponse
-	11, // 12: auth.LogoutService.Logout:output_type -> auth.LogoutResponse
-	7,  // [7:13] is the sub-list for method output_type
-	1,  // [1:7] is the sub-list for method input_type
+	12, // 7: auth.RefreshSessionService.RefreshSession:input_type -> auth.RefreshSessionRequest
+	0,  // 8: auth.UserCredentialsService.ValidateUserCredentials:input_type -> auth.LoginRequest
+	1,  // 9: auth.LoginService.Login:output_type -> auth.LoginResponse
+	3,  // 10: auth.RegisterPatientService.RegisterPatient:output_type -> auth.RegisterPatientResponse
+	5,  // 11: auth.RegisterHealthProviderService.RegisterHealthProvider:output_type -> auth.RegisterHealthProviderResponse
+	7,  // 12: auth.CreatePatientSessionService.CreatePatientSession:output_type -> auth.CreatePatientSessionResponse
+	9,  // 13: auth.VerifyTokenService.VerifyToken:output_type -> auth.VerifyTokenResponse
+	11, // 14: auth.LogoutService.Logout:output_type -> auth.LogoutResponse
+	13, // 15: auth.RefreshSessionService.RefreshSession:output_type -> auth.RefreshSessionResponse
+	14, // 16: auth.UserCredentialsService.ValidateUserCredentials:output_type -> auth.ValidateUserCredentialsResponse
+	9,  // [9:17] is the sub-list for method output_type
+	1,  // [1:9] is the sub-list for method input_type
 	1,  // [1:1] is the sub-list for extension type_name
 	1,  // [1:1] is the sub-list for extension extendee
 	0,  // [0:1] is the sub-list for field type_name
@@ -862,9 +1171,9 @@ func file_auth_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_auth_proto_rawDesc), len(file_auth_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   12,
+			NumMessages:   15,
 			NumExtensions: 0,
-			NumServices:   6,
+			NumServices:   8,
 		},
 		GoTypes:           file_auth_proto_goTypes,
 		DependencyIndexes: file_auth_proto_depIdxs,

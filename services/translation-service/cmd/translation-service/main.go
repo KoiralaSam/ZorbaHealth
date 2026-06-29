@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"log"
 	"net"
 	"os"
@@ -12,7 +13,9 @@ import (
 	"github.com/KoiralaSam/ZorbaHealth/services/translation-service/config"
 	grpchandlers "github.com/KoiralaSam/ZorbaHealth/services/translation-service/internal/adapters/primary/grpc/handlers"
 	"github.com/KoiralaSam/ZorbaHealth/services/translation-service/internal/adapters/primary/grpc/interceptors"
+	amazontranslate "github.com/KoiralaSam/ZorbaHealth/services/translation-service/internal/adapters/secondary/external/amazontranslate"
 	llamacpp "github.com/KoiralaSam/ZorbaHealth/services/translation-service/internal/adapters/secondary/external/llamacpp"
+	"github.com/KoiralaSam/ZorbaHealth/services/translation-service/internal/core/ports/outbound"
 	"github.com/KoiralaSam/ZorbaHealth/services/translation-service/internal/core/services"
 	"github.com/KoiralaSam/ZorbaHealth/shared/env"
 	pb "github.com/KoiralaSam/ZorbaHealth/shared/proto/translation"
@@ -52,14 +55,12 @@ func main() {
 		log.Fatalf("config: %v", err)
 	}
 
-	provider := llamacpp.NewClient(
-		cfg.TranslationModelBaseURL,
-		cfg.ModelTimeout,
-		cfg.TranslationModelName,
-		cfg.ModelMaxTokens,
-	)
+	provider, err := newProvider(ctx, cfg)
+	if err != nil {
+		log.Fatalf("provider: %v", err)
+	}
 
-	svc := services.NewTranslationService(provider, cfg.MaxTextLength)
+	svc := services.NewTranslationService(provider, cfg.MaxTextLength, cfg.ConfidenceThreshold)
 	handler := grpchandlers.NewTranslationHandler(svc)
 
 	grpcServerOptions := append(
@@ -118,5 +119,21 @@ func main() {
 	case <-time.After(10 * time.Second):
 		log.Println("graceful stop timed out, forcing stop")
 		grpcServer.Stop()
+	}
+}
+
+func newProvider(ctx context.Context, cfg *config.Config) (outbound.TranslationProvider, error) {
+	switch cfg.TranslationProvider {
+	case "", "llamacpp":
+		return llamacpp.NewClient(
+			cfg.TranslationModelBaseURL,
+			cfg.ModelTimeout,
+			cfg.TranslationModelName,
+			cfg.ModelMaxTokens,
+		), nil
+	case "amazon_translate":
+		return amazontranslate.New(ctx, cfg.AWSRegion)
+	default:
+		return nil, fmt.Errorf("unsupported translation provider %q", cfg.TranslationProvider)
 	}
 }

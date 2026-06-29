@@ -26,9 +26,10 @@ func NewServer(addr, webhookAPIKey string, svc inbound.NotificationService) *Ser
 }
 
 // Run starts the HTTP server and blocks. Typically run in a goroutine.
-// Route: POST /sms — configure your public URL (e.g. https://xxx.ngrok-free.dev/sms) in VoIP.ms so they can reach this webhook.
+// Routes: GET/POST /sms — set this URL on each SMS-enabled DID in VoIP.ms (include ?api_key= matching VOIPMS_API_KEY).
 func (s *Server) Run() {
 	mux := http.NewServeMux()
+	mux.HandleFunc("GET /sms", s.HandleSMSRequest)
 	mux.HandleFunc("POST /sms", s.HandleSMSRequest)
 
 	sharedlogging.Info("notification http server listening", "addr", s.addr)

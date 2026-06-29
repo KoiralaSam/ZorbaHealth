@@ -1,0 +1,10 @@
+DELETE FROM audit.audit_event_types WHERE event_type IN (
+    'MEETING_REQUESTED',
+    'MEETING_ACCEPTED',
+    'MEETING_RESCHEDULED',
+    'MEETING_SCHEDULED',
+    'MEETING_CANCELLED',
+    'MEETING_SCHEDULE_DENIED'
+);
+
+DROP TABLE IF EXISTS scheduled_meetings;

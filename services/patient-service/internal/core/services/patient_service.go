@@ -3,7 +3,6 @@ package services
 import (
 	"context"
 	"crypto/rand"
-	"errors"
 	"regexp"
 	"strings"
 	"time"
@@ -12,7 +11,7 @@ import (
 	"github.com/KoiralaSam/ZorbaHealth/services/patient-service/internal/core/domain/models"
 	"github.com/KoiralaSam/ZorbaHealth/services/patient-service/internal/core/ports/outbound"
 	"github.com/google/uuid"
-	"github.com/jackc/pgx/v5"
+	auditpb "github.com/KoiralaSam/ZorbaHealth/shared/proto/audit"
 )
 
 // E.164-ish: optional +, then 10–15 digits.
@@ -23,6 +22,7 @@ type PatientService struct {
 	authService             outbound.AuthRepository
 	pendingRegistrationRepo outbound.PendingRegistrationRepository
 	publisher               outbound.PatientPublisher
+	auditClient             auditpb.AuditServiceClient
 }
 
 func NewPatientService(
@@ -30,12 +30,14 @@ func NewPatientService(
 	authService outbound.AuthRepository,
 	pendingRegistrationRepo outbound.PendingRegistrationRepository,
 	publisher outbound.PatientPublisher,
+	auditClient auditpb.AuditServiceClient,
 ) *PatientService {
 	return &PatientService{
 		repo:                    repo,
 		authService:             authService,
 		pendingRegistrationRepo: pendingRegistrationRepo,
 		publisher:               publisher,
+		auditClient:             auditClient,
 	}
 }
 
@@ -84,39 +86,6 @@ func (s *PatientService) StartRegistrationWithVerification(ctx context.Context, 
 		}
 	}
 	return token, otp, nil
-}
-
-func (s *PatientService) StartExistingPhoneVerification(ctx context.Context, phone string) error {
-	normalized := normalizePhone(phone)
-	if normalized == "" {
-		return domainErrors.ErrInvalidPhoneNumberNoDigits
-	}
-
-	patient, err := s.repo.GetPatientByPhoneNumber(ctx, normalized)
-	if err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
-			return domainErrors.ErrExistingPatientNotFound
-		}
-		return err
-	}
-
-	otp, err := generateOTP(6)
-	if err != nil {
-		return domainErrors.ErrGenerateOTPFailed
-	}
-
-	otpTTL := 5 * time.Minute
-	if err := s.pendingRegistrationRepo.SetOTP(ctx, normalized, "existing:"+patient.ID.String(), otp, otpTTL); err != nil {
-		return domainErrors.ErrOTPSetFailed
-	}
-
-	if s.publisher != nil {
-		if err := s.publisher.PublishPhoneVerificationCode(ctx, normalized, patient.FullName, otp); err != nil {
-			return domainErrors.ErrPublishPatientCachedEventFailed
-		}
-	}
-
-	return nil
 }
 
 func generateOTP(digits int) (string, error) {
@@ -265,7 +234,7 @@ func (s *PatientService) LoginPatient(
 		return nil, domainErrors.ErrRegistrationRequestRequired
 	}
 
-	loginResult, err := s.authService.Login(ctx, &models.LoginRequest{
+	userID, _, err := s.authService.ValidateUserCredentials(ctx, &models.LoginRequest{
 		Email:       strings.TrimSpace(patient.Email),
 		PhoneNumber: normalizePhone(patient.PhoneNumber),
 		Password:    patient.MedicalNotes,
@@ -274,7 +243,7 @@ func (s *PatientService) LoginPatient(
 		return nil, err
 	}
 
-	patientRecord, err := s.repo.GetPatientByUserID(ctx, loginResult.UserID)
+	patientRecord, err := s.repo.GetPatientByUserID(ctx, userID)
 	if err != nil {
 		return nil, err
 	}
@@ -285,9 +254,10 @@ func (s *PatientService) LoginPatient(
 	}
 
 	return &models.PatientSessionResult{
-		PatientID:   patientRecord.ID.String(),
-		UserID:      patientRecord.UserID.String(),
-		AccessToken: session.AccessToken,
+		PatientID:    patientRecord.ID.String(),
+		UserID:       patientRecord.UserID.String(),
+		AccessToken:  session.AccessToken,
+		RefreshToken: session.RefreshToken,
 	}, nil
 }
 

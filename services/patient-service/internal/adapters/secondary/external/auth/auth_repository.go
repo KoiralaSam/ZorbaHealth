@@ -12,11 +12,12 @@ import (
 )
 
 type authService struct {
-	Login       pb.LoginServiceClient
-	Register    pb.RegisterPatientServiceClient
+	Login         pb.LoginServiceClient
+	Credentials   pb.UserCredentialsServiceClient
+	Register      pb.RegisterPatientServiceClient
 	CreateSession pb.CreatePatientSessionServiceClient
-	VerifyToken pb.VerifyTokenServiceClient
-	conn        *grpc.ClientConn
+	VerifyToken   pb.VerifyTokenServiceClient
+	conn          *grpc.ClientConn
 }
 
 func NewAuthServiceClient(authServiceGRPCAddr string) (*authService, error) {
@@ -29,6 +30,7 @@ func NewAuthServiceClient(authServiceGRPCAddr string) (*authService, error) {
 	}
 	return &authService{
 		Login:         pb.NewLoginServiceClient(conn),
+		Credentials:   pb.NewUserCredentialsServiceClient(conn),
 		Register:      pb.NewRegisterPatientServiceClient(conn),
 		CreateSession: pb.NewCreatePatientSessionServiceClient(conn),
 		VerifyToken:   pb.NewVerifyTokenServiceClient(conn),
@@ -76,11 +78,27 @@ func (r *authRepository) Login(ctx context.Context, req *models.LoginRequest) (*
 		return nil, err
 	}
 	return &models.LoginResult{
-		Message:     resp.Message,
-		UserID:      resp.UserId,
-		AccessToken: resp.AccessToken,
-		Role:        resp.Role,
+		Message:      resp.Message,
+		UserID:       resp.UserId,
+		AccessToken:  resp.AccessToken,
+		RefreshToken: resp.RefreshToken,
+		Role:         resp.Role,
 	}, nil
+}
+
+func (r *authRepository) ValidateUserCredentials(ctx context.Context, req *models.LoginRequest) (string, string, error) {
+	if req == nil {
+		return "", "", nil
+	}
+	resp, err := r.client.Credentials.ValidateUserCredentials(ctx, &pb.LoginRequest{
+		Email:       req.Email,
+		PhoneNumber: req.PhoneNumber,
+		Password:    req.Password,
+	})
+	if err != nil {
+		return "", "", err
+	}
+	return resp.UserId, resp.Role, nil
 }
 
 func (r *authRepository) RegisterPatient(ctx context.Context, req *models.RegisterPatientRequest) (*models.RegisterResult, error) {
@@ -116,9 +134,10 @@ func (r *authRepository) CreatePatientSession(ctx context.Context, userID string
 		return nil, err
 	}
 	return &models.LoginResult{
-		Message:     resp.Message,
-		UserID:      resp.UserId,
-		AccessToken: resp.AccessToken,
+		Message:      resp.Message,
+		UserID:       resp.UserId,
+		AccessToken:  resp.AccessToken,
+		RefreshToken: resp.RefreshToken,
 	}, nil
 }
 

@@ -114,16 +114,38 @@ func (s *HealthRecordsService) SummarizeRecords(ctx context.Context, patientID, 
 		return "", domainErrors.ErrInvalidPatientID
 	}
 
-	// Keep in sync with the existing adapter query/limit.
+	focus = normalizeSummaryFocus(focus)
+
 	chunks, err := s.store.FetchChunksForSummary(ctx, pid, focus, 50)
 	if err != nil {
 		return "", domainErrors.ErrFetchChunksFailed
+	}
+	if len(chunks) == 0 && focus != "full" {
+		chunks, err = s.store.FetchChunksForSummary(ctx, pid, "full", 50)
+		if err != nil {
+			return "", domainErrors.ErrFetchChunksFailed
+		}
 	}
 	if len(chunks) == 0 {
 		return "", domainErrors.ErrNoRecordsFound
 	}
 
 	return s.summarizer.Summarize(ctx, chunks, focus)
+}
+
+func normalizeSummaryFocus(focus string) string {
+	switch strings.ToLower(strings.TrimSpace(focus)) {
+	case "", "full", "all":
+		return "full"
+	case "medication", "medications", "meds":
+		return "medications"
+	case "allergy", "allergies":
+		return "allergies"
+	case "diagnosis", "diagnoses", "conditions", "condition":
+		return "diagnoses"
+	default:
+		return strings.ToLower(strings.TrimSpace(focus))
+	}
 }
 
 func (s *HealthRecordsService) IngestText(ctx context.Context, patientID, sourceFile, text string) (int32, error) {

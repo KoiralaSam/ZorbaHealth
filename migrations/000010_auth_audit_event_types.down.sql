@@ -1,0 +1,7 @@
+DELETE FROM audit.audit_event_types WHERE event_type IN (
+    'PATIENT_SESSION_REFRESH',
+    'STAFF_LOGIN',
+    'STAFF_LOGOUT',
+    'STAFF_SESSION_REFRESH',
+    'SESSION_REUSE_DETECTED'
+);

@@ -3,6 +3,8 @@ package tools
 import (
 	"context"
 	"encoding/json"
+	"strings"
+	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
@@ -50,6 +52,11 @@ func RegisterNotifyCallLifecycle(s *mcp.Server, db *pgxpool.Pool, callsRMQ *mess
 			"session_id": in.SessionID,
 		})
 
+		if err := persistCallLifecycle(ctx, db, in.PatientID, in.SessionID, routingKey); err != nil {
+			auditComplete(ctx, db, claims, "AI_TOOL_CALLED", "notify_call_lifecycle", "error", err.Error(), correlationID, nil)
+			return errorResult("failed to persist call lifecycle"), nil, nil
+		}
+
 		if callsRMQ == nil {
 			auditComplete(ctx, db, claims, "AI_TOOL_CALLED", "notify_call_lifecycle", "error", "calls rabbitmq not configured", correlationID, nil)
 			return errorResult("call events unavailable"), nil, nil
@@ -78,4 +85,43 @@ func RegisterNotifyCallLifecycle(s *mcp.Server, db *pgxpool.Pool, callsRMQ *mess
 		auditComplete(ctx, db, claims, "AI_TOOL_CALLED", "notify_call_lifecycle", "success", "", correlationID, nil)
 		return textResult("Call lifecycle event published."), nil, nil
 	})
+}
+
+func persistCallLifecycle(ctx context.Context, db *pgxpool.Pool, patientID, sessionID, eventType string) error {
+	if db == nil {
+		return nil
+	}
+	patientID = strings.TrimSpace(patientID)
+	sessionID = strings.TrimSpace(sessionID)
+	if patientID == "" || sessionID == "" {
+		return nil
+	}
+
+	now := time.Now().UTC()
+	switch eventType {
+	case contracts.CallEventStarted:
+		_, err := db.Exec(ctx, `
+			INSERT INTO calls (patient_id, livekit_room_id, status, started_at, ended_at)
+			VALUES ($1::uuid, $2, 'active', $3, NULL)
+			ON CONFLICT (livekit_room_id) DO UPDATE
+			SET patient_id = EXCLUDED.patient_id,
+			    status = 'active',
+			    started_at = COALESCE(calls.started_at, EXCLUDED.started_at),
+			    ended_at = NULL
+		`, patientID, sessionID, now)
+		return err
+	case contracts.CallEventEnded:
+		_, err := db.Exec(ctx, `
+			INSERT INTO calls (patient_id, livekit_room_id, status, started_at, ended_at)
+			VALUES ($1::uuid, $2, 'ended', $3, $3)
+			ON CONFLICT (livekit_room_id) DO UPDATE
+			SET patient_id = EXCLUDED.patient_id,
+			    status = 'ended',
+			    started_at = COALESCE(calls.started_at, EXCLUDED.started_at),
+			    ended_at = EXCLUDED.ended_at
+		`, patientID, sessionID, now)
+		return err
+	default:
+		return nil
+	}
 }

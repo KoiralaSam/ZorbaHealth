@@ -1,23 +1,5 @@
 -- name: GetPlatformSummary :one
-WITH platform_calls AS (
-  SELECT
-    ca.patient_id,
-    ca.started_at,
-    CASE
-      WHEN ca.ended_at IS NOT NULL AND ca.started_at IS NOT NULL AND ca.ended_at >= ca.started_at
-        THEN EXTRACT(EPOCH FROM (ca.ended_at - ca.started_at))::double precision
-      ELSE NULL::double precision
-    END AS duration_seconds,
-    EXISTS (
-      SELECT 1
-      FROM mcp_audit_log al
-      WHERE al.session_id = ca.livekit_room_id
-        AND al.tool = 'trigger_emergency'
-        AND al.outcome = 'success'
-    ) AS had_emergency
-  FROM calls ca
-  WHERE ca.started_at IS NOT NULL
-),
+WITH
 active_hospital_ids AS (
   SELECT DISTINCT c.hospital_id
   FROM calls ca
@@ -38,19 +20,18 @@ SELECT
   ) AS total_patients,
   (
     SELECT COUNT(*)::int
-    FROM platform_calls pc
-    WHERE pc.started_at >= now() - INTERVAL '30 days'
+    FROM analytics.platform_daily_mv pc
+    WHERE pc.call_date >= CURRENT_DATE - 30
   ) AS total_calls_30d,
   (
-    SELECT COUNT(*)::int
-    FROM platform_calls pc
-    WHERE pc.started_at >= now() - INTERVAL '30 days'
-      AND pc.had_emergency
+    SELECT COALESCE(SUM(pc.emergencies), 0)::int
+    FROM analytics.platform_daily_mv pc
+    WHERE pc.call_date >= CURRENT_DATE - 30
   ) AS total_emergencies_30d,
   (
-    SELECT COALESCE(AVG(pc.duration_seconds), 0)::double precision
-    FROM platform_calls pc
-    WHERE pc.started_at >= now() - INTERVAL '30 days'
+    SELECT COALESCE(AVG(pc.avg_duration_seconds), 0)::double precision
+    FROM analytics.platform_daily_mv pc
+    WHERE pc.call_date >= CURRENT_DATE - 30
   ) AS avg_call_duration_sec,
   (
     SELECT COUNT(*)::int
@@ -68,23 +49,12 @@ WITH patient_counts AS (
 ),
 call_counts AS (
   SELECT
-    c.hospital_id,
-    COUNT(*)::int AS call_count,
-    COUNT(*) FILTER (
-      WHERE EXISTS (
-        SELECT 1
-        FROM mcp_audit_log al
-        WHERE al.session_id = ca.livekit_room_id
-          AND al.tool = 'trigger_emergency'
-          AND al.outcome = 'success'
-      )
-    )::int AS emergency_count
-  FROM calls ca
-  INNER JOIN patient_hospital_consents c
-    ON c.patient_id = ca.patient_id
-   AND c.revoked_at IS NULL
-  WHERE ca.started_at >= now() - INTERVAL '30 days'
-  GROUP BY c.hospital_id
+    hospital_id,
+    COALESCE(SUM(total_calls), 0)::int AS call_count,
+    COALESCE(SUM(emergency_calls), 0)::int AS emergency_count
+  FROM analytics.hospital_call_daily_mv
+  WHERE call_date >= CURRENT_DATE - 30
+  GROUP BY hospital_id
 )
 SELECT
   h.id::text AS hospital_id,

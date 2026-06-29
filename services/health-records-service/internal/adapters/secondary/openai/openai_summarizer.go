@@ -10,20 +10,41 @@ import (
 	"github.com/openai/openai-go/v3/responses"
 
 	domainErrors "github.com/KoiralaSam/ZorbaHealth/services/health-records-service/internal/core/domain/errors"
-	"github.com/KoiralaSam/ZorbaHealth/services/health-records-service/internal/core/ports/outbound"
+	sharedproviders "github.com/KoiralaSam/ZorbaHealth/shared/ports/providers"
 )
+
+const llmModelName = "gpt-4o-mini"
 
 // SummarizerClient implements outbound.Summarizer using an OpenAI chat model.
 type SummarizerClient struct {
 	oai openai.Client
 }
 
-func NewSummarizerClient(apiKey string) outbound.Summarizer {
+var _ sharedproviders.LLMProvider = (*SummarizerClient)(nil)
+
+func NewSummarizerClient(apiKey string) *SummarizerClient {
 	return &SummarizerClient{
 		oai: openai.NewClient(
 			option.WithAPIKey(apiKey),
 		),
 	}
+}
+
+func NewLLMProvider(providerName, apiKey string) (sharedproviders.LLMProvider, error) {
+	switch strings.ToLower(strings.TrimSpace(providerName)) {
+	case "", providerOpenAI:
+		return NewSummarizerClient(apiKey), nil
+	default:
+		return nil, fmt.Errorf("unsupported llm provider %q", providerName)
+	}
+}
+
+func (c *SummarizerClient) ProviderName() string {
+	return providerOpenAI
+}
+
+func (c *SummarizerClient) ModelName() string {
+	return llmModelName
 }
 
 func (c *SummarizerClient) Summarize(ctx context.Context, chunks []string, focus string) (string, error) {
@@ -54,7 +75,8 @@ func (c *SummarizerClient) Summarize(ctx context.Context, chunks []string, focus
 		"You are a medical summarization assistant.\n\n"+
 			"Focus: %s.\n\n"+
 			"Here are extracted record chunks:\n\n%s\n\n"+
-			"Produce a concise, clinically useful summary in plain English.",
+			"Produce a concise, clinically useful summary in plain English. "+
+			"If the excerpts do not contain information for the requested focus, say that no matching details were found in the available records.",
 		focusText,
 		sb.String(),
 	)

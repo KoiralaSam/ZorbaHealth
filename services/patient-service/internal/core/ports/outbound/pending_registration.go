@@ -15,4 +15,12 @@ type PendingRegistrationRepository interface {
 	SetOTP(ctx context.Context, phone string, token string, code string, ttl time.Duration) error
 	GetOTP(ctx context.Context, phone string) (token string, code string, err error)
 	DeleteOTP(ctx context.Context, phone string) error
+
+	// Voice call OTP bridge (normalized phone digits, LiveKit room SID as session id).
+	SetVoiceOTPWait(ctx context.Context, phone string, voiceSessionID string, ttl time.Duration) error
+	GetVoiceOTPWait(ctx context.Context, phone string) (voiceSessionID string, err error)
+	DeleteVoiceOTPWait(ctx context.Context, phone string) error
+	SetVoiceVerified(ctx context.Context, voiceSessionID string, patientID string, ttl time.Duration) error
+	ConsumeVoiceVerified(ctx context.Context, voiceSessionID string) (patientID string, err error)
+	IncrVoiceOTPFail(ctx context.Context, phone string, window time.Duration) (count int64, err error)
 }

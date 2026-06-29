@@ -5,26 +5,44 @@ import (
 	"fmt"
 	"net/url"
 	"strings"
+	"time"
 
+	"github.com/KoiralaSam/ZorbaHealth/services/notification-service/internal/core/domain/calendar"
 	domainErrors "github.com/KoiralaSam/ZorbaHealth/services/notification-service/internal/core/domain/errors"
 	"github.com/KoiralaSam/ZorbaHealth/services/notification-service/internal/core/ports/inbound"
 	outbound "github.com/KoiralaSam/ZorbaHealth/services/notification-service/internal/core/ports/outbound"
+	notificationtemplates "github.com/KoiralaSam/ZorbaHealth/services/notification-service/templates"
 	"github.com/KoiralaSam/ZorbaHealth/shared/events"
+	"github.com/KoiralaSam/ZorbaHealth/shared/meetingjoin"
+	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/attribute"
 )
+
+var notificationTracer = otel.Tracer("notification-service")
 
 type NotificationService struct {
 	email         outbound.EmailSender
 	sms           outbound.SMSSender
 	inbound       inbound.SMSReceiver
+	voiceSMS      inbound.VoiceSMSProcessor
+	audit         outbound.NotificationAudit
 	publicWebBase string
 }
 
-func NewNotificationService(email outbound.EmailSender, sms outbound.SMSSender, inbound inbound.SMSReceiver, publicWebBase string) *NotificationService {
+func NewNotificationService(
+	email outbound.EmailSender,
+	sms outbound.SMSSender,
+	inbound inbound.SMSReceiver,
+	voiceSMS inbound.VoiceSMSProcessor,
+	audit outbound.NotificationAudit,
+	publicWebBase string,
+) *NotificationService {
 	return &NotificationService{
-
 		email:         email,
 		sms:           sms,
 		inbound:       inbound,
+		voiceSMS:      voiceSMS,
+		audit:         audit,
 		publicWebBase: strings.TrimRight(publicWebBase, "/"),
 	}
 }
@@ -46,68 +64,18 @@ func (s *NotificationService) SendPendingVerificationEmail(ctx context.Context, 
 	verificationURL := s.publicWebBase + "/verify-email?token=" + url.QueryEscape(token)
 
 	subject := "Please verify your email address"
-
-	plain := fmt.Sprintf(
-		"Hey %s,\n\n"+
-			"To complete your Zorba Health registration, please click the button below (or copy and paste the link into your browser) to confirm this is your correct email address:\n\n%s\n\n"+
-			"This verification link will expire in 15 minutes. If you didn’t request this, you can safely ignore this email.\n",
-		req.FullName,
-		verificationURL,
-	)
-
-	html := fmt.Sprintf(`
-<!DOCTYPE html>
-<html lang="en">
-  <head>
-    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Email verification</title>
-  </head>
-  <body style="margin:0;padding:0;background-color:#f5f7fb;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;">
-    <table role="presentation" cellpadding="0" cellspacing="0" width="100%%" style="background-color:#f5f7fb;padding:24px 0;">
-      <tr>
-        <td align="center">
-          <table role="presentation" cellpadding="0" cellspacing="0" width="560" style="background-color:#ffffff;border-radius:12px;overflow:hidden;box-shadow:0 4px 20px rgba(15,23,42,0.08);">
-            <tr>
-              <td align="center" style="padding:24px 24px 8px 24px;background:linear-gradient(135deg,#12b981,#059669);color:#ffffff;">
-                <div style="font-size:24px;font-weight:700;letter-spacing:0.04em;text-transform:uppercase;">
-                  Your email<br />address needs verifying
-                </div>
-              </td>
-            </tr>
-            <tr>
-              <td style="padding:24px 32px 28px 32px;color:#111827;font-size:16px;line-height:1.5;">
-                <p style="margin:0 0 16px 0;">Hey %s,</p>
-                <p style="margin:0 0 16px 0;">
-                  To complete the email verification process, please click the button below to
-                  confirm that this is your correct email address.
-                </p>
-                <p style="margin:24px 0;" align="center">
-                  <a href="%s"
-                     style="display:inline-block;background-color:#f97316;color:#ffffff;text-decoration:none;padding:14px 32px;border-radius:999px;font-weight:600;font-size:15px;">
-                    Verify your email
-                  </a>
-                </p>
-                <p style="margin:0 0 12px 0;font-size:13px;color:#6b7280;">
-                  This verification link will expire in 15 minutes. If you didn’t make a change to
-                  your account, don’t worry – this update won’t happen unless you verify your email.
-                </p>
-                <p style="margin:16px 0 0 0;font-size:13px;color:#6b7280;">
-                  If the button above doesn’t work, copy and paste this link into your browser:<br />
-                  <span style="word-break:break-all;color:#059669;">%s</span>
-                </p>
-                <p style="margin:24px 0 0 0;font-size:13px;color:#9ca3af;">
-                  Happy verifying,<br />
-                  <strong>Zorba Health</strong>
-                </p>
-              </td>
-            </tr>
-          </table>
-        </td>
-      </tr>
-    </table>
-  </body>
-</html>`, req.FullName, verificationURL, verificationURL)
+	templateData := map[string]string{
+		"FullName":        req.FullName,
+		"VerificationURL": verificationURL,
+	}
+	plain, err := notificationtemplates.RenderText("verification_email.txt.tmpl", templateData)
+	if err != nil {
+		return err
+	}
+	html, err := notificationtemplates.RenderHTML("verification_email_html.tmpl", templateData)
+	if err != nil {
+		return err
+	}
 
 	displayName := req.FullName
 	if displayName == "" {
@@ -124,7 +92,10 @@ func (s *NotificationService) SendOTP(ctx context.Context, phone string, otp str
 	if otp == "" {
 		return domainErrors.ErrOTPEmpty
 	}
-	message := fmt.Sprintf("Your Zorba Health verification code is: %s", otp)
+	message, err := notificationtemplates.RenderText("otp_sms.txt.tmpl", map[string]string{"OTP": otp})
+	if err != nil {
+		return err
+	}
 	return s.sms.SendSMS(ctx, phone, message)
 }
 
@@ -135,7 +106,10 @@ func (s *NotificationService) SendEmergencyEscalationSMS(ctx context.Context, ph
 	if reason == "" {
 		reason = "urgent symptoms"
 	}
-	message := fmt.Sprintf("Zorba Health urgent notice: emergency escalation was triggered for %s. Please contact emergency services or your care team immediately.", reason)
+	message, err := notificationtemplates.RenderText("emergency_escalation_notice.txt.tmpl", map[string]string{"Reason": reason})
+	if err != nil {
+		return err
+	}
 	return s.sms.SendSMS(ctx, phone, message)
 }
 
@@ -165,5 +139,184 @@ func (s *NotificationService) SendEmergencyEscalationAlerts(ctx context.Context,
 
 // ReceiveSMS forwards inbound SMS messages (webhook) to the configured inbound receiver.
 func (s *NotificationService) ReceiveSMS(ctx context.Context, phoneNumber, message string) error {
-	return s.inbound.ReceiveSMS(ctx, phoneNumber, message)
+	if s.inbound != nil {
+		if err := s.inbound.ReceiveSMS(ctx, phoneNumber, message); err != nil {
+			return err
+		}
+	}
+	if s.voiceSMS != nil {
+		_, _, err := s.voiceSMS.ProcessInboundVoiceSms(ctx, phoneNumber, message)
+		return err
+	}
+	return nil
+}
+
+func (s *NotificationService) SendMeetingRequestedNotifications(ctx context.Context, data *events.MeetingRequestedData) error {
+	if data == nil || data.StaffEmail == "" {
+		return nil
+	}
+	ctx, span := notificationTracer.Start(ctx, "notification.meeting_requested")
+	defer span.End()
+	span.SetAttributes(attribute.String("meeting.id", data.MeetingID))
+
+	start, err := time.Parse(time.RFC3339, data.StartsAtRFC3339)
+	if err != nil {
+		span.RecordError(err)
+		return err
+	}
+	subject := fmt.Sprintf("Visit request pending approval: %s", data.Title)
+	templateData := map[string]string{
+		"StaffName":    data.StaffName,
+		"PatientName":  data.PatientName,
+		"StartRFC1123": start.Format(time.RFC1123),
+	}
+	plain, err := notificationtemplates.RenderText("meeting_requested_plain.tmpl", templateData)
+	if err != nil {
+		return err
+	}
+	html, err := notificationtemplates.RenderHTML("meeting_requested_html.tmpl", templateData)
+	if err != nil {
+		return err
+	}
+	if err := s.email.Send(ctx, data.StaffEmail, data.StaffName, subject, plain, html); err != nil {
+		span.RecordError(err)
+		return err
+	}
+	return nil
+}
+
+func (s *NotificationService) SendMeetingScheduledNotifications(ctx context.Context, data *events.MeetingScheduledData) error {
+	if data == nil {
+		return nil
+	}
+	ctx, span := notificationTracer.Start(ctx, "notification.meeting_scheduled")
+	defer span.End()
+	span.SetAttributes(attribute.String("meeting.id", data.MeetingID))
+
+	start, err := time.Parse(time.RFC3339, data.StartsAtRFC3339)
+	if err != nil {
+		span.RecordError(err)
+		return err
+	}
+
+	patientSubject := fmt.Sprintf("Your visit is scheduled: %s", data.Title)
+	staffSubject := fmt.Sprintf("Patient visit scheduled: %s", data.Title)
+	desc := fmt.Sprintf("Join your Zorba Health video visit: %s", data.JoinURL)
+
+	patientJoinURL := meetingJoinURLForNotification(s.publicWebBase, data.JoinURL, data.LiveKitRoomName, data.PatientToken, "patient")
+	staffJoinURL := meetingJoinURLForNotification(s.publicWebBase, data.JoinURL, data.LiveKitRoomName, data.StaffToken, "staff")
+
+	if data.PatientEmail != "" {
+		ics := calendar.BuildMeetingRequestICS(
+			calendar.MeetingUID(data.MeetingID, data.PatientEmail),
+			data.Title,
+			desc,
+			s.fromEmail(),
+			data.PatientEmail,
+			start,
+			data.DurationMinutes,
+			data.Timezone,
+		)
+		patientData := map[string]string{
+			"PatientName":  data.PatientName,
+			"StaffName":    data.StaffName,
+			"StartRFC1123": start.Format(time.RFC1123),
+			"JoinURL":      patientJoinURL,
+		}
+		patientPlain, err := notificationtemplates.RenderText("appointment_reminder_patient_plain.tmpl", patientData)
+		if err != nil {
+			return err
+		}
+		patientHTML, err := notificationtemplates.RenderHTML("appointment_reminder_patient_html.tmpl", patientData)
+		if err != nil {
+			return err
+		}
+		err = s.email.SendWithAttachments(ctx, data.PatientEmail, data.PatientName, patientSubject, patientPlain, patientHTML, []outbound.EmailAttachment{{
+			Filename:    "appointment.ics",
+			ContentType: "text/calendar; method=REQUEST",
+			Content:     []byte(ics),
+		}})
+		s.recordNotifyAudit(ctx, data, "email", "patient", err)
+		if err != nil {
+			span.RecordError(err)
+		}
+	}
+
+	if data.StaffEmail != "" {
+		ics := calendar.BuildMeetingRequestICS(
+			calendar.MeetingUID(data.MeetingID, data.StaffEmail),
+			data.Title,
+			desc,
+			s.fromEmail(),
+			data.StaffEmail,
+			start,
+			data.DurationMinutes,
+			data.Timezone,
+		)
+		staffData := map[string]string{
+			"StaffName":   data.StaffName,
+			"PatientName": data.PatientName,
+			"JoinURL":     staffJoinURL,
+		}
+		staffPlain, err := notificationtemplates.RenderText("appointment_reminder_staff_plain.tmpl", staffData)
+		if err != nil {
+			return err
+		}
+		staffHTML, err := notificationtemplates.RenderHTML("appointment_reminder_staff_html.tmpl", staffData)
+		if err != nil {
+			return err
+		}
+		err = s.email.SendWithAttachments(ctx, data.StaffEmail, data.StaffName, staffSubject, staffPlain, staffHTML, []outbound.EmailAttachment{{
+			Filename:    "appointment.ics",
+			ContentType: "text/calendar; method=REQUEST",
+			Content:     []byte(ics),
+		}})
+		s.recordNotifyAudit(ctx, data, "email", "staff", err)
+		if err != nil {
+			span.RecordError(err)
+		}
+	}
+
+	if data.SendSMS && data.PatientPhone != "" {
+		smsMsg := fmt.Sprintf("Zorba Health: video visit with %s on %s. Join: %s",
+			data.StaffName, start.Format("Jan 2 3:04 PM MST"), data.JoinURL)
+		err := s.sms.SendSMS(ctx, data.PatientPhone, smsMsg)
+		s.recordNotifyAudit(ctx, data, "sms", "patient", err)
+		if err != nil {
+			span.RecordError(err)
+		}
+	}
+	return nil
+}
+
+func meetingJoinURLForNotification(webBase, storedJoinURL, roomName, token, role string) string {
+	storedJoinURL = strings.TrimSpace(storedJoinURL)
+	if storedJoinURL == "" {
+		return ""
+	}
+	roomName = strings.TrimSpace(roomName)
+	if roomName == "" {
+		roomName = meetingjoin.RoomFromJoinURL(storedJoinURL)
+	}
+	serverWS := meetingjoin.LiveKitServerURL(storedJoinURL)
+	if web := meetingjoin.WebAppJoinURL(webBase, serverWS, roomName, token); web != "" {
+		return web
+	}
+	return meetingjoin.WithParticipantToken(storedJoinURL, token, role)
+}
+
+func (s *NotificationService) fromEmail() string {
+	return "care@zorba.health"
+}
+
+func (s *NotificationService) recordNotifyAudit(ctx context.Context, data *events.MeetingScheduledData, channel, role string, err error) {
+	if s.audit == nil {
+		return
+	}
+	fail := ""
+	success := err == nil
+	if err != nil {
+		fail = err.Error()
+	}
+	_ = s.audit.RecordNotificationSent(ctx, data.PatientID, data.CorrelationID, data.MeetingID, channel, role, "meeting_scheduled", success, fail)
 }

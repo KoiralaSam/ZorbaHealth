@@ -3,6 +3,7 @@ package email
 import (
 	"bytes"
 	"context"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -10,18 +11,22 @@ import (
 	"strings"
 
 	domainErrors "github.com/KoiralaSam/ZorbaHealth/services/notification-service/internal/core/domain/errors"
+	outbound "github.com/KoiralaSam/ZorbaHealth/services/notification-service/internal/core/ports/outbound"
+	sharedproviders "github.com/KoiralaSam/ZorbaHealth/shared/ports/providers"
 )
 
 const defaultMailtrapSendURL = "https://send.api.mailtrap.io/api/send"
 
 type MailtrapSender struct {
-	client         *http.Client
-	apiToken       string
-	fromEmail      string
-	fromName       string
-	sendURL        string
+	client          *http.Client
+	apiToken        string
+	fromEmail       string
+	fromName        string
+	sendURL         string
 	mirrorRecipient string
 }
+
+var _ sharedproviders.EmailProvider = (*MailtrapSender)(nil)
 
 func NewMailtrapSender(apiToken, fromEmail, fromName, sendURL, mirrorRecipient string) *MailtrapSender {
 	if strings.TrimSpace(sendURL) == "" {
@@ -39,6 +44,26 @@ func NewMailtrapSender(apiToken, fromEmail, fromName, sendURL, mirrorRecipient s
 }
 
 func (s *MailtrapSender) Send(ctx context.Context, toEmail, toName, subject, plainText, html string) error {
+	return s.SendWithAttachments(ctx, toEmail, toName, subject, plainText, html, nil)
+}
+
+func (s *MailtrapSender) ProviderName() string {
+	return "mailtrap"
+}
+
+func (s *MailtrapSender) SendEmail(ctx context.Context, msg sharedproviders.EmailMessage) error {
+	attachments := make([]outbound.EmailAttachment, 0, len(msg.Attachments))
+	for _, att := range msg.Attachments {
+		attachments = append(attachments, outbound.EmailAttachment{
+			Filename:    att.Filename,
+			ContentType: att.ContentType,
+			Content:     att.Content,
+		})
+	}
+	return s.SendWithAttachments(ctx, msg.ToEmail, msg.ToName, msg.Subject, msg.PlainText, msg.HTML, attachments)
+}
+
+func (s *MailtrapSender) SendWithAttachments(ctx context.Context, toEmail, toName, subject, plainText, html string, attachments []outbound.EmailAttachment) error {
 	recipients := []mailtrapContact{
 		{
 			Email: toEmail,
@@ -61,6 +86,17 @@ func (s *MailtrapSender) Send(ctx context.Context, toEmail, toName, subject, pla
 		Subject: subject,
 		Text:    plainText,
 		HTML:    html,
+	}
+	for _, att := range attachments {
+		if len(att.Content) == 0 {
+			continue
+		}
+		payload.Attachments = append(payload.Attachments, mailtrapAttachment{
+			Filename:    att.Filename,
+			Content:     base64.StdEncoding.EncodeToString(att.Content),
+			Type:        att.ContentType,
+			Disposition: "attachment",
+		})
 	}
 
 	body, err := json.Marshal(payload)
@@ -91,11 +127,19 @@ func (s *MailtrapSender) Send(ctx context.Context, toEmail, toName, subject, pla
 }
 
 type mailtrapMessage struct {
-	From    mailtrapContact   `json:"from"`
-	To      []mailtrapContact `json:"to"`
-	Subject string            `json:"subject"`
-	Text    string            `json:"text,omitempty"`
-	HTML    string            `json:"html,omitempty"`
+	From        mailtrapContact      `json:"from"`
+	To          []mailtrapContact    `json:"to"`
+	Subject     string               `json:"subject"`
+	Text        string               `json:"text,omitempty"`
+	HTML        string               `json:"html,omitempty"`
+	Attachments []mailtrapAttachment `json:"attachments,omitempty"`
+}
+
+type mailtrapAttachment struct {
+	Filename    string `json:"filename"`
+	Content     string `json:"content"`
+	Type        string `json:"type"`
+	Disposition string `json:"disposition"`
 }
 
 type mailtrapContact struct {

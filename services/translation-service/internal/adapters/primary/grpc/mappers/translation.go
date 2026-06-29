@@ -15,7 +15,13 @@ func ProtoToRequest(req *pb.TranslateRequest) models.TranslationRequest {
 
 func ResultToProto(result *models.TranslationResult) *pb.TranslateResponse {
 	return &pb.TranslateResponse{
-		TranslatedText: result.TranslatedText,
-		DetectedLang:   result.DetectedLang,
+		TranslatedText:               result.TranslatedText,
+		DetectedLang:                 result.DetectedLang,
+		SourceLanguage:               result.SourceLang,
+		TargetLanguage:               result.TargetLang,
+		ConfidenceScore:              float32(result.ConfidenceScore),
+		TranslationProvider:          result.TranslationProvider,
+		MedicalTermPreservationCheck: result.MedicalTermPreservationCheck,
+		AdvisoryMessage:              result.AdvisoryMessage,
 	}
 }

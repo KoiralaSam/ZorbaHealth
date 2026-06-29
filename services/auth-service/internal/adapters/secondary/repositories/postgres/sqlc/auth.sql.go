@@ -14,13 +14,21 @@ import (
 const createAuth = `-- name: CreateAuth :one
 INSERT INTO auths (user_id)
 VALUES ($1)
-RETURNING id, user_id, auth_uuid
+RETURNING id, user_id, auth_uuid, revoked_at, revoked_reason, last_active_at, client_kind
 `
 
 func (q *Queries) CreateAuth(ctx context.Context, userID pgtype.UUID) (Auth, error) {
 	row := q.db.QueryRow(ctx, createAuth, userID)
 	var i Auth
-	err := row.Scan(&i.ID, &i.UserID, &i.AuthUuid)
+	err := row.Scan(
+		&i.ID,
+		&i.UserID,
+		&i.AuthUuid,
+		&i.RevokedAt,
+		&i.RevokedReason,
+		&i.LastActiveAt,
+		&i.ClientKind,
+	)
 	return i, err
 }
 
@@ -55,7 +63,7 @@ func (q *Queries) DeleteAuthByUserIDAndAuthUUID(ctx context.Context, arg DeleteA
 }
 
 const fetchAuth = `-- name: FetchAuth :one
-SELECT id, user_id, auth_uuid FROM auths
+SELECT id, user_id, auth_uuid, revoked_at, revoked_reason, last_active_at, client_kind FROM auths
 WHERE id = $1 and user_id = $2 LIMIT 1
 `
 
@@ -67,12 +75,42 @@ type FetchAuthParams struct {
 func (q *Queries) FetchAuth(ctx context.Context, arg FetchAuthParams) (Auth, error) {
 	row := q.db.QueryRow(ctx, fetchAuth, arg.ID, arg.UserID)
 	var i Auth
-	err := row.Scan(&i.ID, &i.UserID, &i.AuthUuid)
+	err := row.Scan(
+		&i.ID,
+		&i.UserID,
+		&i.AuthUuid,
+		&i.RevokedAt,
+		&i.RevokedReason,
+		&i.LastActiveAt,
+		&i.ClientKind,
+	)
+	return i, err
+}
+
+const getAuthByAuthUUID = `-- name: GetAuthByAuthUUID :one
+SELECT id, user_id, auth_uuid, revoked_at, revoked_reason, last_active_at, client_kind
+FROM auths
+WHERE auth_uuid = $1
+LIMIT 1
+`
+
+func (q *Queries) GetAuthByAuthUUID(ctx context.Context, authUuid pgtype.UUID) (Auth, error) {
+	row := q.db.QueryRow(ctx, getAuthByAuthUUID, authUuid)
+	var i Auth
+	err := row.Scan(
+		&i.ID,
+		&i.UserID,
+		&i.AuthUuid,
+		&i.RevokedAt,
+		&i.RevokedReason,
+		&i.LastActiveAt,
+		&i.ClientKind,
+	)
 	return i, err
 }
 
 const getAuthByUserIDAndAuthUUID = `-- name: GetAuthByUserIDAndAuthUUID :one
-SELECT id, user_id, auth_uuid FROM auths
+SELECT id, user_id, auth_uuid, revoked_at, revoked_reason, last_active_at, client_kind FROM auths
 WHERE user_id = $1 AND auth_uuid = $2 LIMIT 1
 `
 
@@ -84,6 +122,42 @@ type GetAuthByUserIDAndAuthUUIDParams struct {
 func (q *Queries) GetAuthByUserIDAndAuthUUID(ctx context.Context, arg GetAuthByUserIDAndAuthUUIDParams) (Auth, error) {
 	row := q.db.QueryRow(ctx, getAuthByUserIDAndAuthUUID, arg.UserID, arg.AuthUuid)
 	var i Auth
-	err := row.Scan(&i.ID, &i.UserID, &i.AuthUuid)
+	err := row.Scan(
+		&i.ID,
+		&i.UserID,
+		&i.AuthUuid,
+		&i.RevokedAt,
+		&i.RevokedReason,
+		&i.LastActiveAt,
+		&i.ClientKind,
+	)
 	return i, err
+}
+
+const revokeAuthByAuthUUID = `-- name: RevokeAuthByAuthUUID :exec
+UPDATE auths
+SET revoked_at = now(),
+    revoked_reason = $2
+WHERE auth_uuid = $1 AND revoked_at IS NULL
+`
+
+type RevokeAuthByAuthUUIDParams struct {
+	AuthUuid      pgtype.UUID `json:"auth_uuid"`
+	RevokedReason pgtype.Text `json:"revoked_reason"`
+}
+
+func (q *Queries) RevokeAuthByAuthUUID(ctx context.Context, arg RevokeAuthByAuthUUIDParams) error {
+	_, err := q.db.Exec(ctx, revokeAuthByAuthUUID, arg.AuthUuid, arg.RevokedReason)
+	return err
+}
+
+const touchAuthByAuthUUID = `-- name: TouchAuthByAuthUUID :exec
+UPDATE auths
+SET last_active_at = now()
+WHERE auth_uuid = $1 AND revoked_at IS NULL
+`
+
+func (q *Queries) TouchAuthByAuthUUID(ctx context.Context, authUuid pgtype.UUID) error {
+	_, err := q.db.Exec(ctx, touchAuthByAuthUUID, authUuid)
+	return err
 }

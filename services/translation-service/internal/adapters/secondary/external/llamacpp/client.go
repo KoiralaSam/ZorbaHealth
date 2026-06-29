@@ -133,9 +133,14 @@ func (c *Client) Translate(ctx context.Context, req models.TranslationRequest) (
 	}
 
 	return &models.TranslationResult{
-		TranslatedText: translated,
-		DetectedLang:   detectedLang,
-		CharacterCount: utf8.RuneCountInString(req.Text),
+		TranslatedText:               translated,
+		DetectedLang:                 detectedLang,
+		SourceLang:                   detectedLang,
+		TargetLang:                   strings.ToLower(req.TargetLang),
+		CharacterCount:               utf8.RuneCountInString(req.Text),
+		ConfidenceScore:              0.68,
+		TranslationProvider:          "llamacpp",
+		MedicalTermPreservationCheck: false,
 	}, nil
 }
 

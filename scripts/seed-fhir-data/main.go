@@ -10,6 +10,7 @@ import (
 	"github.com/KoiralaSam/ZorbaHealth/shared/env"
 	"github.com/KoiralaSam/ZorbaHealth/shared/grpcclient"
 	healthpb "github.com/KoiralaSam/ZorbaHealth/shared/proto/health_records"
+	"google.golang.org/grpc/metadata"
 )
 
 func main() {
@@ -31,12 +32,18 @@ func main() {
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
 	defer cancel()
 
-	conn, err := grpcclient.Dial(*addr)
+	internalSecret := os.Getenv("INTERNAL_SERVICE_SECRET")
+	if internalSecret == "" {
+		log.Fatal("INTERNAL_SERVICE_SECRET is required")
+	}
+
+	conn, err := grpcclient.DialInsecure(*addr)
 	if err != nil {
 		log.Fatalf("dial health-records-service: %v", err)
 	}
 	defer conn.Close()
 
+	ctx = metadata.AppendToOutgoingContext(ctx, "x-internal-token", internalSecret)
 	client := healthpb.NewHealthRecordServiceClient(conn)
 	resp, err := client.IngestFHIRBundle(ctx, &healthpb.FHIRBundleRequest{
 		PatientId:  *patientID,

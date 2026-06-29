@@ -18,10 +18,105 @@ type Admin struct {
 	CreatedAt pgtype.Timestamptz `json:"created_at"`
 }
 
+type AnalyticsHospitalCallDailyMv struct {
+	HospitalID         pgtype.UUID `json:"hospital_id"`
+	CallDate           pgtype.Date `json:"call_date"`
+	TotalCalls         int32       `json:"total_calls"`
+	CompletedCalls     int32       `json:"completed_calls"`
+	AvgDurationSeconds float64     `json:"avg_duration_seconds"`
+	EmergencyCalls     int32       `json:"emergency_calls"`
+}
+
+type AnalyticsHospitalRecentActivityV struct {
+	HospitalID pgtype.Text        `json:"hospital_id"`
+	Timestamp  pgtype.Timestamptz `json:"timestamp"`
+	Tool       string             `json:"tool"`
+	ActorType  string             `json:"actor_type"`
+	Outcome    string             `json:"outcome"`
+	SessionID  string             `json:"session_id"`
+}
+
+type AnalyticsHospitalToolUsageV struct {
+	HospitalID pgtype.Text     `json:"hospital_id"`
+	Tool       string          `json:"tool"`
+	Outcome    string          `json:"outcome"`
+	CallCount  int32           `json:"call_count"`
+	Day        pgtype.Interval `json:"day"`
+}
+
+type AnalyticsHospitalTopConditionsMv struct {
+	HospitalID    pgtype.UUID `json:"hospital_id"`
+	ConditionName string      `json:"condition_name"`
+	PatientCount  int32       `json:"patient_count"`
+}
+
+type AnalyticsPatientCallHistoryV struct {
+	PatientID    pgtype.UUID      `json:"patient_id"`
+	StartedAt    pgtype.Timestamp `json:"started_at"`
+	Duration     interface{}      `json:"duration"`
+	Summary      string           `json:"summary"`
+	HadEmergency bool             `json:"had_emergency"`
+}
+
+type AnalyticsPlatformDailyMv struct {
+	CallDate           pgtype.Date `json:"call_date"`
+	UniquePatients     int32       `json:"unique_patients"`
+	TotalCalls         int32       `json:"total_calls"`
+	Emergencies        int32       `json:"emergencies"`
+	AvgDurationSeconds float64     `json:"avg_duration_seconds"`
+	ActiveHospitals    int32       `json:"active_hospitals"`
+}
+
+type AuditAuditEvent struct {
+	ID             int64              `json:"id"`
+	EventID        pgtype.UUID        `json:"event_id"`
+	EventType      string             `json:"event_type"`
+	ActorType      string             `json:"actor_type"`
+	ActorID        string             `json:"actor_id"`
+	PatientID      pgtype.Text        `json:"patient_id"`
+	ServiceName    string             `json:"service_name"`
+	ResourceType   pgtype.Text        `json:"resource_type"`
+	ResourceID     pgtype.Text        `json:"resource_id"`
+	EventTimestamp pgtype.Timestamptz `json:"event_timestamp"`
+	RequestID      pgtype.Text        `json:"request_id"`
+	CorrelationID  pgtype.Text        `json:"correlation_id"`
+	IpAddress      pgtype.Text        `json:"ip_address"`
+	ToolName       pgtype.Text        `json:"tool_name"`
+	ModelName      pgtype.Text        `json:"model_name"`
+	ProviderName   pgtype.Text        `json:"provider_name"`
+	SuccessStatus  bool               `json:"success_status"`
+	FailureReason  pgtype.Text        `json:"failure_reason"`
+	MetadataJson   []byte             `json:"metadata_json"`
+	CreatedAt      pgtype.Timestamptz `json:"created_at"`
+}
+
+type AuditAuditEventType struct {
+	EventType      string `json:"event_type"`
+	RetentionClass string `json:"retention_class"`
+	Description    string `json:"description"`
+}
+
+type AuditConsent struct {
+	ID             pgtype.UUID        `json:"id"`
+	PatientID      string             `json:"patient_id"`
+	ConsentType    string             `json:"consent_type"`
+	GrantedBy      string             `json:"granted_by"`
+	GrantedAt      pgtype.Timestamptz `json:"granted_at"`
+	RevokedAt      pgtype.Timestamptz `json:"revoked_at"`
+	Scope          string             `json:"scope"`
+	ExpirationTime pgtype.Timestamptz `json:"expiration_time"`
+	Source         string             `json:"source"`
+	MetadataJson   []byte             `json:"metadata_json"`
+}
+
 type Auth struct {
-	ID       int64       `json:"id"`
-	UserID   pgtype.UUID `json:"user_id"`
-	AuthUuid pgtype.UUID `json:"auth_uuid"`
+	ID            int64              `json:"id"`
+	UserID        pgtype.UUID        `json:"user_id"`
+	AuthUuid      pgtype.UUID        `json:"auth_uuid"`
+	RevokedAt     pgtype.Timestamptz `json:"revoked_at"`
+	RevokedReason pgtype.Text        `json:"revoked_reason"`
+	LastActiveAt  pgtype.Timestamptz `json:"last_active_at"`
+	ClientKind    pgtype.Text        `json:"client_kind"`
 }
 
 type Call struct {
@@ -47,22 +142,27 @@ type ConversationTurn struct {
 	CreatedAt pgtype.Timestamptz `json:"created_at"`
 }
 
-type FhirResource struct {
-	ID           pgtype.UUID        `json:"id"`
-	PatientID    pgtype.UUID        `json:"patient_id"`
-	ResourceType string             `json:"resource_type"`
-	ResourceID   string             `json:"resource_id"`
-	SourceSystem pgtype.Text        `json:"source_system"`
-	ResourceJson []byte             `json:"resource_json"`
-	IndexedAt    pgtype.Timestamptz `json:"indexed_at"`
-}
-
 type Hospital struct {
 	ID        pgtype.UUID        `json:"id"`
 	Name      string             `json:"name"`
 	LicenseNo string             `json:"license_no"`
 	Active    pgtype.Bool        `json:"active"`
 	CreatedAt pgtype.Timestamptz `json:"created_at"`
+}
+
+// Staff-created QR consent requests. Patient approval creates or reactivates patient_hospital_consents.
+type HospitalConsentRequest struct {
+	ID                   pgtype.UUID        `json:"id"`
+	Token                string             `json:"token"`
+	HospitalID           pgtype.UUID        `json:"hospital_id"`
+	StaffID              pgtype.UUID        `json:"staff_id"`
+	PatientID            pgtype.UUID        `json:"patient_id"`
+	RequestedPermissions string             `json:"requested_permissions"`
+	Note                 pgtype.Text        `json:"note"`
+	ExpiresAt            pgtype.Timestamptz `json:"expires_at"`
+	ApprovedAt           pgtype.Timestamptz `json:"approved_at"`
+	ApprovedPatientID    pgtype.UUID        `json:"approved_patient_id"`
+	CreatedAt            pgtype.Timestamptz `json:"created_at"`
 }
 
 type HospitalStaff struct {
@@ -115,14 +215,79 @@ type PatientHospitalConsent struct {
 	RevokedAt pgtype.Timestamptz `json:"revoked_at"`
 }
 
-type RecordChunk struct {
-	ID         pgtype.UUID        `json:"id"`
-	PatientID  pgtype.UUID        `json:"patient_id"`
-	SourceFile string             `json:"source_file"`
-	ChunkIndex int32              `json:"chunk_index"`
-	ChunkText  string             `json:"chunk_text"`
-	Embedding  pgvector.Vector    `json:"embedding"`
+type RecordsFhirPatientMap struct {
+	FhirPatientID     string             `json:"fhir_patient_id"`
+	SourceSystem      string             `json:"source_system"`
+	InternalPatientID pgtype.UUID        `json:"internal_patient_id"`
+	CreatedAt         pgtype.Timestamptz `json:"created_at"`
+}
+
+type RecordsFhirResource struct {
+	ID             pgtype.UUID        `json:"id"`
+	PatientID      pgtype.UUID        `json:"patient_id"`
+	ResourceType   string             `json:"resource_type"`
+	ResourceID     string             `json:"resource_id"`
+	SourceSystem   pgtype.Text        `json:"source_system"`
+	ResourceJson   []byte             `json:"resource_json"`
+	DisplayText    pgtype.Text        `json:"display_text"`
+	ClinicalStatus pgtype.Text        `json:"clinical_status"`
+	EffectiveDate  pgtype.Timestamptz `json:"effective_date"`
+	IndexedAt      pgtype.Timestamptz `json:"indexed_at"`
+}
+
+type RecordsRecordChunk struct {
+	ChunkID          pgtype.UUID        `json:"chunk_id"`
+	PatientID        pgtype.UUID        `json:"patient_id"`
+	RecordID         pgtype.UUID        `json:"record_id"`
+	FhirResourceType pgtype.Text        `json:"fhir_resource_type"`
+	SourceSystem     pgtype.Text        `json:"source_system"`
+	SourceFile       string             `json:"source_file"`
+	ChunkIndex       int32              `json:"chunk_index"`
+	ChunkText        string             `json:"chunk_text"`
+	ChunkHash        string             `json:"chunk_hash"`
+	AccessLevel      string             `json:"access_level"`
+	EmbeddingModel   string             `json:"embedding_model"`
+	Embedding        pgvector.Vector    `json:"embedding"`
+	CreatedAt        pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt        pgtype.Timestamptz `json:"updated_at"`
+}
+
+type RefreshToken struct {
+	ID         int64              `json:"id"`
+	AuthUuid   pgtype.UUID        `json:"auth_uuid"`
+	UserID     pgtype.UUID        `json:"user_id"`
+	ActorType  string             `json:"actor_type"`
+	TokenHash  []byte             `json:"token_hash"`
+	Generation int32              `json:"generation"`
+	ExpiresAt  pgtype.Timestamptz `json:"expires_at"`
+	UsedAt     pgtype.Timestamptz `json:"used_at"`
+	RevokedAt  pgtype.Timestamptz `json:"revoked_at"`
 	CreatedAt  pgtype.Timestamptz `json:"created_at"`
+}
+
+type ScheduledMeeting struct {
+	ID                 pgtype.UUID        `json:"id"`
+	PatientID          pgtype.UUID        `json:"patient_id"`
+	StaffID            pgtype.UUID        `json:"staff_id"`
+	HospitalID         pgtype.UUID        `json:"hospital_id"`
+	CreatedByActorType string             `json:"created_by_actor_type"`
+	CreatedByActorID   string             `json:"created_by_actor_id"`
+	StartsAt           pgtype.Timestamptz `json:"starts_at"`
+	DurationMinutes    int32              `json:"duration_minutes"`
+	Timezone           string             `json:"timezone"`
+	Title              string             `json:"title"`
+	Notes              pgtype.Text        `json:"notes"`
+	JoinUrl            pgtype.Text        `json:"join_url"`
+	Status             string             `json:"status"`
+	CorrelationID      pgtype.UUID        `json:"correlation_id"`
+	VoiceSessionID     pgtype.Text        `json:"voice_session_id"`
+	SendSms            bool               `json:"send_sms"`
+	Channel            string             `json:"channel"`
+	CreatedAt          pgtype.Timestamptz `json:"created_at"`
+	LivekitRoomName    pgtype.Text        `json:"livekit_room_name"`
+	LivekitRoomSid     pgtype.Text        `json:"livekit_room_sid"`
+	PatientToken       pgtype.Text        `json:"patient_token"`
+	StaffToken         pgtype.Text        `json:"staff_token"`
 }
 
 type User struct {
@@ -130,7 +295,7 @@ type User struct {
 	Email        pgtype.Text `json:"email"`
 	PhoneNumber  pgtype.Text `json:"phone_number"`
 	PasswordHash pgtype.Text `json:"password_hash"`
-	// patient | health_service | admin
+	// patient | hospital_staff | admin
 	Role      string             `json:"role"`
 	CreatedAt pgtype.Timestamptz `json:"created_at"`
 }
