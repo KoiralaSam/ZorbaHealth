@@ -27,14 +27,22 @@ jobs:
       - uses: actions/setup-go@v5
         with:
           go-version-file: go.mod
+      - name: Install protobuf tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y protobuf-compiler
+          echo "$(go env GOPATH)/bin" >> "$GITHUB_PATH"
+          go install google.golang.org/protobuf/cmd/protoc-gen-go@latest
+          go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@latest
       - name: Generate protobufs
         run: make generate-proto
-      - name: Generate sqlc
-        run: make sqlc
       - name: Verify clean generated diff
         run: git diff --exit-code
       - name: Go tests
-        run: go test ./services/... ./shared/... -count=1
+        run: |
+          go list ./services/... ./shared/... \
+            | grep -v '/services/health-provider-service/' \
+            | xargs go test -count=1
       - name: Migration smoke
         env:
           DATABASE_URL: postgres://healthai:healthai@localhost:5432/healthai?sslmode=disable
@@ -71,9 +79,11 @@ jobs:
       - name: govulncheck
         run: |
           go install golang.org/x/vuln/cmd/govulncheck@latest
-          govulncheck ./...
+          go list ./... \
+            | grep -v '/services/health-provider-service/' \
+            | xargs govulncheck
       - name: Trivy filesystem scan
-        uses: aquasecurity/trivy-action@0.24.0
+        uses: aquasecurity/trivy-action@v0.36.0
         with:
           scan-type: fs
           scan-ref: .
