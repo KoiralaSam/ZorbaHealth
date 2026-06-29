@@ -14,5 +14,6 @@ type NotificationService interface {
 	SendEmergencyEscalationSMS(ctx context.Context, phone string, reason string) error
 	SendEmergencyEscalationAlerts(ctx context.Context, phones []string, reason string) []error
 	ReceiveSMS(ctx context.Context, phoneNumber, message string) error
+	SendMeetingRequestedNotifications(ctx context.Context, data *events.MeetingRequestedData) error
+	SendMeetingScheduledNotifications(ctx context.Context, data *events.MeetingScheduledData) error
 }
-

@@ -15,5 +15,5 @@ CREATE TABLE "auths" (
 
 CREATE INDEX "users_role_idx" ON "users" ("role");
 CREATE INDEX "auths_user_id_auth_uuid_idx" ON "auths" ("user_id", "auth_uuid");
-COMMENT ON COLUMN "users"."role" IS 'patient | health_service | admin';
+COMMENT ON COLUMN "users"."role" IS 'patient | hospital_staff | admin';
 ALTER TABLE "auths" ADD FOREIGN KEY ("user_id") REFERENCES "users" ("id") DEFERRABLE INITIALLY IMMEDIATE;

@@ -61,9 +61,13 @@ type AuditConsent struct {
 }
 
 type Auth struct {
-	ID       int64       `json:"id"`
-	UserID   pgtype.UUID `json:"user_id"`
-	AuthUuid pgtype.UUID `json:"auth_uuid"`
+	ID            int64              `json:"id"`
+	UserID        pgtype.UUID        `json:"user_id"`
+	AuthUuid      pgtype.UUID        `json:"auth_uuid"`
+	RevokedAt     pgtype.Timestamptz `json:"revoked_at"`
+	RevokedReason pgtype.Text        `json:"revoked_reason"`
+	LastActiveAt  pgtype.Timestamptz `json:"last_active_at"`
+	ClientKind    pgtype.Text        `json:"client_kind"`
 }
 
 type Call struct {
@@ -95,6 +99,21 @@ type Hospital struct {
 	LicenseNo string             `json:"license_no"`
 	Active    pgtype.Bool        `json:"active"`
 	CreatedAt pgtype.Timestamptz `json:"created_at"`
+}
+
+// Staff-created QR consent requests. Patient approval creates or reactivates patient_hospital_consents.
+type HospitalConsentRequest struct {
+	ID                   pgtype.UUID        `json:"id"`
+	Token                string             `json:"token"`
+	HospitalID           pgtype.UUID        `json:"hospital_id"`
+	StaffID              pgtype.UUID        `json:"staff_id"`
+	PatientID            pgtype.UUID        `json:"patient_id"`
+	RequestedPermissions string             `json:"requested_permissions"`
+	Note                 pgtype.Text        `json:"note"`
+	ExpiresAt            pgtype.Timestamptz `json:"expires_at"`
+	ApprovedAt           pgtype.Timestamptz `json:"approved_at"`
+	ApprovedPatientID    pgtype.UUID        `json:"approved_patient_id"`
+	CreatedAt            pgtype.Timestamptz `json:"created_at"`
 }
 
 type HospitalStaff struct {
@@ -184,12 +203,46 @@ type RecordsRecordChunk struct {
 	UpdatedAt        pgtype.Timestamptz `json:"updated_at"`
 }
 
+type RefreshToken struct {
+	ID         int64              `json:"id"`
+	AuthUuid   pgtype.UUID        `json:"auth_uuid"`
+	UserID     pgtype.UUID        `json:"user_id"`
+	ActorType  string             `json:"actor_type"`
+	TokenHash  []byte             `json:"token_hash"`
+	Generation int32              `json:"generation"`
+	ExpiresAt  pgtype.Timestamptz `json:"expires_at"`
+	UsedAt     pgtype.Timestamptz `json:"used_at"`
+	RevokedAt  pgtype.Timestamptz `json:"revoked_at"`
+	CreatedAt  pgtype.Timestamptz `json:"created_at"`
+}
+
+type ScheduledMeeting struct {
+	ID                 pgtype.UUID        `json:"id"`
+	PatientID          pgtype.UUID        `json:"patient_id"`
+	StaffID            pgtype.UUID        `json:"staff_id"`
+	HospitalID         pgtype.UUID        `json:"hospital_id"`
+	CreatedByActorType string             `json:"created_by_actor_type"`
+	CreatedByActorID   string             `json:"created_by_actor_id"`
+	StartsAt           pgtype.Timestamptz `json:"starts_at"`
+	DurationMinutes    int32              `json:"duration_minutes"`
+	Timezone           string             `json:"timezone"`
+	Title              string             `json:"title"`
+	Notes              pgtype.Text        `json:"notes"`
+	JoinUrl            pgtype.Text        `json:"join_url"`
+	Status             string             `json:"status"`
+	CorrelationID      pgtype.UUID        `json:"correlation_id"`
+	VoiceSessionID     pgtype.Text        `json:"voice_session_id"`
+	SendSms            bool               `json:"send_sms"`
+	Channel            string             `json:"channel"`
+	CreatedAt          pgtype.Timestamptz `json:"created_at"`
+}
+
 type User struct {
 	ID           pgtype.UUID `json:"id"`
 	Email        pgtype.Text `json:"email"`
 	PhoneNumber  pgtype.Text `json:"phone_number"`
 	PasswordHash pgtype.Text `json:"password_hash"`
-	// patient | health_service | admin
+	// patient | hospital_staff | admin
 	Role      string             `json:"role"`
 	CreatedAt pgtype.Timestamptz `json:"created_at"`
 }

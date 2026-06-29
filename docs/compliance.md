@@ -37,6 +37,21 @@ The canonical event catalog is implemented in `shared/audit/eventtypes.go` and m
 - `CONSENT_GRANTED`
 - `CONSENT_REVOKED`
 - `TRANSLATION_REQUESTED`
+- `VOICE_OTP_WAIT_REGISTERED`
+- `VOICE_INBOUND_SMS_PROCESSED`
+- `VOICE_OTP_VERIFY_FAILED`
+- `MEETING_SCHEDULED`
+- `MEETING_CANCELLED`
+- `MEETING_SCHEDULE_DENIED`
+- `CALL_TRANSFER_REQUESTED`
+- `CALL_TRANSFER_CONNECTED`
+- `CALL_BRIDGED_ENDED`
+- `INTERPRETATION_SESSION_STARTED`
+- `INTERPRETATION_SESSION_ENDED`
+- `INTERPRETATION_PREFERENCES_UPDATED`
+- `INTERPRETATION_SEGMENT_PROCESSED`
+
+Inbound SMS during an active voice OTP wait is audited by **patient-service** (`VOICE_INBOUND_SMS_PROCESSED`, `PATIENT_VERIFIED` with `verification_channel` metadata). notification-service forwards the webhook only and does not duplicate those compliance events.
 
 ## Consent model
 
@@ -84,8 +99,17 @@ The architecture direction remains:
 
 - temporary Redis-backed session state expires automatically
 - location sessions expire after the related call or session
+- bridged-call translation sessions in Redis are short-lived operational state and should expire automatically after the consult window
+- interpretation preference updates should be retained in audit, not by keeping long-lived mutable Redis session blobs
 - transcripts should default to disabled unless intentionally enabled
 - audit data should follow explicit retention policy rather than ad hoc deletion
+
+## Amazon Translate and BAA boundary
+
+- Amazon Translate should only be used from AWS accounts covered by the organization BAA and secret-management baseline.
+- The translation-service is the single backend boundary for Amazon Translate requests; callers should not invoke AWS translation APIs directly from the web, mobile, or voice runtime.
+- Audit metadata for interpretation must stay PHI-safe: store session IDs, actor IDs, hospital IDs, language settings, success/failure, and segment timing, but not raw transcript text.
+- If transcript persistence is enabled later, retention must be configured separately from the audit log so clinical text does not inherit append-only audit retention by accident.
 
 ## Contributor expectations
 
@@ -93,3 +117,12 @@ The architecture direction remains:
 - note whether new features belong to analytics, audit, or both
 - prefer appending new audit events over mutating historical compliance records
 - avoid adding features that blur compliance and product analytics without documenting the rationale
+
+## Analytics review checklist
+
+Before merging analytics changes, confirm:
+
+- the query layer reads `analytics.*` projections or other aggregated views rather than raw FHIR tables
+- no raw transcripts or full medical record blobs are returned
+- patient identifiers are minimized or aggregated where possible
+- compliance evidence still lives in `audit.*` and is not replaced by analytics rollups

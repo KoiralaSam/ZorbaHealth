@@ -68,8 +68,24 @@ func main() {
 	// --- Outbound adapters ---
 	store := postgresrepo.NewRepository(pool)
 	openAIKey := os.Getenv("OPENAI_API_KEY")
-	embedder := openaiadapter.NewClient(openAIKey)
-	summarizer := openaiadapter.NewSummarizerClient(openAIKey)
+	embeddingProviderName := env.GetString("EMBEDDING_PROVIDER", "openai")
+	llmProviderName := env.GetString("LLM_PROVIDER", "openai")
+
+	embedder, err := openaiadapter.NewEmbeddingProvider(embeddingProviderName, openAIKey)
+	if err != nil {
+		log.Fatalf("embedding provider: %v", err)
+	}
+	summarizer, err := openaiadapter.NewLLMProvider(llmProviderName, openAIKey)
+	if err != nil {
+		log.Fatalf("llm provider: %v", err)
+	}
+	log.Printf(
+		"health-records providers configured: embeddings=%s/%s llm=%s/%s",
+		embedder.ProviderName(),
+		embedder.ModelName(),
+		summarizer.ProviderName(),
+		summarizer.ModelName(),
+	)
 
 	auditConn, err := grpcclient.Dial(env.GetString("AUDIT_SERVICE_GRPC_ADDR", "audit-service:50058"))
 	if err != nil {
@@ -83,7 +99,7 @@ func main() {
 		summarizer,
 		rag.NewGRPCConsentChecker(auditClient),
 		rag.NewGRPCAuditAdapter(auditClient, "health-records-service"),
-		"text-embedding-3-small",
+		embedder.ModelName(),
 	)
 
 	// --- Core service ---

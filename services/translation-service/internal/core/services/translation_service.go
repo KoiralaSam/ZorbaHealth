@@ -11,14 +11,18 @@ import (
 )
 
 type TranslationService struct {
-	provider      outbound.TranslationProvider
-	maxTextLength int
+	provider            outbound.TranslationProvider
+	maxTextLength       int
+	confidenceThreshold float64
 }
 
-func NewTranslationService(provider outbound.TranslationProvider, maxTextLength int) *TranslationService {
+const LowConfidenceAdvisory = "Translation confidence is low. Human interpreter recommended."
+
+func NewTranslationService(provider outbound.TranslationProvider, maxTextLength int, confidenceThreshold float64) *TranslationService {
 	return &TranslationService{
-		provider:      provider,
-		maxTextLength: maxTextLength,
+		provider:            provider,
+		maxTextLength:       maxTextLength,
+		confidenceThreshold: confidenceThreshold,
 	}
 }
 
@@ -46,13 +50,34 @@ func (s *TranslationService) Translate(ctx context.Context, req models.Translati
 
 	if req.SourceLang != "" && req.SourceLang == req.TargetLang {
 		return &models.TranslationResult{
-			TranslatedText: req.Text,
-			DetectedLang:   strings.ToLower(req.SourceLang),
-			CharacterCount: utf8.RuneCountInString(req.Text),
+			TranslatedText:               req.Text,
+			DetectedLang:                 strings.ToLower(req.SourceLang),
+			SourceLang:                   strings.ToLower(req.SourceLang),
+			TargetLang:                   strings.ToLower(req.TargetLang),
+			CharacterCount:               utf8.RuneCountInString(req.Text),
+			ConfidenceScore:              1.0,
+			TranslationProvider:          "identity",
+			MedicalTermPreservationCheck: true,
 		}, nil
 	}
 
-	return s.provider.Translate(ctx, req)
+	result, err := s.provider.Translate(ctx, req)
+	if err != nil {
+		return nil, err
+	}
+	if result.SourceLang == "" {
+		result.SourceLang = strings.ToLower(req.SourceLang)
+	}
+	if result.TargetLang == "" {
+		result.TargetLang = strings.ToLower(req.TargetLang)
+	}
+	if result.ConfidenceScore <= 0 {
+		result.ConfidenceScore = 0.5
+	}
+	if result.ConfidenceScore < s.confidenceThreshold {
+		result.AdvisoryMessage = LowConfidenceAdvisory
+	}
+	return result, nil
 }
 
 func normalizeLanguageCode(code string) (string, error) {

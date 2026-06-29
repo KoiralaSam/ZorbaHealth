@@ -18,4 +18,5 @@ message LoginResponse {
     string Message = 1;
     string AccessToken = 2;
     string PatientID = 3;
+    string RefreshToken = 4;
 }

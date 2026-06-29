@@ -2,11 +2,19 @@ package openai
 
 import (
 	"context"
+	"fmt"
+	"strings"
 
-	"github.com/KoiralaSam/ZorbaHealth/services/health-records-service/internal/core/ports/outbound"
 	domainErrors "github.com/KoiralaSam/ZorbaHealth/services/health-records-service/internal/core/domain/errors"
+	sharedproviders "github.com/KoiralaSam/ZorbaHealth/shared/ports/providers"
 	openai "github.com/openai/openai-go/v3"
 	option "github.com/openai/openai-go/v3/option"
+)
+
+const (
+	providerOpenAI      = "openai"
+	embeddingModelName  = "text-embedding-3-small"
+	embeddingDimensions = 1536
 )
 
 // Client wraps the official OpenAI Go SDK for text-embedding-3-small.
@@ -19,12 +27,35 @@ type Client struct {
 	oai openai.Client
 }
 
-func NewClient(apiKey string) outbound.Embedder {
+var _ sharedproviders.EmbeddingProvider = (*Client)(nil)
+
+func NewClient(apiKey string) *Client {
 	return &Client{
 		oai: openai.NewClient(
 			option.WithAPIKey(apiKey),
 		),
 	}
+}
+
+func NewEmbeddingProvider(providerName, apiKey string) (sharedproviders.EmbeddingProvider, error) {
+	switch strings.ToLower(strings.TrimSpace(providerName)) {
+	case "", providerOpenAI:
+		return NewClient(apiKey), nil
+	default:
+		return nil, fmt.Errorf("unsupported embedding provider %q", providerName)
+	}
+}
+
+func (c *Client) ProviderName() string {
+	return providerOpenAI
+}
+
+func (c *Client) ModelName() string {
+	return embeddingModelName
+}
+
+func (c *Client) Dimension() int {
+	return embeddingDimensions
 }
 
 func (c *Client) Embed(ctx context.Context, text string) ([]float32, error) {

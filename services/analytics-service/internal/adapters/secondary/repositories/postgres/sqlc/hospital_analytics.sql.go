@@ -12,55 +12,30 @@ import (
 )
 
 const getHospitalCallVolume = `-- name: GetHospitalCallVolume :many
-WITH consented_patients AS (
-  SELECT c.patient_id
-  FROM patient_hospital_consents c
-  WHERE c.hospital_id = $4::uuid
-    AND c.revoked_at IS NULL
-),
-hospital_calls AS (
-  SELECT
-    ca.started_at,
-    CASE
-      WHEN ca.ended_at IS NOT NULL AND ca.started_at IS NOT NULL AND ca.ended_at >= ca.started_at
-        THEN EXTRACT(EPOCH FROM (ca.ended_at - ca.started_at))::double precision
-      ELSE NULL::double precision
-    END AS duration_seconds,
-    (ca.status = 'ended') AS completed,
-    EXISTS (
-      SELECT 1
-      FROM mcp_audit_log al
-      WHERE al.session_id = ca.livekit_room_id
-        AND al.tool = 'trigger_emergency'
-        AND al.outcome = 'success'
-    ) AS had_emergency
-  FROM calls ca
-  INNER JOIN consented_patients cp ON cp.patient_id = ca.patient_id
-  WHERE ca.started_at IS NOT NULL
-)
 SELECT
   CASE
-    WHEN $1::text = 'week' THEN date_trunc('week', hc.started_at)
-    WHEN $1::text = 'month' THEN date_trunc('month', hc.started_at)
-    ELSE date_trunc('day', hc.started_at)
+    WHEN $1::text = 'week' THEN date_trunc('week', hc.call_date::timestamp)
+    WHEN $1::text = 'month' THEN date_trunc('month', hc.call_date::timestamp)
+    ELSE date_trunc('day', hc.call_date::timestamp)
   END AS date,
-  COUNT(*)::int AS total_calls,
-  COUNT(*) FILTER (WHERE hc.completed)::int AS completed_calls,
-  COUNT(*) FILTER (WHERE hc.had_emergency)::int AS emergency_calls,
-  COALESCE(AVG(hc.duration_seconds), 0)::double precision AS avg_duration_sec
-FROM hospital_calls hc
-WHERE hc.started_at >= $2::timestamp
-  AND hc.started_at < $3::timestamp + INTERVAL '1 day'
+  SUM(hc.total_calls)::int AS total_calls,
+  SUM(hc.completed_calls)::int AS completed_calls,
+  SUM(hc.emergency_calls)::int AS emergency_calls,
+  COALESCE(AVG(hc.avg_duration_seconds), 0)::double precision AS avg_duration_sec
+FROM analytics.hospital_call_daily_mv hc
+WHERE hc.hospital_id = $2::uuid
+  AND hc.call_date >= $3::date
+  AND hc.call_date < $4::date + INTERVAL '1 day'
   AND $1::text IN ('day', 'week', 'month')
 GROUP BY 1
 ORDER BY 1 ASC
 `
 
 type GetHospitalCallVolumeParams struct {
-	Granularity string           `json:"granularity"`
-	FromDate    pgtype.Timestamp `json:"from_date"`
-	ToDate      pgtype.Timestamp `json:"to_date"`
-	HospitalID  pgtype.UUID      `json:"hospital_id"`
+	Granularity string      `json:"granularity"`
+	HospitalID  pgtype.UUID `json:"hospital_id"`
+	FromDate    pgtype.Date `json:"from_date"`
+	ToDate      pgtype.Date `json:"to_date"`
 }
 
 type GetHospitalCallVolumeRow struct {
@@ -74,9 +49,9 @@ type GetHospitalCallVolumeRow struct {
 func (q *Queries) GetHospitalCallVolume(ctx context.Context, arg GetHospitalCallVolumeParams) ([]GetHospitalCallVolumeRow, error) {
 	rows, err := q.db.Query(ctx, getHospitalCallVolume,
 		arg.Granularity,
+		arg.HospitalID,
 		arg.FromDate,
 		arg.ToDate,
-		arg.HospitalID,
 	)
 	if err != nil {
 		return nil, err
@@ -109,7 +84,7 @@ SELECT
   al.actor_type,
   al.outcome,
   al.session_id
-FROM mcp_audit_log al
+FROM analytics.hospital_recent_activity_v al
 WHERE al.hospital_id = $1::text
 ORDER BY al.timestamp DESC
 LIMIT $2
@@ -160,51 +135,31 @@ WITH consented_patients AS (
   FROM patient_hospital_consents c
   WHERE c.hospital_id = $1::uuid
     AND c.revoked_at IS NULL
-),
-hospital_calls AS (
-  SELECT
-    ca.patient_id,
-    ca.started_at,
-    ca.started_at::date AS call_date,
-    ca.status,
-    CASE
-      WHEN ca.ended_at IS NOT NULL AND ca.started_at IS NOT NULL AND ca.ended_at >= ca.started_at
-        THEN EXTRACT(EPOCH FROM (ca.ended_at - ca.started_at))::double precision
-      ELSE NULL::double precision
-    END AS duration_seconds,
-    EXISTS (
-      SELECT 1
-      FROM mcp_audit_log al
-      WHERE al.session_id = ca.livekit_room_id
-        AND al.tool = 'trigger_emergency'
-        AND al.outcome = 'success'
-    ) AS had_emergency
-  FROM calls ca
-  INNER JOIN consented_patients cp ON cp.patient_id = ca.patient_id
-  WHERE ca.started_at IS NOT NULL
 )
 SELECT
   $1::text AS hospital_id,
   (SELECT COUNT(*)::int FROM consented_patients) AS total_consented_patients,
   (
-    SELECT COUNT(*)::int
-    FROM hospital_calls hc
-    WHERE hc.started_at >= now() - INTERVAL '30 days'
+    SELECT COALESCE(SUM(hc.total_calls), 0)::int
+    FROM analytics.hospital_call_daily_mv hc
+    WHERE hc.hospital_id = $1::uuid
+      AND hc.call_date >= CURRENT_DATE - 30
   ) AS total_calls_30d,
   (
-    SELECT COUNT(*)::int
-    FROM hospital_calls hc
-    WHERE hc.started_at >= now() - INTERVAL '30 days'
-      AND hc.had_emergency
+    SELECT COALESCE(SUM(hc.emergency_calls), 0)::int
+    FROM analytics.hospital_call_daily_mv hc
+    WHERE hc.hospital_id = $1::uuid
+      AND hc.call_date >= CURRENT_DATE - 30
   ) AS emergency_events_30d,
   (
-    SELECT COALESCE(AVG(hc.duration_seconds), 0)::double precision
-    FROM hospital_calls hc
-    WHERE hc.started_at >= now() - INTERVAL '30 days'
+    SELECT COALESCE(AVG(hc.avg_duration_seconds), 0)::double precision
+    FROM analytics.hospital_call_daily_mv hc
+    WHERE hc.hospital_id = $1::uuid
+      AND hc.call_date >= CURRENT_DATE - 30
   ) AS avg_call_duration_seconds,
   (
-    SELECT COUNT(rc.id)::int
-    FROM record_chunks rc
+    SELECT COUNT(rc.chunk_id)::int
+    FROM records.record_chunks rc
     INNER JOIN consented_patients cp ON cp.patient_id = rc.patient_id
   ) AS records_indexed,
   (
@@ -254,16 +209,16 @@ SELECT
       ) * 100
     ELSE 0::double precision
   END AS success_rate
-FROM mcp_audit_log al
+FROM analytics.hospital_tool_usage_v al
 WHERE al.hospital_id = $1::text
-  AND al.timestamp >= $2
+  AND al.day >= $2::timestamp
 GROUP BY al.tool
 ORDER BY success_count DESC, al.tool ASC
 `
 
 type GetHospitalToolUsageParams struct {
-	HospitalID string             `json:"hospital_id"`
-	FromTime   pgtype.Timestamptz `json:"from_time"`
+	HospitalID string           `json:"hospital_id"`
+	FromTime   pgtype.Timestamp `json:"from_time"`
 }
 
 type GetHospitalToolUsageRow struct {
@@ -308,20 +263,16 @@ WITH total_patients AS (
     AND c.revoked_at IS NULL
 )
 SELECT
-  f.resource_json->'code'->>'text' AS condition_name,
-  COUNT(DISTINCT c.patient_id)::int AS patient_count,
+  f.condition_name,
+  f.patient_count,
   CASE
-    WHEN tp.total > 0 THEN (COUNT(DISTINCT c.patient_id)::double precision / tp.total::double precision) * 100
+    WHEN tp.total > 0 THEN (f.patient_count::double precision / tp.total::double precision) * 100
     ELSE 0::double precision
   END AS percentage
-FROM patient_hospital_consents c
-INNER JOIN fhir_resources f ON f.patient_id = c.patient_id
+FROM analytics.hospital_top_conditions_mv f
 CROSS JOIN total_patients tp
-WHERE c.hospital_id = $1::uuid
-  AND c.revoked_at IS NULL
-  AND f.resource_type = 'Condition'
-  AND f.resource_json->'clinicalStatus'->'coding'->0->>'code' = 'active'
-GROUP BY f.resource_json->'code'->>'text', tp.total
+WHERE f.hospital_id = $1::uuid
+GROUP BY f.condition_name, f.patient_count, tp.total
 ORDER BY patient_count DESC, condition_name ASC
 LIMIT $2
 `
@@ -332,9 +283,9 @@ type GetHospitalTopConditionsParams struct {
 }
 
 type GetHospitalTopConditionsRow struct {
-	ConditionName interface{} `json:"condition_name"`
-	PatientCount  int32       `json:"patient_count"`
-	Percentage    float64     `json:"percentage"`
+	ConditionName string  `json:"condition_name"`
+	PatientCount  int32   `json:"patient_count"`
+	Percentage    float64 `json:"percentage"`
 }
 
 func (q *Queries) GetHospitalTopConditions(ctx context.Context, arg GetHospitalTopConditionsParams) ([]GetHospitalTopConditionsRow, error) {

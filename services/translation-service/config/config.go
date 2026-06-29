@@ -9,6 +9,7 @@ import (
 
 type Config struct {
 	TranslationServiceGRPCAddr string
+	TranslationProvider        string
 	TranslationModelBaseURL    string
 	TranslationModelName       string
 	ModelTimeout               time.Duration
@@ -16,12 +17,15 @@ type Config struct {
 	InternalServiceSecret      string
 	MaxTextLength              int
 	RateLimitPerMinute         int
+	ConfidenceThreshold        float64
 	EnableGRPCReflection       bool
+	AWSRegion                  string
 }
 
 func Load() (*Config, error) {
 	cfg := &Config{
 		TranslationServiceGRPCAddr: sharedenv.GetString("TRANSLATION_SERVICE_GRPC_ADDR", ":50057"),
+		TranslationProvider:        sharedenv.GetString("TRANSLATION_PROVIDER", "llamacpp"),
 		TranslationModelBaseURL:    sharedenv.GetString("TRANSLATION_MODEL_BASE_URL", "http://translation-model:8080"),
 		TranslationModelName:       sharedenv.GetString("TRANSLATION_MODEL_NAME", ""),
 		ModelTimeout:               time.Duration(sharedenv.GetInt("TRANSLATION_MODEL_TIMEOUT_SECONDS", 30)) * time.Second,
@@ -29,7 +33,9 @@ func Load() (*Config, error) {
 		InternalServiceSecret:      sharedenv.GetString("INTERNAL_SERVICE_SECRET", ""),
 		MaxTextLength:              sharedenv.GetInt("TRANSLATION_SERVICE_MAX_TEXT_LENGTH", 10000),
 		RateLimitPerMinute:         sharedenv.GetInt("TRANSLATION_SERVICE_RATE_LIMIT_PER_MINUTE", 60),
+		ConfidenceThreshold:        sharedenv.GetFloat("TRANSLATION_CONFIDENCE_THRESHOLD", 0.75),
 		EnableGRPCReflection:       sharedenv.GetBool("TRANSLATION_SERVICE_ENABLE_GRPC_REFLECTION", false),
+		AWSRegion:                  sharedenv.GetString("AWS_REGION", "us-east-1"),
 	}
 
 	if err := cfg.validate(); err != nil {
@@ -42,9 +48,6 @@ func Load() (*Config, error) {
 func (c *Config) validate() error {
 	if c.TranslationServiceGRPCAddr == "" {
 		return fmt.Errorf("TRANSLATION_SERVICE_GRPC_ADDR is required")
-	}
-	if c.TranslationModelBaseURL == "" {
-		return fmt.Errorf("TRANSLATION_MODEL_BASE_URL is required")
 	}
 	if c.InternalServiceSecret == "" {
 		return fmt.Errorf("INTERNAL_SERVICE_SECRET is required")
@@ -63,6 +66,21 @@ func (c *Config) validate() error {
 	}
 	if c.RateLimitPerMinute <= 0 {
 		return fmt.Errorf("TRANSLATION_SERVICE_RATE_LIMIT_PER_MINUTE must be greater than zero")
+	}
+	if c.ConfidenceThreshold <= 0 || c.ConfidenceThreshold > 1 {
+		return fmt.Errorf("TRANSLATION_CONFIDENCE_THRESHOLD must be between 0 and 1")
+	}
+	switch c.TranslationProvider {
+	case "", "llamacpp":
+		if c.TranslationModelBaseURL == "" {
+			return fmt.Errorf("TRANSLATION_MODEL_BASE_URL is required")
+		}
+	case "amazon_translate":
+		if c.AWSRegion == "" {
+			return fmt.Errorf("AWS_REGION is required for amazon_translate")
+		}
+	default:
+		return fmt.Errorf("unsupported TRANSLATION_PROVIDER %q", c.TranslationProvider)
 	}
 
 	return nil

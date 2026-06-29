@@ -2,7 +2,9 @@ package handlers
 
 import (
 	"context"
+	"errors"
 
+	domainErrors "github.com/KoiralaSam/ZorbaHealth/services/health-records-service/internal/core/domain/errors"
 	"github.com/KoiralaSam/ZorbaHealth/services/health-records-service/internal/core/domain/models"
 	"github.com/KoiralaSam/ZorbaHealth/services/health-records-service/internal/core/ports/inbound"
 	sharedauth "github.com/KoiralaSam/ZorbaHealth/shared/auth"
@@ -64,6 +66,9 @@ func (h *GRPCHandler) AnswerPatientQuestion(ctx context.Context, req *pb.AnswerP
 
 	answer, chunks, err := h.svc.AnswerPatientQuestion(ctx, req.PatientId, req.Question, req.TopK)
 	if err != nil {
+		if errors.Is(err, domainErrors.ErrNoRecordsFound) {
+			return nil, status.Error(codes.NotFound, "no health records are available for this patient yet")
+		}
 		return nil, status.Error(codes.Internal, err.Error())
 	}
 
@@ -113,6 +118,9 @@ func (h *GRPCHandler) SummarizeRecords(ctx context.Context, req *pb.SummarizeReq
 	}
 	summary, err := h.svc.SummarizeRecords(ctx, req.PatientId, req.Focus)
 	if err != nil {
+		if errors.Is(err, domainErrors.ErrNoRecordsFound) {
+			return nil, status.Error(codes.NotFound, "no health records are available for this patient yet")
+		}
 		return nil, status.Error(codes.Internal, err.Error())
 	}
 	return &pb.SummarizeResponse{Summary: summary}, nil

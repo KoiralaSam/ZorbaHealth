@@ -14,7 +14,7 @@ var (
 func main() {
 	mux := http.NewServeMux()
 
-	// TODO: wire health-provider HTTP handlers here (provider registration, org profile, etc.).
+	// Legacy placeholder: this service is disabled until its source tree is restored.
 
 	log.Printf("Health Provider Service listening on %s", httpAddr)
 
@@ -27,4 +27,3 @@ func main() {
 		log.Printf("HTTP server error: %v", err)
 	}
 }
-

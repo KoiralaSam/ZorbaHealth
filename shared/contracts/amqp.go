@@ -25,16 +25,18 @@ const (
 	PatientEventNotRegistered             = "patient.event.not_registered"
 	PatientEventVerificationCodeRequested = "patient.event.verification_code_requested"
 	PatientEventUpdated                   = "patient.event.updated"
+	PatientEventMeetingRequested          = "patient.event.meeting_requested"
+	PatientEventMeetingScheduled          = "patient.event.meeting_scheduled"
 
 	// Medical Records events (medical_record.event.*)
 	MedicalRecordEventCreated = "medical_record.event.created"
 	CallTranscriptEventSaved  = "call_transcript.event.saved"
 
 	// Call lifecycle events used by location-service (call.*)
-	CallEventStarted = "call.started"
-	CallEventEnded   = "call.ended"
-	CallEventFailed  = "call.failed"
-	CallEventAll     = "call.*"
+	CallEventStarted        = "call.started"
+	CallEventEnded          = "call.ended"
+	CallEventFailed         = "call.failed"
+	CallEventAll            = "call.*"
 	EmergencyEscalatedEvent = "emergency.event.escalated"
 
 	// Commands for services

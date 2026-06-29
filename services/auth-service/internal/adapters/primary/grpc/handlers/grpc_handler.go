@@ -5,6 +5,8 @@ import (
 	"errors"
 	"strings"
 
+	domainerrors "github.com/KoiralaSam/ZorbaHealth/services/auth-service/internal/core/domain/errors"
+	"github.com/KoiralaSam/ZorbaHealth/services/auth-service/internal/core/domain/models"
 	"github.com/KoiralaSam/ZorbaHealth/services/auth-service/internal/core/ports/inbound"
 	pb "github.com/KoiralaSam/ZorbaHealth/shared/proto/auth"
 	"github.com/jackc/pgx/v5/pgconn"
@@ -21,6 +23,8 @@ type AuthGRPCHandler struct {
 	pb.UnimplementedCreatePatientSessionServiceServer
 	pb.UnimplementedVerifyTokenServiceServer
 	pb.UnimplementedLogoutServiceServer
+	pb.UnimplementedRefreshSessionServiceServer
+	pb.UnimplementedUserCredentialsServiceServer
 	svc inbound.AuthService
 }
 
@@ -33,6 +37,8 @@ func NewAuthGRPCHandler(server *grpc.Server, svc inbound.AuthService) *AuthGRPCH
 	pb.RegisterCreatePatientSessionServiceServer(server, h)
 	pb.RegisterVerifyTokenServiceServer(server, h)
 	pb.RegisterLogoutServiceServer(server, h)
+	pb.RegisterRefreshSessionServiceServer(server, h)
+	pb.RegisterUserCredentialsServiceServer(server, h)
 	return h
 }
 
@@ -40,15 +46,16 @@ func (h *AuthGRPCHandler) CreatePatientSession(ctx context.Context, req *pb.Crea
 	if req == nil || req.UserId == "" {
 		return nil, status.Error(codes.InvalidArgument, "user_id required")
 	}
-	token, auth, err := h.svc.CreatePatientSession(ctx, req.UserId, req.Scopes)
+	access, refresh, auth, err := h.svc.CreatePatientSession(ctx, req.UserId, req.Scopes)
 	if err != nil {
 		return nil, status.Error(codes.Internal, err.Error())
 	}
 	return &pb.CreatePatientSessionResponse{
-		Message:     "patient session created",
-		AccessToken: token,
-		UserId:      auth.UserID,
-		AuthUuid:    auth.AuthUUID,
+		Message:      "patient session created",
+		AccessToken:  access,
+		UserId:       auth.UserID,
+		AuthUuid:     auth.AuthUUID,
+		RefreshToken: refresh,
 	}, nil
 }
 
@@ -57,15 +64,48 @@ func (h *AuthGRPCHandler) Login(ctx context.Context, req *pb.LoginRequest) (*pb.
 	if req == nil {
 		return nil, status.Error(codes.InvalidArgument, "request required")
 	}
-	token, userID, role, err := h.svc.Login(ctx, req.Email, req.PhoneNumber, req.Password)
+	access, refresh, userID, role, authUUID, err := h.svc.Login(ctx, req.Email, req.PhoneNumber, req.Password, "")
 	if err != nil {
 		return nil, status.Error(codes.Unauthenticated, err.Error())
 	}
 	return &pb.LoginResponse{
-		Message:     "login successful",
-		AccessToken: token,
-		UserId:      userID,
-		Role:        role,
+		Message:      "login successful",
+		AccessToken:  access,
+		UserId:       userID,
+		Role:         role,
+		RefreshToken: refresh,
+		AuthUuid:     authUUID,
+	}, nil
+}
+
+func (h *AuthGRPCHandler) ValidateUserCredentials(ctx context.Context, req *pb.LoginRequest) (*pb.ValidateUserCredentialsResponse, error) {
+	if req == nil {
+		return nil, status.Error(codes.InvalidArgument, "request required")
+	}
+	userID, role, err := h.svc.ValidateUserCredentials(ctx, req.Email, req.PhoneNumber, req.Password)
+	if err != nil {
+		return nil, status.Error(codes.Unauthenticated, err.Error())
+	}
+	return &pb.ValidateUserCredentialsResponse{UserId: userID, Role: role}, nil
+}
+
+func (h *AuthGRPCHandler) RefreshSession(ctx context.Context, req *pb.RefreshSessionRequest) (*pb.RefreshSessionResponse, error) {
+	if req == nil || strings.TrimSpace(req.RefreshToken) == "" {
+		return nil, status.Error(codes.InvalidArgument, "refresh_token required")
+	}
+	access, refresh, userID, authUUID, role, err := h.svc.RefreshSession(ctx, req.RefreshToken, req.ExpectedActorType, req.ClientKind)
+	if err != nil {
+		if errors.Is(err, domainerrors.ErrRefreshTokenReuse) {
+			return nil, status.Error(codes.Unauthenticated, "REFRESH_TOKEN_REUSE")
+		}
+		return nil, status.Error(codes.Unauthenticated, err.Error())
+	}
+	return &pb.RefreshSessionResponse{
+		AccessToken:  access,
+		RefreshToken: refresh,
+		UserId:       userID,
+		AuthUuid:     authUUID,
+		Role:         role,
 	}, nil
 }
 
@@ -88,23 +128,52 @@ func (h *AuthGRPCHandler) RegisterPatient(ctx context.Context, req *pb.RegisterP
 	}, nil
 }
 
-// RegisterHealthProvider implements auth.RegisterHealthProviderService. Creates user with role=health_provider only.
+// RegisterHealthProvider implements auth.RegisterHealthProviderService. It creates
+// a hospital plus initial staff when hospital_id is empty, or additional staff for
+// an existing hospital when hospital_id is provided.
 func (h *AuthGRPCHandler) RegisterHealthProvider(ctx context.Context, req *pb.RegisterHealthProviderRequest) (*pb.RegisterHealthProviderResponse, error) {
 	if req == nil {
 		return nil, status.Error(codes.InvalidArgument, "request required")
 	}
-	user, err := h.svc.RegisterUser(ctx, req.Email, req.PhoneNumber, req.Password, "health_provider")
+	var (
+		account *models.HospitalStaffAccount
+		err     error
+	)
+	if strings.TrimSpace(req.GetHospitalId()) != "" {
+		account, err = h.svc.RegisterHospitalStaff(
+			ctx,
+			req.GetHospitalId(),
+			req.GetStaffName(),
+			req.GetEmail(),
+			req.GetPhoneNumber(),
+			req.GetPassword(),
+			req.GetStaffRole(),
+		)
+	} else {
+		account, err = h.svc.RegisterHospital(
+			ctx,
+			req.GetOrganizationName(),
+			req.GetLicenseNo(),
+			req.GetStaffName(),
+			req.GetEmail(),
+			req.GetPhoneNumber(),
+			req.GetPassword(),
+			req.GetStaffRole(),
+		)
+	}
 	if err != nil {
 		if isUniqueViolation(err) {
-			h.svc.DeleteUser(ctx, user.ID)
-			return nil, status.Error(codes.AlreadyExists, "email or phone number already registered")
+			return nil, status.Error(codes.AlreadyExists, "email, phone number, or license number already registered")
 		}
 
-		return nil, status.Error(codes.Internal, err.Error())
+		return nil, status.Error(codes.InvalidArgument, err.Error())
 	}
 	return &pb.RegisterHealthProviderResponse{
-		Message: "user registered successfully",
-		UserId:  user.ID,
+		Message:    "hospital staff registered successfully",
+		UserId:     account.UserID,
+		HospitalId: account.HospitalID,
+		StaffId:    account.StaffID,
+		StaffRole:  account.StaffRole,
 	}, nil
 }
 

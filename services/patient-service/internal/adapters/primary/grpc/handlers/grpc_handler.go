@@ -11,6 +11,7 @@ import (
 	pb "github.com/KoiralaSam/ZorbaHealth/shared/proto/patient"
 	patientportalpb "github.com/KoiralaSam/ZorbaHealth/shared/proto/patientportal"
 	"github.com/KoiralaSam/ZorbaHealth/shared/proto/patient/registration_verification"
+	schedpb "github.com/KoiralaSam/ZorbaHealth/shared/proto/patient/scheduling"
 	"github.com/jackc/pgx/v5"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
@@ -22,16 +23,20 @@ type gRPCHandler struct {
 	pb.UnimplementedLoginServiceServer
 	patientportalpb.UnimplementedPatientPortalServiceServer
 	registration_verification.UnimplementedRegistrationVerificationServiceServer
-	svc inbound.PatientService
+	schedpb.UnimplementedSchedulingServiceServer
+	svc        inbound.PatientService
+	scheduling inbound.SchedulingService
 }
 
-func NewGRPCHandler(server *grpc.Server, svc inbound.PatientService) *gRPCHandler {
+func NewGRPCHandler(server *grpc.Server, svc inbound.PatientService, scheduling inbound.SchedulingService) *gRPCHandler {
 	handler := &gRPCHandler{
-		svc: svc,
+		svc:        svc,
+		scheduling: scheduling,
 	}
 	pb.RegisterLoginServiceServer(server, handler)
 	patientportalpb.RegisterPatientPortalServiceServer(server, handler)
 	registration_verification.RegisterRegistrationVerificationServiceServer(server, handler)
+	schedpb.RegisterSchedulingServiceServer(server, handler)
 	return handler
 }
 
@@ -107,7 +112,7 @@ func (h *gRPCHandler) StartExistingPhoneVerification(ctx context.Context, req *r
 	if req.PhoneNumber == "" {
 		return nil, status.Error(codes.InvalidArgument, "phone_number is required")
 	}
-	if err := h.svc.StartExistingPhoneVerification(ctx, req.PhoneNumber); err != nil {
+	if err := h.svc.StartExistingPhoneVerification(ctx, req.PhoneNumber, req.VoiceSessionId); err != nil {
 		if errors.Is(err, pgx.ErrNoRows) || errors.Is(err, domainErrors.ErrExistingPatientNotFound) {
 			return nil, status.Error(codes.NotFound, "patient not found for phone number")
 		}
@@ -155,6 +160,36 @@ func (h *gRPCHandler) VerifyExistingPhoneOTP(ctx context.Context, req *registrat
 	}, nil
 }
 
+func (h *gRPCHandler) ProcessInboundVoiceSms(ctx context.Context, req *registration_verification.ProcessInboundVoiceSmsRequest) (*registration_verification.ProcessInboundVoiceSmsResponse, error) {
+	if req.FromPhone == "" {
+		return nil, status.Error(codes.InvalidArgument, "from_phone is required")
+	}
+	result, err := h.svc.ProcessInboundVoiceSms(ctx, req.FromPhone, req.MessageBody)
+	if err != nil {
+		return nil, status.Error(codes.Internal, "failed to process inbound voice sms: "+err.Error())
+	}
+	return &registration_verification.ProcessInboundVoiceSmsResponse{
+		Processed:       result.Processed,
+		Reason:          result.Reason,
+		VoiceSessionId:  result.VoiceSessionID,
+		CorrelationId:   result.CorrelationID,
+	}, nil
+}
+
+func (h *gRPCHandler) ConsumeVoiceVerification(ctx context.Context, req *registration_verification.ConsumeVoiceVerificationRequest) (*registration_verification.ConsumeVoiceVerificationResponse, error) {
+	if req.VoiceSessionId == "" {
+		return nil, status.Error(codes.InvalidArgument, "voice_session_id is required")
+	}
+	verified, patientID, err := h.svc.ConsumeVoiceVerification(ctx, req.VoiceSessionId)
+	if err != nil {
+		return nil, status.Error(codes.Internal, "failed to consume voice verification: "+err.Error())
+	}
+	return &registration_verification.ConsumeVoiceVerificationResponse{
+		Verified:  verified,
+		PatientId: patientID,
+	}, nil
+}
+
 func (h *gRPCHandler) Login(ctx context.Context, req *pb.LoginRequest) (*pb.LoginResponse, error) {
 	if req == nil {
 		return nil, status.Error(codes.InvalidArgument, "request required")
@@ -168,9 +203,10 @@ func (h *gRPCHandler) Login(ctx context.Context, req *pb.LoginRequest) (*pb.Logi
 		return nil, status.Error(codes.Unauthenticated, "patient login failed: "+err.Error())
 	}
 	return &pb.LoginResponse{
-		Message:     "patient login successful",
-		AccessToken: session.AccessToken,
-		PatientID:   session.PatientID,
+		Message:      "patient login successful",
+		AccessToken:  session.AccessToken,
+		PatientID:    session.PatientID,
+		RefreshToken: session.RefreshToken,
 	}, nil
 }
 

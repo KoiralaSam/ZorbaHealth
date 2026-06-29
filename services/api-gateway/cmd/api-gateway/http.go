@@ -10,17 +10,18 @@ import (
 	"time"
 
 	"github.com/KoiralaSam/ZorbaHealth/services/api-gateway/cmd/api-gateway/grpc_clients"
-	"github.com/KoiralaSam/ZorbaHealth/shared/env"
-	sharedauth "github.com/KoiralaSam/ZorbaHealth/shared/auth"
 	sharedaudit "github.com/KoiralaSam/ZorbaHealth/shared/audit"
+	sharedauth "github.com/KoiralaSam/ZorbaHealth/shared/auth"
 	"github.com/KoiralaSam/ZorbaHealth/shared/contracts"
+	"github.com/KoiralaSam/ZorbaHealth/shared/env"
 	"github.com/KoiralaSam/ZorbaHealth/shared/grpcclient"
-	authpb "github.com/KoiralaSam/ZorbaHealth/shared/proto/auth"
 	auditpb "github.com/KoiralaSam/ZorbaHealth/shared/proto/audit"
 	auditportalpb "github.com/KoiralaSam/ZorbaHealth/shared/proto/auditportal"
+	authpb "github.com/KoiralaSam/ZorbaHealth/shared/proto/auth"
 	healthpb "github.com/KoiralaSam/ZorbaHealth/shared/proto/health_records"
 	patientpb "github.com/KoiralaSam/ZorbaHealth/shared/proto/patient"
 	"github.com/KoiralaSam/ZorbaHealth/shared/proto/patient/registration_verification"
+	schedpb "github.com/KoiralaSam/ZorbaHealth/shared/proto/patient/scheduling"
 	patientportalpb "github.com/KoiralaSam/ZorbaHealth/shared/proto/patientportal"
 	"github.com/KoiralaSam/ZorbaHealth/shared/tracing"
 	"google.golang.org/grpc"
@@ -31,17 +32,69 @@ import (
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
-// corsMiddleware adds CORS headers to allow requests from the web frontend
+type corsConfig struct {
+	AllowedOrigins map[string]struct{}
+	AllowedMethods string
+	AllowedHeaders string
+}
+
+func newCORSConfigFromEnv() corsConfig {
+	rawOrigins := env.GetString("API_GATEWAY_ALLOWED_ORIGINS", "http://localhost:3000")
+	origins := map[string]struct{}{}
+	for _, origin := range strings.Split(rawOrigins, ",") {
+		origin = strings.TrimSpace(origin)
+		if origin == "" {
+			continue
+		}
+		origins[origin] = struct{}{}
+	}
+
+	return corsConfig{
+		AllowedOrigins: origins,
+		AllowedMethods: "GET, POST, PUT, DELETE, OPTIONS",
+		AllowedHeaders: "Content-Type, Authorization, X-Zorba-Client",
+	}
+}
+
+var gatewayCORS = newCORSConfigFromEnv()
+
+func (c corsConfig) isAllowedOrigin(origin string) bool {
+	if origin == "" {
+		return false
+	}
+	_, ok := c.AllowedOrigins[origin]
+	return ok
+}
+
+func (c corsConfig) apply(w http.ResponseWriter, origin string) bool {
+	w.Header().Add("Vary", "Origin")
+	w.Header().Set("Access-Control-Allow-Methods", c.AllowedMethods)
+	w.Header().Set("Access-Control-Allow-Headers", c.AllowedHeaders)
+
+	if !c.isAllowedOrigin(origin) {
+		return false
+	}
+
+	w.Header().Set("Access-Control-Allow-Origin", origin)
+	w.Header().Set("Access-Control-Allow-Credentials", "true")
+	return true
+}
+
+// corsMiddleware adds CORS headers for explicitly trusted web and mobile origins.
 func corsMiddleware(next http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		// Allow requests from the Next.js frontend (localhost:3000)
-		w.Header().Set("Access-Control-Allow-Origin", "http://localhost:3000")
-		w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
-		w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization")
-		w.Header().Set("Access-Control-Allow-Credentials", "true")
+		origin := r.Header.Get("Origin")
+		originAllowed := gatewayCORS.apply(w, origin)
 
 		// Handle preflight OPTIONS request
 		if r.Method == http.MethodOptions {
+			if origin != "" && !originAllowed {
+				writeJson(w, http.StatusForbidden, nil, &contracts.APIError{
+					Code:    "FORBIDDEN",
+					Message: "Origin is not allowed",
+				})
+				return
+			}
 			w.WriteHeader(http.StatusOK)
 			return
 		}
@@ -54,7 +107,6 @@ var tracer = tracing.GetTracer("api-gateway")
 
 // PatientLoginHandler handles patient authentication
 func PatientLoginHandler(w http.ResponseWriter, r *http.Request) {
-
 	var reqBody PatientLoginRequest
 	if err := json.NewDecoder(r.Body).Decode(&reqBody); err != nil {
 		writeJson(w, http.StatusBadRequest, nil, &contracts.APIError{
@@ -65,12 +117,20 @@ func PatientLoginHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	defer r.Body.Close()
 
-	//validation
-	if strings.TrimSpace(reqBody.PhoneNumber) == "" {
+	email, phoneNumber := patientLoginIdentifiers(reqBody)
+	if email == "" && phoneNumber == "" {
 		writeJson(w, http.StatusBadRequest, nil, &contracts.APIError{
 			Code:    "INVALID_REQUEST_BODY",
-			Message: "Phone number is required",
+			Message: "Email or phone number is required",
 		})
+		return
+	}
+	identifier := email
+	if identifier == "" {
+		identifier = phoneNumber
+	}
+	if !allowLoginRate(r, "patient", identifier) {
+		writeRateLimited(w)
 		return
 	}
 
@@ -86,8 +146,8 @@ func PatientLoginHandler(w http.ResponseWriter, r *http.Request) {
 	defer patientAuthServiceClient.Close()
 
 	response, err := patientAuthServiceClient.LoginClient.Login(r.Context(), &patientpb.LoginRequest{
-		PhoneNumber: strings.TrimSpace(reqBody.PhoneNumber),
-		Email:       strings.TrimSpace(reqBody.Email),
+		PhoneNumber: phoneNumber,
+		Email:       email,
 		Password:    reqBody.Password,
 	})
 	if err != nil {
@@ -97,11 +157,18 @@ func PatientLoginHandler(w http.ResponseWriter, r *http.Request) {
 		})
 		return
 	}
-	writeJson(w, http.StatusOK, PatientLoginResponse{
+	if refresh := response.GetRefreshToken(); refresh != "" {
+		setRefreshCookie(w, cookieNamePatientRefresh, refresh, cookiePathPatientRefresh)
+	}
+	out := PatientLoginResponse{
 		Message:     response.GetMessage(),
 		AccessToken: response.GetAccessToken(),
 		PatientID:   response.GetPatientID(),
-	}, nil)
+	}
+	if clientKindFromRequest(r) == "mobile" {
+		out.RefreshToken = response.GetRefreshToken()
+	}
+	writeJson(w, http.StatusOK, out, nil)
 }
 
 func PatientRegisterHandler(w http.ResponseWriter, r *http.Request) {
@@ -124,6 +191,10 @@ func PatientRegisterHandler(w http.ResponseWriter, r *http.Request) {
 			Code:    "INVALID_REQUEST_BODY",
 			Message: "Phone number is required",
 		})
+		return
+	}
+	if !allowOTPSendRate(r, reqBody.PhoneNumber) {
+		writeRateLimited(w)
 		return
 	}
 
@@ -232,6 +303,13 @@ func PatientRegisterVerifyOTPHandler(w http.ResponseWriter, r *http.Request) {
 		})
 		return
 	}
+	if !allowOTPVerifyRate(r, reqBody.PhoneNumber) {
+		writeJson(w, http.StatusBadRequest, nil, &contracts.APIError{
+			Code:    "VERIFICATION_FAILED",
+			Message: "Invalid or expired OTP",
+		})
+		return
+	}
 
 	client, err := grpc_clients.NewPatientAuthServiceClient()
 	if err != nil {
@@ -248,9 +326,10 @@ func PatientRegisterVerifyOTPHandler(w http.ResponseWriter, r *http.Request) {
 		Otp:         reqBody.OTP,
 	})
 	if err != nil {
+		recordOTPVerifyFailure(r, reqBody.PhoneNumber)
 		writeJson(w, http.StatusBadRequest, nil, &contracts.APIError{
 			Code:    "VERIFICATION_FAILED",
-			Message: "Invalid or expired OTP: " + err.Error(),
+			Message: "Invalid or expired OTP",
 		})
 		return
 	}
@@ -277,6 +356,11 @@ func HospitalLoginHandler(w http.ResponseWriter, r *http.Request) {
 		})
 		return
 	}
+	email := strings.TrimSpace(reqBody.Email)
+	if !allowLoginRate(r, "staff", email) {
+		writeRateLimited(w)
+		return
+	}
 
 	client, err := grpc_clients.NewPatientAuthServiceClient()
 	if err != nil {
@@ -289,7 +373,7 @@ func HospitalLoginHandler(w http.ResponseWriter, r *http.Request) {
 	defer client.Close()
 
 	response, err := client.HospitalLoginClient.Login(r.Context(), &authpb.LoginRequest{
-		Email:    strings.TrimSpace(reqBody.Email),
+		Email:    email,
 		Password: reqBody.Password,
 	})
 	if err != nil {
@@ -300,11 +384,29 @@ func HospitalLoginHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	writeJson(w, http.StatusOK, HospitalLoginResponse{
+	claims, err := sharedauth.VerifyToken(response.GetAccessToken())
+	if err != nil || claims.ActorType != sharedauth.ActorStaff || strings.TrimSpace(claims.HospitalID) == "" {
+		writeJson(w, http.StatusForbidden, nil, &contracts.APIError{
+			Code:    "FORBIDDEN",
+			Message: "Hospital staff access is required",
+		})
+		return
+	}
+
+	if refresh := response.GetRefreshToken(); refresh != "" {
+		setRefreshCookie(w, cookieNameHospitalRefresh, refresh, cookiePathHospitalRefresh)
+	}
+	out := HospitalLoginResponse{
 		Message:     response.GetMessage(),
 		AccessToken: response.GetAccessToken(),
-		Role:        response.GetRole(),
-	}, nil)
+		HospitalID:  claims.HospitalID,
+		StaffID:     claims.StaffID,
+		Role:        claims.Role,
+	}
+	if clientKindFromRequest(r) == "mobile" {
+		out.RefreshToken = response.GetRefreshToken()
+	}
+	writeJson(w, http.StatusOK, out, nil)
 }
 
 func HospitalPatientSummaryHandler(w http.ResponseWriter, r *http.Request) {
@@ -329,7 +431,7 @@ func HospitalPatientSummaryHandler(w http.ResponseWriter, r *http.Request) {
 	if strings.TrimSpace(reqBody.PatientID) == "" {
 		writeJson(w, http.StatusBadRequest, nil, &contracts.APIError{
 			Code:    "INVALID_REQUEST_BODY",
-			Message: "patient_id is required",
+			Message: "patient_id, name, or email is required",
 		})
 		return
 	}
@@ -347,6 +449,11 @@ func HospitalPatientSummaryHandler(w http.ResponseWriter, r *http.Request) {
 			Code:    "FORBIDDEN",
 			Message: "Hospital staff access is required",
 		})
+		return
+	}
+	patient, apiErr := resolveHospitalPatientLookup(r.Context(), claims.HospitalID, reqBody.PatientID)
+	if apiErr != nil {
+		writeJson(w, statusCodeForAPIError(apiErr), nil, apiErr)
 		return
 	}
 
@@ -371,18 +478,36 @@ func HospitalPatientSummaryHandler(w http.ResponseWriter, r *http.Request) {
 	)
 	client := healthpb.NewHealthRecordServiceClient(conn)
 	resp, err := client.SummarizeRecords(ctx, &healthpb.SummarizeRequest{
-		PatientId:  strings.TrimSpace(reqBody.PatientID),
+		PatientId:  patient.PatientID,
 		HospitalId: claims.HospitalID,
 		Focus:      strings.TrimSpace(reqBody.Focus),
 	})
 	if err != nil {
-		writeJson(w, http.StatusBadRequest, nil, &contracts.APIError{
-			Code:    "FORBIDDEN",
+		httpStatus := http.StatusInternalServerError
+		apiCode := "INTERNAL_SERVER_ERROR"
+		if s, ok := status.FromError(err); ok {
+			switch s.Code() {
+			case codes.InvalidArgument:
+				httpStatus = http.StatusBadRequest
+				apiCode = "BAD_REQUEST"
+			case codes.NotFound:
+				httpStatus = http.StatusNotFound
+				apiCode = "NOT_FOUND"
+			case codes.PermissionDenied:
+				httpStatus = http.StatusForbidden
+				apiCode = "FORBIDDEN"
+			case codes.Unauthenticated:
+				httpStatus = http.StatusUnauthorized
+				apiCode = "UNAUTHORIZED"
+			}
+		}
+		writeJson(w, httpStatus, nil, &contracts.APIError{
+			Code:    apiCode,
 			Message: "Failed to summarize patient records: " + err.Error(),
 		})
 		return
 	}
-	writeJson(w, http.StatusOK, HospitalPatientSummaryResponse{Summary: resp.GetSummary()}, nil)
+	writeJson(w, http.StatusOK, HospitalPatientSummaryResponse{PatientID: patient.PatientID, Summary: resp.GetSummary()}, nil)
 }
 
 func PatientProfileHandler(w http.ResponseWriter, r *http.Request) {
@@ -631,6 +756,13 @@ func PatientHealthAnswerHandler(w http.ResponseWriter, r *http.Request) {
 		TopK:      defaultTopK(reqBody.TopK),
 	})
 	if err != nil {
+		if s, ok := status.FromError(err); ok && s.Code() == codes.NotFound {
+			writeJson(w, http.StatusNotFound, nil, &contracts.APIError{
+				Code:    "NO_HEALTH_RECORDS",
+				Message: "No health records are available yet. Once records are added, Zorba can answer questions with citations.",
+			})
+			return
+		}
 		writeJson(w, http.StatusBadRequest, nil, &contracts.APIError{
 			Code:    "FORBIDDEN",
 			Message: "Failed to answer health question: " + err.Error(),
@@ -699,6 +831,59 @@ func PatientCallsHandler(w http.ResponseWriter, r *http.Request) {
 		PatientID: claims.PatientID,
 		Calls:     calls,
 	}, nil)
+}
+
+func PatientRequestBridgedCallTransferHandler(w http.ResponseWriter, r *http.Request) {
+	accessToken, claims, apiErr := requirePatientClaims(r)
+	if apiErr != nil {
+		writeJson(w, statusCodeForAPIError(apiErr), nil, apiErr)
+		return
+	}
+	var reqBody RequestBridgedCallTransferRequest
+	if err := json.NewDecoder(r.Body).Decode(&reqBody); err != nil {
+		writeJson(w, http.StatusBadRequest, nil, &contracts.APIError{Code: "INVALID_REQUEST_BODY", Message: "Invalid request body: " + err.Error()})
+		return
+	}
+	defer r.Body.Close()
+	client, conn, err := newSchedulingClientFromEnv()
+	if err != nil {
+		writeJson(w, http.StatusInternalServerError, nil, &contracts.APIError{Code: "INTERNAL_SERVER_ERROR", Message: "Failed to connect to patient service: " + err.Error()})
+		return
+	}
+	defer conn.Close()
+	resp, err := client.RequestBridgedCallTransfer(grpcclient.WithForwardedToken(r.Context(), accessToken), &schedpb.RequestBridgedCallTransferRequest{
+		SessionId:      strings.TrimSpace(reqBody.SessionID),
+		RoomSid:        strings.TrimSpace(reqBody.RoomSID),
+		PatientId:      claims.PatientID,
+		HospitalId:     strings.TrimSpace(reqBody.HospitalID),
+		StaffId:        strings.TrimSpace(reqBody.StaffID),
+		TransferReason: strings.TrimSpace(reqBody.TransferReason),
+	})
+	if err != nil {
+		writeSchedulingAPIError(w, "Failed to request bridged call transfer", err)
+		return
+	}
+	writeJson(w, http.StatusOK, BridgedCallSessionResponse{
+		Session: bridgedCallSessionFromProto(resp.GetSession()),
+	}, nil)
+}
+
+func PatientGetBridgedCallSessionHandler(w http.ResponseWriter, r *http.Request) {
+	accessToken, _, apiErr := requirePatientClaims(r)
+	if apiErr != nil {
+		writeJson(w, statusCodeForAPIError(apiErr), nil, apiErr)
+		return
+	}
+	handleGetBridgedCallSession(w, r, accessToken)
+}
+
+func PatientUpdateBridgedCallTranslationHandler(w http.ResponseWriter, r *http.Request) {
+	accessToken, _, apiErr := requirePatientClaims(r)
+	if apiErr != nil {
+		writeJson(w, statusCodeForAPIError(apiErr), nil, apiErr)
+		return
+	}
+	handleUpdateBridgedCallTranslation(w, r, accessToken)
 }
 
 func PatientAuditHandler(w http.ResponseWriter, r *http.Request) {
@@ -789,7 +974,7 @@ func HospitalIncidentsHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func HospitalPatientAuditHandler(w http.ResponseWriter, r *http.Request) {
-	accessToken, _, apiErr := requireStaffClaims(r)
+	accessToken, claims, apiErr := requireStaffClaims(r)
 	if apiErr != nil {
 		writeJson(w, statusCodeForAPIError(apiErr), nil, apiErr)
 		return
@@ -799,8 +984,13 @@ func HospitalPatientAuditHandler(w http.ResponseWriter, r *http.Request) {
 	if patientID == "" {
 		writeJson(w, http.StatusBadRequest, nil, &contracts.APIError{
 			Code:    "INVALID_REQUEST_BODY",
-			Message: "patient_id query parameter is required",
+			Message: "patient_id, name, or email query parameter is required",
 		})
+		return
+	}
+	patient, apiErr := resolveHospitalPatientLookup(r.Context(), claims.HospitalID, patientID)
+	if apiErr != nil {
+		writeJson(w, statusCodeForAPIError(apiErr), nil, apiErr)
 		return
 	}
 	auditClient, conn, err := newAuditPortalClient()
@@ -814,7 +1004,7 @@ func HospitalPatientAuditHandler(w http.ResponseWriter, r *http.Request) {
 	defer conn.Close()
 
 	resp, err := auditClient.ListHospitalPatientAuditEvents(grpcclient.WithForwardedToken(r.Context(), accessToken), &auditportalpb.ListHospitalPatientAuditEventsRequest{
-		PatientId: patientID,
+		PatientId: patient.PatientID,
 		Limit:     30,
 	})
 	if err != nil {
@@ -832,8 +1022,131 @@ func HospitalPatientAuditHandler(w http.ResponseWriter, r *http.Request) {
 	events := portalAuditEventsFromProto(resp.GetEvents())
 
 	writeJson(w, http.StatusOK, HospitalPatientAuditResponse{
-		PatientID: patientID,
+		PatientID: patient.PatientID,
 		Events:    events,
+	}, nil)
+}
+
+func HospitalConnectBridgedCallHandler(w http.ResponseWriter, r *http.Request) {
+	accessToken, claims, apiErr := requireStaffClaims(r)
+	if apiErr != nil {
+		writeJson(w, statusCodeForAPIError(apiErr), nil, apiErr)
+		return
+	}
+	var reqBody ConnectBridgedCallRequest
+	if err := json.NewDecoder(r.Body).Decode(&reqBody); err != nil {
+		writeJson(w, http.StatusBadRequest, nil, &contracts.APIError{Code: "INVALID_REQUEST_BODY", Message: "Invalid request body: " + err.Error()})
+		return
+	}
+	defer r.Body.Close()
+	client, conn, err := newSchedulingClientFromEnv()
+	if err != nil {
+		writeJson(w, http.StatusInternalServerError, nil, &contracts.APIError{Code: "INTERNAL_SERVER_ERROR", Message: "Failed to connect to patient service: " + err.Error()})
+		return
+	}
+	defer conn.Close()
+	resp, err := client.ConnectBridgedCall(grpcclient.WithForwardedToken(r.Context(), accessToken), &schedpb.ConnectBridgedCallRequest{
+		SessionId:                strings.TrimSpace(reqBody.SessionID),
+		StaffId:                  claims.StaffID,
+		StaffParticipantIdentity: strings.TrimSpace(reqBody.StaffParticipantIdentity),
+	})
+	if err != nil {
+		writeSchedulingAPIError(w, "Failed to connect bridged call", err)
+		return
+	}
+	writeJson(w, http.StatusOK, BridgedCallConnectResponse{
+		Session:        bridgedCallSessionFromProto(resp.GetSession()),
+		StaffRoomToken: resp.GetStaffRoomToken(),
+		LiveKitWSURL:   resp.GetLivekitWsUrl(),
+	}, nil)
+}
+
+func HospitalListBridgedCallSessionsHandler(w http.ResponseWriter, r *http.Request) {
+	accessToken, _, apiErr := requireStaffClaims(r)
+	if apiErr != nil {
+		writeJson(w, statusCodeForAPIError(apiErr), nil, apiErr)
+		return
+	}
+	client, conn, err := newSchedulingClientFromEnv()
+	if err != nil {
+		writeJson(w, http.StatusInternalServerError, nil, &contracts.APIError{Code: "INTERNAL_SERVER_ERROR", Message: "Failed to connect to patient service: " + err.Error()})
+		return
+	}
+	defer conn.Close()
+	resp, err := client.ListBridgedCallSessions(grpcclient.WithForwardedToken(r.Context(), accessToken), &schedpb.ListBridgedCallSessionsRequest{
+		Status: strings.TrimSpace(r.URL.Query().Get("status")),
+		Limit:  50,
+	})
+	if err != nil {
+		writeSchedulingAPIError(w, "Failed to list bridged call sessions", err)
+		return
+	}
+	sessions := make([]BridgedCallSessionRecord, 0, len(resp.GetSessions()))
+	for _, session := range resp.GetSessions() {
+		sessions = append(sessions, bridgedCallSessionFromProto(session))
+	}
+	writeJson(w, http.StatusOK, BridgedCallSessionListResponse{Sessions: sessions}, nil)
+}
+
+func HospitalGetBridgedCallSessionHandler(w http.ResponseWriter, r *http.Request) {
+	accessToken, _, apiErr := requireStaffClaims(r)
+	if apiErr != nil {
+		writeJson(w, statusCodeForAPIError(apiErr), nil, apiErr)
+		return
+	}
+	handleGetBridgedCallSession(w, r, accessToken)
+}
+
+func HospitalUpdateBridgedCallTranslationHandler(w http.ResponseWriter, r *http.Request) {
+	accessToken, _, apiErr := requireStaffClaims(r)
+	if apiErr != nil {
+		writeJson(w, statusCodeForAPIError(apiErr), nil, apiErr)
+		return
+	}
+	handleUpdateBridgedCallTranslation(w, r, accessToken)
+}
+
+func HospitalEndBridgedCallHandler(w http.ResponseWriter, r *http.Request) {
+	accessToken, _, apiErr := requireStaffClaims(r)
+	if apiErr != nil {
+		writeJson(w, statusCodeForAPIError(apiErr), nil, apiErr)
+		return
+	}
+	handleEndBridgedCall(w, r, accessToken)
+}
+
+func PatientEndBridgedCallHandler(w http.ResponseWriter, r *http.Request) {
+	accessToken, _, apiErr := requirePatientClaims(r)
+	if apiErr != nil {
+		writeJson(w, statusCodeForAPIError(apiErr), nil, apiErr)
+		return
+	}
+	handleEndBridgedCall(w, r, accessToken)
+}
+
+func handleEndBridgedCall(w http.ResponseWriter, r *http.Request, accessToken string) {
+	var reqBody EndBridgedCallRequest
+	if err := json.NewDecoder(r.Body).Decode(&reqBody); err != nil {
+		writeJson(w, http.StatusBadRequest, nil, &contracts.APIError{Code: "INVALID_REQUEST_BODY", Message: "Invalid request body: " + err.Error()})
+		return
+	}
+	defer r.Body.Close()
+	client, conn, err := newSchedulingClientFromEnv()
+	if err != nil {
+		writeJson(w, http.StatusInternalServerError, nil, &contracts.APIError{Code: "INTERNAL_SERVER_ERROR", Message: "Failed to connect to patient service: " + err.Error()})
+		return
+	}
+	defer conn.Close()
+	resp, err := client.EndBridgedCall(grpcclient.WithForwardedToken(r.Context(), accessToken), &schedpb.EndBridgedCallRequest{
+		SessionId: strings.TrimSpace(reqBody.SessionID),
+		Reason:    strings.TrimSpace(reqBody.Reason),
+	})
+	if err != nil {
+		writeSchedulingAPIError(w, "Failed to end bridged call", err)
+		return
+	}
+	writeJson(w, http.StatusOK, BridgedCallSessionResponse{
+		Session: bridgedCallSessionFromProto(resp.GetSession()),
 	}, nil)
 }
 
@@ -871,6 +1184,26 @@ func bearerToken(r *http.Request) string {
 	return strings.TrimSpace(strings.TrimPrefix(r.Header.Get("Authorization"), "Bearer "))
 }
 
+func patientLoginIdentifiers(req PatientLoginRequest) (email string, phoneNumber string) {
+	email = strings.TrimSpace(strings.ToLower(req.Email))
+	phoneNumber = strings.TrimSpace(req.PhoneNumber)
+
+	identifier := strings.TrimSpace(req.Identifier)
+	if identifier == "" {
+		return email, phoneNumber
+	}
+	if strings.Contains(identifier, "@") {
+		if email == "" {
+			email = strings.ToLower(identifier)
+		}
+		return email, phoneNumber
+	}
+	if phoneNumber == "" {
+		phoneNumber = identifier
+	}
+	return email, phoneNumber
+}
+
 func statusCodeForAPIError(err *contracts.APIError) int {
 	if err == nil {
 		return http.StatusInternalServerError
@@ -882,6 +1215,12 @@ func statusCodeForAPIError(err *contracts.APIError) int {
 		return http.StatusUnauthorized
 	case "FORBIDDEN":
 		return http.StatusForbidden
+	case "NOT_FOUND":
+		return http.StatusNotFound
+	case "AMBIGUOUS_PATIENT_LOOKUP":
+		return http.StatusConflict
+	case "SERVICE_UNAVAILABLE":
+		return http.StatusServiceUnavailable
 	default:
 		return http.StatusInternalServerError
 	}
@@ -935,6 +1274,18 @@ func newPatientPortalClient() (patientportalpb.PatientPortalServiceClient, *grpc
 	return patientportalpb.NewPatientPortalServiceClient(conn), conn, nil
 }
 
+func newSchedulingClientFromEnv() (schedpb.SchedulingServiceClient, *grpc.ClientConn, error) {
+	patientAddr := os.Getenv("PATIENT_SERVICE_GRPC_ADDR")
+	if patientAddr == "" {
+		patientAddr = "patient-service:9093"
+	}
+	conn, err := grpcclient.Dial(patientAddr)
+	if err != nil {
+		return nil, nil, err
+	}
+	return schedpb.NewSchedulingServiceClient(conn), conn, nil
+}
+
 func incidentVisibleToHospital(event AuditEventRecord, hospitalID string) bool {
 	if hospitalID == "" {
 		return false
@@ -977,6 +1328,123 @@ func fallbackString(value, fallback string) string {
 		return fallback
 	}
 	return value
+}
+
+func handleGetBridgedCallSession(w http.ResponseWriter, r *http.Request, accessToken string) {
+	sessionID := strings.TrimSpace(r.URL.Query().Get("session_id"))
+	if sessionID == "" {
+		writeJson(w, http.StatusBadRequest, nil, &contracts.APIError{Code: "INVALID_REQUEST_BODY", Message: "session_id query parameter is required"})
+		return
+	}
+	client, conn, err := newSchedulingClientFromEnv()
+	if err != nil {
+		writeJson(w, http.StatusInternalServerError, nil, &contracts.APIError{Code: "INTERNAL_SERVER_ERROR", Message: "Failed to connect to patient service: " + err.Error()})
+		return
+	}
+	defer conn.Close()
+	resp, err := client.GetBridgedCallSession(grpcclient.WithForwardedToken(r.Context(), accessToken), &schedpb.GetBridgedCallSessionRequest{SessionId: sessionID})
+	if err != nil {
+		writeSchedulingAPIError(w, "Failed to load bridged call session", err)
+		return
+	}
+	writeJson(w, http.StatusOK, BridgedCallSessionResponse{Session: bridgedCallSessionFromProto(resp.GetSession())}, nil)
+}
+
+func handleUpdateBridgedCallTranslation(w http.ResponseWriter, r *http.Request, accessToken string) {
+	var reqBody UpdateBridgedCallTranslationRequest
+	if err := json.NewDecoder(r.Body).Decode(&reqBody); err != nil {
+		writeJson(w, http.StatusBadRequest, nil, &contracts.APIError{Code: "INVALID_REQUEST_BODY", Message: "Invalid request body: " + err.Error()})
+		return
+	}
+	defer r.Body.Close()
+	client, conn, err := newSchedulingClientFromEnv()
+	if err != nil {
+		writeJson(w, http.StatusInternalServerError, nil, &contracts.APIError{Code: "INTERNAL_SERVER_ERROR", Message: "Failed to connect to patient service: " + err.Error()})
+		return
+	}
+	defer conn.Close()
+	resp, err := client.UpdateBridgedCallTranslation(grpcclient.WithForwardedToken(r.Context(), accessToken), &schedpb.UpdateBridgedCallTranslationRequest{
+		SessionId:   strings.TrimSpace(reqBody.SessionID),
+		Participant: strings.TrimSpace(reqBody.Participant),
+		Translation: bridgedCallTranslationToProto(reqBody.Translation),
+	})
+	if err != nil {
+		writeSchedulingAPIError(w, "Failed to update bridged call translation", err)
+		return
+	}
+	writeJson(w, http.StatusOK, BridgedCallSessionResponse{Session: bridgedCallSessionFromProto(resp.GetSession())}, nil)
+}
+
+func writeSchedulingAPIError(w http.ResponseWriter, prefix string, err error) {
+	code := http.StatusInternalServerError
+	apiCode := "INTERNAL_SERVER_ERROR"
+	if s, ok := status.FromError(err); ok {
+		switch s.Code() {
+		case codes.NotFound:
+			code = http.StatusNotFound
+			apiCode = "NOT_FOUND"
+		case codes.PermissionDenied:
+			code = http.StatusForbidden
+			apiCode = "FORBIDDEN"
+		case codes.InvalidArgument:
+			code = http.StatusBadRequest
+			apiCode = "INVALID_REQUEST_BODY"
+		case codes.FailedPrecondition:
+			code = http.StatusConflict
+			apiCode = "FAILED_PRECONDITION"
+		case codes.Unavailable:
+			code = http.StatusServiceUnavailable
+			apiCode = "SERVICE_UNAVAILABLE"
+		case codes.Unauthenticated:
+			code = http.StatusUnauthorized
+			apiCode = "UNAUTHORIZED"
+		}
+	}
+	writeJson(w, code, nil, &contracts.APIError{Code: apiCode, Message: prefix + ": " + err.Error()})
+}
+
+func bridgedCallSessionFromProto(session *schedpb.BridgedCallSession) BridgedCallSessionRecord {
+	if session == nil {
+		return BridgedCallSessionRecord{}
+	}
+	return BridgedCallSessionRecord{
+		SessionID:            session.GetSessionId(),
+		RoomSID:              session.GetRoomSid(),
+		PatientID:            session.GetPatientId(),
+		HospitalID:           session.GetHospitalId(),
+		StaffID:              session.GetStaffId(),
+		Status:               session.GetStatus(),
+		RequestedByActorType: session.GetRequestedByActorType(),
+		RequestedByActorID:   session.GetRequestedByActorId(),
+		TransferReason:       session.GetTransferReason(),
+		RequestedAt:          protoTimeOrEmpty(session.GetRequestedAt()),
+		ConnectedAt:          protoTimeOrEmpty(session.GetConnectedAt()),
+		EndedAt:              protoTimeOrEmpty(session.GetEndedAt()),
+		PatientTranslation:   bridgedCallTranslationFromProto(session.GetPatientTranslation()),
+		StaffTranslation:     bridgedCallTranslationFromProto(session.GetStaffTranslation()),
+	}
+}
+
+func bridgedCallTranslationFromProto(p *schedpb.BridgedCallTranslationPreferences) BridgedCallTranslationPreferencesRecord {
+	if p == nil {
+		return BridgedCallTranslationPreferencesRecord{}
+	}
+	return BridgedCallTranslationPreferencesRecord{
+		Enabled:             p.GetEnabled(),
+		LanguageMode:        p.GetLanguageMode(),
+		LanguageCode:        p.GetLanguageCode(),
+		ParticipantIdentity: p.GetParticipantIdentity(),
+		UpdatedAt:           protoTimeOrEmpty(p.GetUpdatedAt()),
+	}
+}
+
+func bridgedCallTranslationToProto(p BridgedCallTranslationPreferencesRecord) *schedpb.BridgedCallTranslationPreferences {
+	return &schedpb.BridgedCallTranslationPreferences{
+		Enabled:             p.Enabled,
+		LanguageMode:        strings.TrimSpace(p.LanguageMode),
+		LanguageCode:        strings.TrimSpace(strings.ToLower(p.LanguageCode)),
+		ParticipantIdentity: strings.TrimSpace(p.ParticipantIdentity),
+	}
 }
 
 func consentFromProto(consent *auditpb.Consent) ConsentRecord {
@@ -1098,5 +1566,9 @@ func protoTimeOrEmpty(value *timestamppb.Timestamp) string {
 	if value == nil {
 		return ""
 	}
-	return value.AsTime().UTC().Format(time.RFC3339)
+	t := value.AsTime()
+	if t.IsZero() || t.Unix() <= 0 {
+		return ""
+	}
+	return t.UTC().Format(time.RFC3339)
 }

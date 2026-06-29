@@ -38,6 +38,18 @@ func (r *AuthRepository) CreateAuth(ctx context.Context, userID, authUUID string
 	return r.toDomainAuth(&dbAuth), nil
 }
 
+func (r *AuthRepository) GetAuthByAuthUUID(ctx context.Context, authUUID string) (*domain.Auth, error) {
+	authUID, err := uuid.Parse(authUUID)
+	if err != nil {
+		return nil, err
+	}
+	dbAuth, err := r.queries.GetAuthByAuthUUID(ctx, pgtype.UUID{Bytes: authUID, Valid: true})
+	if err != nil {
+		return nil, err
+	}
+	return r.toDomainAuth(&dbAuth), nil
+}
+
 func (r *AuthRepository) GetAuthByUserIDAndAuthUUID(ctx context.Context, userID, authUUID string) (*domain.Auth, error) {
 	uid, err := uuid.Parse(userID)
 	if err != nil {
@@ -60,25 +72,35 @@ func (r *AuthRepository) GetAuthByUserIDAndAuthUUID(ctx context.Context, userID,
 }
 
 func (r *AuthRepository) DeleteAuth(ctx context.Context, userID, authUUID string) error {
-	uid, err := uuid.Parse(userID)
-	if err != nil {
-		return err
-	}
+	return r.RevokeAuth(ctx, authUUID, "logout")
+}
+
+func (r *AuthRepository) RevokeAuth(ctx context.Context, authUUID, reason string) error {
 	authUID, err := uuid.Parse(authUUID)
 	if err != nil {
 		return err
 	}
-
-	return r.queries.DeleteAuthByUserIDAndAuthUUID(ctx, sqlc.DeleteAuthByUserIDAndAuthUUIDParams{
-		UserID:   pgtype.UUID{Bytes: uid, Valid: true},
-		AuthUuid: pgtype.UUID{Bytes: authUID, Valid: true},
+	return r.queries.RevokeAuthByAuthUUID(ctx, sqlc.RevokeAuthByAuthUUIDParams{
+		AuthUuid:      pgtype.UUID{Bytes: authUID, Valid: true},
+		RevokedReason: pgtype.Text{String: reason, Valid: true},
 	})
 }
 
 func (r *AuthRepository) toDomainAuth(a *sqlc.Auth) *domain.Auth {
-	return &domain.Auth{
+	out := &domain.Auth{
 		ID:       uint64(a.ID),
 		UserID:   uuid.UUID(a.UserID.Bytes).String(),
 		AuthUUID: uuid.UUID(a.AuthUuid.Bytes).String(),
 	}
+	if a.RevokedAt.Valid {
+		t := a.RevokedAt.Time
+		out.RevokedAt = &t
+	}
+	if a.RevokedReason.Valid {
+		out.RevokedReason = a.RevokedReason.String
+	}
+	if a.ClientKind.Valid {
+		out.ClientKind = a.ClientKind.String
+	}
+	return out
 }

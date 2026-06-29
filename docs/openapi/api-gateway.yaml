@@ -1,0 +1,35 @@
+openapi: 3.1.0
+info:
+  title: Zorba Health API Gateway
+  version: 0.1.0
+servers:
+  - url: http://localhost:8081
+paths:
+  /api/v1/auth/patient/login:
+    post:
+      summary: Patient login
+      responses:
+        "200":
+          description: Logged in
+  /api/v1/patient/profile:
+    get:
+      summary: Get patient profile
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Patient profile
+  /api/v1/patient/records/answer:
+    post:
+      summary: Ask a grounded patient record question
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Answer with citations
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
