@@ -3,7 +3,17 @@
 import { Suspense, useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Button } from "../../../../components/ui/button";
+import {
+  ArrowLeft,
+  Clock,
+  Phone,
+  ShieldAlert,
+  ShieldCheck,
+  Smartphone,
+} from "lucide-react";
 import { API_URL } from "../../../../constants";
+import { DotPattern } from "../../../../components/magicui/dot-pattern";
+import { MagicCard } from "../../../../components/magicui/magic-card";
 import {
   APIEndpoints,
   HTTPPatientRegisterRequest,
@@ -67,7 +77,6 @@ function PatientVerifyOTPContent() {
 
   const handleVerify = async (e: React.FormEvent) => {
     e.preventDefault();
-
     setStatusMessage(null);
 
     if (!phoneNumber || !otp) {
@@ -180,118 +189,157 @@ function PatientVerifyOTPContent() {
     return `${minutes}:${seconds}`;
   }, [resendSecondsLeft]);
 
+  const countdownPercent = Math.max(0, Math.min(100, (resendSecondsLeft / 120) * 100));
+
   return (
-    <main className="min-h-screen bg-gradient-to-b from-blue-50 to-white">
-      <div className="flex flex-col items-center justify-center min-h-screen gap-6 px-4 py-8">
-        <div className="bg-white p-8 rounded-2xl shadow-lg max-w-md w-full">
+    <main className="relative min-h-screen overflow-hidden bg-slate-950 text-slate-950">
+      <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(99,102,241,0.28),transparent_24%),radial-gradient(circle_at_top_right,rgba(249,115,22,0.18),transparent_18%),linear-gradient(180deg,#020617_0%,#0f172a_55%,#111827_100%)]" />
+      <DotPattern
+        glow
+        className="text-indigo-300/30 [mask-image:radial-gradient(700px_circle_at_center,white,transparent)]"
+      />
+      <div className="relative flex min-h-screen flex-col items-center justify-center gap-6 px-4 py-8">
+        <MagicCard
+          className="max-w-md w-full overflow-hidden rounded-3xl p-0"
+          gradientFrom="#4f46e5"
+          gradientTo="#f97316"
+          gradientColor="rgba(79, 70, 229, 0.12)"
+        >
+        <div className="relative w-full rounded-3xl border border-white/60 bg-white/90 p-8 shadow-2xl shadow-slate-950/20 backdrop-blur-xl dark:border-slate-800 dark:bg-slate-950/90">
           <button
             onClick={() => router.push("/register/patient")}
-            className="text-gray-500 hover:text-gray-700 mb-4"
+            className="inline-flex items-center gap-1.5 text-slate-500 hover:text-slate-900 mb-6 text-sm font-bold transition-colors"
+            type="button"
           >
-            ← Back
+            <ArrowLeft className="h-4 w-4" /> Back
           </button>
 
-          <h2 className="text-2xl font-bold text-gray-900 mb-2">
-            Verify your phone
+          <div className="mb-5 flex h-16 w-16 items-center justify-center rounded-3xl bg-indigo-50 text-indigo-600 ring-1 ring-indigo-100">
+            <Smartphone className="h-7 w-7" />
+          </div>
+          <p className="text-xs font-black uppercase tracking-wide text-indigo-600">Step 2 of 3</p>
+          <h2 className="mt-2 text-3xl font-black text-slate-950 tracking-tight mb-2">
+            Verify Phone Number
           </h2>
-          <p className="text-gray-600 text-sm mb-6">
-            Enter the OTP we sent to your phone number to continue. You can
-            update your phone number below and request a new OTP if needed.
+          <p className="text-slate-500 text-sm leading-relaxed mb-6">
+            Enter the one-time code (OTP) sent to your mobile phone. You may edit your number below if it was entered incorrectly.
           </p>
 
           {statusMessage && (
             <div
-              className={`mb-4 rounded-lg border px-4 py-3 text-sm ${
+              className={`mb-6 rounded-xl border p-4 text-sm flex items-start gap-2 ${
                 statusType === "error"
-                  ? "border-red-200 bg-red-50 text-red-700"
+                  ? "border-rose-200 bg-rose-50/70 text-rose-700"
                   : statusType === "success"
-                  ? "border-green-200 bg-green-50 text-green-700"
-                  : "border-blue-200 bg-blue-50 text-blue-700"
+                  ? "border-emerald-200 bg-emerald-50/70 text-emerald-700"
+                  : "border-indigo-200 bg-indigo-50/70 text-indigo-700"
               }`}
             >
-              {statusMessage}
+              {statusType === "error" ? (
+                <ShieldAlert className="h-5 w-5 text-rose-600 shrink-0 mt-0.5" />
+              ) : (
+                <ShieldCheck className="h-5 w-5 text-emerald-600 shrink-0 mt-0.5" />
+              )}
+              <span>{statusMessage}</span>
             </div>
           )}
 
-          <form onSubmit={handleVerify} className="space-y-4">
+          <form onSubmit={handleVerify} className="space-y-5">
             <div>
               <label
                 htmlFor="phone"
-                className="block text-sm font-medium text-gray-700 mb-2"
+                className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-2"
               >
-                Phone Number *
+                Phone Number
               </label>
-              <input
-                id="phone"
-                type="tel"
-                value={phoneNumber}
-                onChange={(e) => {
-                  const nextPhone = e.target.value;
-                  setPhoneNumber(nextPhone);
-                  setRegistrationRequest((prev) =>
-                    prev
-                      ? {
-                          ...prev,
-                          phone_number: nextPhone,
-                        }
-                      : prev
-                  );
-                }}
-                placeholder="+1 (555) 123-4567"
-                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                required
-              />
+              <div className="relative">
+                <Phone className="absolute left-3 top-3.5 h-5 w-5 text-slate-400" />
+                <input
+                  id="phone"
+                  type="tel"
+                  value={phoneNumber}
+                  onChange={(e) => {
+                    const nextPhone = e.target.value;
+                    setPhoneNumber(nextPhone);
+                    setRegistrationRequest((prev) =>
+                      prev
+                        ? {
+                            ...prev,
+                            phone_number: nextPhone,
+                          }
+                        : prev
+                    );
+                  }}
+                  placeholder="+15551234567"
+                  className="w-full pl-10 pr-4 py-3 border border-slate-200 rounded-xl focus:ring-4 focus:ring-indigo-100 focus:border-indigo-400 text-sm transition-all placeholder:text-slate-400 outline-none"
+                  required
+                />
+              </div>
             </div>
 
             <div>
-              <label
-                htmlFor="otp"
-                className="block text-sm font-medium text-gray-700 mb-2"
-              >
-                OTP *
+              <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-2">
+                One-Time Code (OTP)
               </label>
-              <input
-                id="otp"
-                inputMode="numeric"
-                value={otp}
-                onChange={(e) => setOtp(e.target.value)}
-                placeholder="6-digit code"
-                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent tracking-widest text-center text-lg"
-                required
-              />
+              <div className="grid grid-cols-6 gap-2">
+                {Array.from({ length: 6 }).map((_, index) => (
+                  <input
+                    key={index}
+                    aria-label={`OTP digit ${index + 1}`}
+                    inputMode="numeric"
+                    maxLength={1}
+                    value={otp[index] ?? ""}
+                    onChange={(e) => {
+                      const digit = e.target.value.replace(/\D/g, "").slice(-1);
+                      const chars = otp.padEnd(6, " ").split("");
+                      chars[index] = digit || " ";
+                      setOtp(chars.join("").replace(/\s/g, "").slice(0, 6));
+                    }}
+                    className="h-12 rounded-xl border border-slate-200 bg-white text-center text-xl font-black text-slate-950 outline-none transition-all focus:border-indigo-400 focus:ring-4 focus:ring-indigo-100"
+                  />
+                ))}
+              </div>
             </div>
 
             <Button
               type="submit"
-              className="w-full text-lg py-6 bg-blue-600 hover:bg-blue-700 text-white"
+              variant="healthcare"
+              className="w-full text-base h-12"
               disabled={isLoading}
             >
               {isLoading ? "Verifying..." : "Verify OTP"}
             </Button>
 
-            <div className="pt-2 border-t border-gray-100">
-              <p className="text-xs text-gray-500 mb-2">
-                Didn&apos;t receive a code? You can request a new OTP every 2
-                minutes.
-              </p>
-              <div className="flex items-center justify-between gap-3">
-                <Button
-                  type="button"
-                  variant="outline"
-                  className="flex-1"
-                  onClick={handleResendOTP}
-                  disabled={isResending || resendSecondsLeft > 0}
-                >
-                  {isResending
-                    ? "Resending..."
-                    : resendSecondsLeft > 0
-                    ? `Resend OTP in ${formattedCountdown}`
-                    : "Resend OTP"}
-                </Button>
+            <div className="pt-6 border-t border-slate-200/70">
+              <div className="mb-3 flex items-center justify-between gap-3">
+                <p className="text-xs text-slate-500 flex items-center gap-1 font-semibold">
+                  <Clock className="h-3.5 w-3.5" />
+                  Cooldown timer
+                </p>
+                <div
+                  className="h-10 w-10 rounded-full border-4 border-indigo-100"
+                  style={{
+                    background: `conic-gradient(#4f46e5 ${countdownPercent}%, transparent 0)`,
+                  }}
+                />
               </div>
+              <Button
+                type="button"
+                variant="outline"
+                className="w-full h-11 rounded-xl font-medium"
+                onClick={handleResendOTP}
+                disabled={isResending || resendSecondsLeft > 0}
+              >
+                {isResending
+                  ? "Resending..."
+                  : resendSecondsLeft > 0
+                  ? `Resend OTP in ${formattedCountdown}`
+                  : "Resend OTP"}
+              </Button>
             </div>
           </form>
         </div>
+        </MagicCard>
       </div>
     </main>
   );
@@ -301,13 +349,13 @@ export default function PatientVerifyOTPPage() {
   return (
     <Suspense
       fallback={
-        <main className="min-h-screen bg-gradient-to-b from-blue-50 to-white">
+        <main className="min-h-screen mesh-bg text-slate-950">
           <div className="flex flex-col items-center justify-center min-h-screen gap-6 px-4 py-8">
-            <div className="bg-white p-8 rounded-2xl shadow-lg max-w-md w-full text-center">
-              <h2 className="text-2xl font-bold text-gray-900 mb-2">
-                Verify your phone
+            <div className="glass-card p-8 rounded-3xl max-w-md w-full text-center">
+              <h2 className="text-2xl font-black text-slate-950 mb-2">
+                Verify Phone Number
               </h2>
-              <p className="text-gray-600 text-sm">Loading…</p>
+              <p className="text-slate-500 text-sm">Loading security elements...</p>
             </div>
           </div>
         </main>
@@ -317,4 +365,3 @@ export default function PatientVerifyOTPPage() {
     </Suspense>
   );
 }
-

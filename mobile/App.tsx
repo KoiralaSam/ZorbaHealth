@@ -1,50 +1,191 @@
 import { Ionicons } from "@expo/vector-icons";
+import { registerGlobals } from "@livekit/react-native";
+import { CameraView, useCameraPermissions, type BarcodeScanningResult } from "expo-camera";
 import * as Location from "expo-location";
 import * as SecureStore from "expo-secure-store";
 import { StatusBar } from "expo-status-bar";
-import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Room, RoomEvent } from "livekit-client";
+import QRCode from "qrcode";
+import React, {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import {
   ActivityIndicator,
   Alert,
+  Image,
+  KeyboardAvoidingView,
   Linking,
   Platform,
   Pressable,
+  RefreshControl,
   SafeAreaView,
   ScrollView,
-  StyleSheet,
   Text,
   TextInput,
-  View
+  View,
 } from "react-native";
+import {
+  EmptyText,
+  Feedback,
+  Field,
+  IconButton,
+  InfoCard,
+  LoadingCard,
+  PrimaryButton,
+  ScreenHeading,
+  Section,
+  Segmented,
+  TabBar,
+  TextButton,
+} from "./src/components/primitives";
+import { styles } from "./src/theme/styles";
 
 const API_URL = process.env.EXPO_PUBLIC_API_URL ?? "http://localhost:8081";
-const LOCATION_WS_URL = process.env.EXPO_PUBLIC_LOCATION_WS_URL ?? "ws://localhost:8090";
+const LOCATION_WS_URL =
+  process.env.EXPO_PUBLIC_LOCATION_WS_URL ?? defaultLocationWSURL(API_URL);
+const LOCATION_WS_RECONNECT_MS = 3000;
+
+registerGlobals();
+
+function defaultLocationWSURL(apiURL: string) {
+  try {
+    const url = new URL(apiURL);
+    url.protocol = url.protocol === "https:" ? "wss:" : "ws:";
+    url.port = "8091";
+    url.pathname = "";
+    url.search = "";
+    url.hash = "";
+    return url.toString().replace(/\/$/, "");
+  } catch {
+    return "ws://localhost:8091";
+  }
+}
+
+function locationWSBaseURL() {
+  return LOCATION_WS_URL.replace(/\/$/, "");
+}
+
+function locationWSDisplayName() {
+  return locationWSBaseURL().replace(/^wss?:\/\//, "");
+}
+
+function locationWSURLWithToken(token: string) {
+  return `${locationWSBaseURL()}/ws/location?token=${encodeURIComponent(token)}`;
+}
 
 const endpoints = {
   patientLogin: "/api/v1/auth/patient/login",
+  patientRefresh: "/api/v1/auth/patient/refresh",
+  patientLogout: "/api/v1/auth/patient/logout",
   patientRegister: "/api/v1/auth/patient/register",
   patientVerifyEmail: "/api/v1/auth/patient/register/verify",
   patientVerifyOtp: "/api/v1/auth/patient/register/verify-otp",
   patientProfile: "/api/v1/patient/profile",
   patientConsents: "/api/v1/patient/consents",
+  patientHospitalConsents: "/api/v1/patient/hospital-consents",
+  patientConsentRequests: "/api/v1/patient/consent-requests",
   patientRecordsAnswer: "/api/v1/patient/records/answer",
   patientCalls: "/api/v1/patient/calls",
+  patientBridgedCallTransfer: "/api/v1/patient/calls/bridge-transfer",
+  patientBridgedCallSession: "/api/v1/patient/calls/bridge-session",
+  patientBridgedCallTranslation: "/api/v1/patient/calls/bridge-translation",
+  patientBridgedCallEnd: "/api/v1/patient/calls/bridge-end",
   patientAudit: "/api/v1/patient/audit",
+  patientMeetings: "/api/v1/patient/meetings",
+  patientSchedulableStaff: "/api/v1/patient/schedulable-staff",
   hospitalLogin: "/api/v1/auth/hospital/login",
+  hospitalRefresh: "/api/v1/auth/hospital/refresh",
+  hospitalLogout: "/api/v1/auth/hospital/logout",
+  hospitalPatients: "/api/v1/hospital/patients",
   hospitalSummary: "/api/v1/hospital/records/summary",
   hospitalIncidents: "/api/v1/hospital/incidents",
-  hospitalPatientAudit: "/api/v1/hospital/patient/audit"
+  hospitalPatientAudit: "/api/v1/hospital/patient/audit",
+  hospitalBridgedCallConnect: "/api/v1/hospital/calls/bridge-connect",
+  hospitalBridgedCallSession: "/api/v1/hospital/calls/bridge-session",
+  hospitalBridgedCallTranslation: "/api/v1/hospital/calls/bridge-translation",
+  hospitalBridgedCallEnd: "/api/v1/hospital/calls/bridge-end",
+  hospitalMeetings: "/api/v1/hospital/meetings",
+  hospitalStaffRegister: "/api/v1/auth/hospital/staff/register",
+  hospitalConsentRequests: "/api/v1/hospital/consent-requests",
 };
 
 type Role = "patient" | "hospital";
-type PatientTab = "home" | "consents" | "records" | "calls" | "audit" | "location";
-type HospitalTab = "summary" | "incidents" | "audit";
+type PatientTab =
+  | "home"
+  | "consents"
+  | "scan"
+  | "records"
+  | "calls"
+  | "meetings"
+  | "audit"
+  | "location";
+type HospitalTab =
+  | "home"
+  | "summary"
+  | "meetings"
+  | "staff"
+  | "consent"
+  | "incidents"
+  | "audit";
 
 type APIError = { code: string; message: string };
 type APIResponse<T> = { data?: T; error?: APIError };
+class RequestError extends Error {
+  code?: string;
 
-type PatientLoginData = { message?: string; access_token?: string; patient_id?: string };
-type HospitalLoginData = { message?: string; access_token?: string; hospital_id?: string; role?: string };
+  constructor(message: string, code?: string) {
+    super(message);
+    this.name = "RequestError";
+    this.code = code;
+  }
+}
+
+const MOBILE_CACHE_TTL_MS = 45_000;
+const mobileApiCache = new Map<
+  string,
+  {
+    expiresAt: number;
+    value?: unknown;
+    promise?: Promise<unknown>;
+  }
+>();
+
+function mobileCacheKey(endpoint: string, token?: string, role?: Role) {
+  return `${role ?? "public"}:${(token ?? "").slice(-16)}:${endpoint}`;
+}
+
+function clearMobileApiCache(role?: Role) {
+  if (!role) {
+    mobileApiCache.clear();
+    return;
+  }
+  for (const key of mobileApiCache.keys()) {
+    if (key.startsWith(`${role}:`)) mobileApiCache.delete(key);
+  }
+}
+
+type PatientLoginData = {
+  message?: string;
+  access_token?: string;
+  patient_id?: string;
+  refresh_token?: string;
+};
+type HospitalLoginData = {
+  message?: string;
+  access_token?: string;
+  hospital_id?: string;
+  staff_id?: string;
+  role?: string;
+  refresh_token?: string;
+};
+type RefreshData = {
+  access_token?: string;
+  refresh_token?: string;
+};
 type PatientProfile = {
   patient_id?: string;
   full_name?: string;
@@ -75,6 +216,56 @@ type CallSummary = {
   recording_url?: string;
   livekit_room_id?: string;
 };
+
+function resolveLiveCallSessionId(calls: CallSummary[]): string {
+  const active = calls.find(
+    (call) =>
+      call.status?.toLowerCase() === "active" &&
+      Boolean(call.livekit_room_id?.trim()),
+  );
+  if (active?.livekit_room_id?.trim()) {
+    return active.livekit_room_id.trim();
+  }
+  const open = calls.find(
+    (call) => Boolean(call.livekit_room_id?.trim()) && !call.ended_at,
+  );
+  return open?.livekit_room_id?.trim() || "";
+}
+type BridgedCallTranslationPreferences = {
+  enabled?: boolean;
+  language_mode?: string;
+  language_code?: string;
+  participant_identity?: string;
+  updated_at?: string;
+};
+type BridgedCallSession = {
+  session_id?: string;
+  room_sid?: string;
+  patient_id?: string;
+  hospital_id?: string;
+  staff_id?: string;
+  status?: string;
+  requested_at?: string;
+  connected_at?: string;
+  ended_at?: string;
+  transfer_reason?: string;
+  patient_translation?: BridgedCallTranslationPreferences;
+  staff_translation?: BridgedCallTranslationPreferences;
+};
+type BridgedCallSessionResponseData = {
+  session?: BridgedCallSession;
+  patient_room_token?: string;
+  livekit_ws_url?: string;
+};
+type InterpretationSegmentMessage = {
+  type?: string;
+  participant?: string;
+  source_language?: string;
+  target_language?: string;
+  original_text?: string;
+  translated_text?: string;
+  passthrough?: boolean;
+};
 type AuditEvent = {
   event_id?: string;
   event_type?: string;
@@ -102,35 +293,121 @@ type Incident = {
   metadata?: Record<string, unknown>;
 };
 
+function bridgeCaptionLabel(participant?: string) {
+  return participant === "staff" ? "Clinician" : "Patient";
+}
+type HospitalPatient = {
+  patient_id?: string;
+  full_name?: string;
+  email?: string;
+  phone_number?: string;
+  date_of_birth?: string;
+  consent_granted_at?: string;
+  last_call_at?: string;
+};
+type HospitalMeeting = {
+  id: string;
+  patient_id?: string;
+  staff_id?: string;
+  hospital_id?: string;
+  starts_at?: string;
+  duration_minutes?: number;
+  timezone?: string;
+  title?: string;
+  join_url?: string;
+  status?: string;
+  correlation_id?: string;
+};
+type PatientSchedulableStaffMember = {
+  staff_id: string;
+  hospital_id: string;
+  name: string;
+  role: string;
+  email: string;
+};
+
+type HospitalConsentRequest = {
+  id?: string;
+  token?: string;
+  hospital_id?: string;
+  hospital_name?: string;
+  staff_id?: string;
+  staff_name?: string;
+  staff_role?: string;
+  patient_id?: string;
+  requested_permissions?: string[];
+  note?: string;
+  expires_at?: string;
+  approved_at?: string;
+  created_at?: string;
+  status?: string;
+  qr_payload?: string;
+};
+type PatientHospitalConsent = {
+  hospital_id?: string;
+  hospital_name?: string;
+  granted_at?: string;
+  revoked_at?: string;
+  status?: string;
+};
+
+const auditEventTypes = [
+  "PATIENT_CREATED",
+  "PATIENT_VERIFIED",
+  "PATIENT_LOGIN",
+  "PATIENT_LOGOUT",
+  "HEALTH_RECORD_CREATED",
+  "HEALTH_RECORD_VIEWED",
+  "HEALTH_RECORD_SEARCHED",
+  "HEALTH_RECORD_SUMMARIZED",
+  "AI_TOOL_CALLED",
+  "AI_RESPONSE_GENERATED",
+  "LOCATION_REQUESTED",
+  "EMERGENCY_ESCALATION_TRIGGERED",
+  "NOTIFICATION_SENT",
+  "CONSENT_GRANTED",
+  "CONSENT_REVOKED",
+  "TRANSLATION_REQUESTED",
+] as const;
+
+function getAuditEventTypeOptions(events: AuditEvent[]) {
+  return Array.from(
+    new Set([
+      ...auditEventTypes,
+      ...events.map((event) => event.event_type).filter(Boolean),
+    ]),
+  ) as string[];
+}
+
 const consentCopy: Record<string, { label: string; description: string }> = {
   VOICE_ASSISTANT_USE: {
     label: "Voice assistant",
-    description: "Allows Zorba to support phone-based care conversations."
+    description: "Allows Zorba to support phone-based care conversations.",
   },
   HEALTH_RECORD_ACCESS: {
     label: "Health records",
-    description: "Allows answers and summaries to reference your records."
+    description: "Allows answers and summaries to reference your records.",
   },
   LOCATION_ACCESS: {
     label: "Emergency location",
-    description: "Shares GPS only during active emergency voice sessions."
+    description: "Shares GPS only during active emergency voice sessions.",
   },
   SMS_NOTIFICATION: {
     label: "SMS notifications",
-    description: "Allows important care updates by text message."
+    description: "Allows important care updates by text message.",
   },
   EMAIL_NOTIFICATION: {
     label: "Email notifications",
-    description: "Allows care updates and verification messages by email."
+    description: "Allows care updates and verification messages by email.",
   },
   AI_SUMMARIZATION: {
     label: "AI summaries",
-    description: "Allows Zorba to create concise clinical summaries."
+    description: "Allows Zorba to create concise clinical summaries.",
   },
   THIRD_PARTY_MODEL_PROCESSING: {
     label: "Model processing",
-    description: "Allows approved model providers to process limited context."
-  }
+    description: "Allows approved model providers to process limited context.",
+  },
 };
 
 const consentTypes = Object.keys(consentCopy);
@@ -150,10 +427,69 @@ async function deleteSecure(key: string) {
 
 async function apiRequest<T>(
   endpoint: string,
-  options: { method?: string; token?: string; body?: unknown } = {}
+  options: {
+    method?: string;
+    token?: string;
+    body?: unknown;
+    role?: Role;
+    skipAuthRetry?: boolean;
+    cacheTTL?: number;
+    forceRefresh?: boolean;
+  } = {},
+): Promise<T> {
+  const method = options.method ?? "GET";
+  const canUseCache = method === "GET" && Boolean(options.cacheTTL);
+  const key = mobileCacheKey(endpoint, options.token, options.role);
+  const now = Date.now();
+  const cached = mobileApiCache.get(key);
+  if (canUseCache && !options.forceRefresh && cached?.value !== undefined && cached.expiresAt > now) {
+    return cached.value as T;
+  }
+  if (canUseCache && !options.forceRefresh && cached?.promise) {
+    return cached.promise as Promise<T>;
+  }
+
+  const requestPromise = performApiRequest<T>(endpoint, options, method);
+  if (canUseCache) {
+    mobileApiCache.set(key, {
+      expiresAt: now + (options.cacheTTL ?? MOBILE_CACHE_TTL_MS),
+      promise: requestPromise,
+    });
+  }
+
+  try {
+    const value = await requestPromise;
+    if (canUseCache) {
+      mobileApiCache.set(key, {
+        expiresAt: Date.now() + (options.cacheTTL ?? MOBILE_CACHE_TTL_MS),
+        value,
+      });
+    } else if (method !== "GET") {
+      clearMobileApiCache(options.role);
+    }
+    return value;
+  } catch (error) {
+    if (canUseCache) mobileApiCache.delete(key);
+    throw error;
+  }
+}
+
+async function performApiRequest<T>(
+  endpoint: string,
+  options: {
+    method?: string;
+    token?: string;
+    body?: unknown;
+    role?: Role;
+    skipAuthRetry?: boolean;
+    cacheTTL?: number;
+    forceRefresh?: boolean;
+  },
+  method: string,
 ): Promise<T> {
   const headers: Record<string, string> = {
-    Accept: "application/json"
+    Accept: "application/json",
+    "X-Zorba-Client": "mobile",
   };
   if (options.body !== undefined) {
     headers["Content-Type"] = "application/json";
@@ -163,26 +499,110 @@ async function apiRequest<T>(
   }
 
   const response = await fetch(`${API_URL}${endpoint}`, {
-    method: options.method ?? "GET",
+    method,
     headers,
-    body: options.body === undefined ? undefined : JSON.stringify(options.body)
+    body: options.body === undefined ? undefined : JSON.stringify(options.body),
   });
   const payload = (await response.json()) as APIResponse<T>;
-  if (!response.ok) {
-    throw new Error(payload.error?.message ?? "Request failed.");
+  if (response.status === 401 && options.role && !options.skipAuthRetry) {
+    const refreshed = await silentRefresh(options.role);
+    if (refreshed) {
+      return apiRequest<T>(endpoint, {
+        ...options,
+        token: refreshed,
+        skipAuthRetry: true,
+      });
+    }
   }
-  return (payload.data ?? ({} as T));
+  if (!response.ok) {
+    throw new RequestError(
+      payload.error?.message ?? "Request failed.",
+      payload.error?.code,
+    );
+  }
+  return payload.data ?? ({} as T);
+}
+
+async function silentRefresh(role: Role): Promise<string | null> {
+  const refreshKey =
+    role === "patient" ? "patient_refresh_token" : "hospital_refresh_token";
+  const refresh = await readSecure(refreshKey);
+  if (!refresh) return null;
+  const path =
+    role === "patient" ? endpoints.patientRefresh : endpoints.hospitalRefresh;
+  try {
+    const data = await apiRequest<RefreshData>(path, {
+      method: "POST",
+      token: refresh,
+      skipAuthRetry: true,
+    });
+    if (data.refresh_token) await saveSecure(refreshKey, data.refresh_token);
+    return data.access_token ?? null;
+  } catch (err) {
+    if (err instanceof RequestError && err.code === "REFRESH_TOKEN_REUSE") {
+      await deleteSecure(refreshKey);
+      if (role === "patient") await deleteSecure("patient_id");
+    }
+    return null;
+  }
 }
 
 function formatTime(value?: string) {
-  if (!value) return "Unknown time";
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return value;
+  const date = meaningfulDate(value);
+  if (!date) return "Unknown time";
   return date.toLocaleString();
+}
+
+function meaningfulDate(value?: string) {
+  if (!value) return null;
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime()) || date.getFullYear() < 2000) return null;
+  return date;
 }
 
 function titleFromCode(value?: string) {
   return value ? value.replaceAll("_", " ").toLowerCase() : "Unknown";
+}
+
+function parseFilterDate(value: string) {
+  if (!value.trim()) return null;
+  const normalized = value.trim().replace(" ", "T");
+  const date = new Date(normalized);
+  if (Number.isNaN(date.getTime())) return null;
+  return date;
+}
+
+function normalizeCalls(data: {
+  calls?: CallSummary[];
+  items?: CallSummary[];
+}) {
+  const calls = data.calls ?? data.items ?? [];
+  return [...calls].sort((a, b) => {
+    const aTime = meaningfulDate(a.started_at)?.getTime() ?? 0;
+    const bTime = meaningfulDate(b.started_at)?.getTime() ?? 0;
+    return bTime - aTime;
+  });
+}
+
+function filterAuditEvents(
+  events: AuditEvent[],
+  type: string,
+  from: string,
+  to: string,
+) {
+  const fromTime = parseFilterDate(from)?.getTime();
+  const toTime = parseFilterDate(to)?.getTime();
+
+  return events.filter((event) => {
+    if (type !== "all" && event.event_type !== type) return false;
+    const eventDate = meaningfulDate(event.timestamp);
+    if ((fromTime || toTime) && !eventDate) return false;
+    const eventTime = eventDate?.getTime();
+    if (fromTime && eventTime !== undefined && eventTime < fromTime)
+      return false;
+    if (toTime && eventTime !== undefined && eventTime > toTime) return false;
+    return true;
+  });
 }
 
 export default function App() {
@@ -193,13 +613,13 @@ export default function App() {
 
   useEffect(() => {
     const load = async () => {
-      const [storedPatientToken, storedHospitalToken] = await Promise.all([
-        readSecure("patient_access_token"),
-        readSecure("hospital_access_token")
+      const [patientAccess, hospitalAccess] = await Promise.all([
+        silentRefresh("patient"),
+        silentRefresh("hospital"),
       ]);
-      setPatientToken(storedPatientToken ?? "");
-      setHospitalToken(storedHospitalToken ?? "");
-      if (storedHospitalToken && !storedPatientToken) {
+      setPatientToken(patientAccess ?? "");
+      setHospitalToken(hospitalAccess ?? "");
+      if (hospitalAccess && !patientAccess) {
         setRole("hospital");
       }
       setBooting(false);
@@ -208,11 +628,30 @@ export default function App() {
   }, []);
 
   const signOut = async () => {
+    try {
+      if (patientToken) {
+        await apiRequest(endpoints.patientLogout, {
+          method: "POST",
+          token: patientToken,
+          skipAuthRetry: true,
+        });
+      }
+      if (hospitalToken) {
+        await apiRequest(endpoints.hospitalLogout, {
+          method: "POST",
+          token: hospitalToken,
+          skipAuthRetry: true,
+        });
+      }
+    } catch {
+      // ignore logout errors
+    }
     await Promise.all([
-      deleteSecure("patient_access_token"),
+      deleteSecure("patient_refresh_token"),
       deleteSecure("patient_id"),
-      deleteSecure("hospital_access_token")
+      deleteSecure("hospital_refresh_token"),
     ]);
+    clearMobileApiCache();
     setPatientToken("");
     setHospitalToken("");
   };
@@ -231,8 +670,16 @@ export default function App() {
   return (
     <SafeAreaView style={styles.safeArea}>
       <StatusBar style="dark" />
-      <View style={styles.shell}>
-        <Header role={role} onRoleChange={setRole} signedIn={Boolean(patientToken || hospitalToken)} onSignOut={signOut} />
+      <KeyboardAvoidingView
+        style={styles.shell}
+        behavior={Platform.OS === "ios" ? "padding" : undefined}
+      >
+        <Header
+          role={role}
+          onRoleChange={setRole}
+          signedIn={Boolean(patientToken || hospitalToken)}
+          onSignOut={signOut}
+        />
         {role === "patient" ? (
           patientToken ? (
             <PatientPortal token={patientToken} onSignOut={signOut} />
@@ -244,7 +691,7 @@ export default function App() {
         ) : (
           <HospitalAuth onLogin={setHospitalToken} />
         )}
-      </View>
+      </KeyboardAvoidingView>
     </SafeAreaView>
   );
 }
@@ -253,7 +700,7 @@ function Header({
   role,
   onRoleChange,
   signedIn,
-  onSignOut
+  onSignOut,
 }: {
   role: Role;
   onRoleChange: (role: Role) => void;
@@ -262,9 +709,22 @@ function Header({
 }) {
   return (
     <View style={styles.header}>
-      <View>
-        <Text style={styles.brand}>Zorba Health</Text>
-        <Text style={styles.headerSub}>{role === "patient" ? "Patient mobile care" : "Hospital staff console"}</Text>
+      <View style={styles.brandContainer}>
+        <View style={styles.brandIconContainer}>
+          <Ionicons
+            name={role === "patient" ? "pulse" : "medkit"}
+            size={22}
+            color="#ffffff"
+          />
+        </View>
+        <View>
+          <Text style={styles.brand}>Zorba Health</Text>
+          <Text style={styles.headerSub}>
+            {role === "patient"
+              ? "Patient mobile care"
+              : "Clinician staff console"}
+          </Text>
+        </View>
       </View>
       <View style={styles.headerActions}>
         {!signedIn ? (
@@ -272,12 +732,17 @@ function Header({
             value={role}
             options={[
               { value: "patient", label: "Patient" },
-              { value: "hospital", label: "Hospital" }
+              { value: "hospital", label: "Staff" },
             ]}
             onChange={(value) => onRoleChange(value as Role)}
           />
         ) : (
-          <IconButton icon="log-out-outline" label="Sign out" onPress={onSignOut} tone="neutral" />
+          <IconButton
+            icon="log-out-outline"
+            label="Sign out"
+            onPress={onSignOut}
+            tone="neutral"
+          />
         )}
       </View>
     </View>
@@ -285,28 +750,47 @@ function Header({
 }
 
 function PatientAuth({ onLogin }: { onLogin: (token: string) => void }) {
-  const [mode, setMode] = useState<"login" | "register" | "otp" | "email">("login");
+  const [mode, setMode] = useState<"login" | "register" | "otp" | "email">(
+    "login",
+  );
+  const [loginIdentifier, setLoginIdentifier] = useState("");
   const [phone, setPhone] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [fullName, setFullName] = useState("");
   const [dateOfBirth, setDateOfBirth] = useState("");
   const [otp, setOtp] = useState("");
-  const [emailToken, setEmailToken] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
 
+  const switchMode = (nextMode: "login" | "register") => {
+    setMode(nextMode);
+    setError("");
+    setNotice("");
+    if (nextMode === "register") {
+      setOtp("");
+    }
+  };
+
   const login = async () => {
+    if (!loginIdentifier.trim() || !password) {
+      setError("Enter your email or phone number and password.");
+      return;
+    }
+
     setLoading(true);
     setError("");
+    setNotice("");
     try {
       const data = await apiRequest<PatientLoginData>(endpoints.patientLogin, {
         method: "POST",
-        body: { phone_number: phone.trim(), email: email.trim(), password }
+        body: { identifier: loginIdentifier.trim(), password },
       });
-      if (!data.access_token) throw new Error("Login succeeded but no patient token was returned.");
-      await saveSecure("patient_access_token", data.access_token);
+      if (!data.access_token)
+        throw new Error("Login succeeded but no patient token was returned.");
+      if (data.refresh_token)
+        await saveSecure("patient_refresh_token", data.refresh_token);
       if (data.patient_id) await saveSecure("patient_id", data.patient_id);
       onLogin(data.access_token);
     } catch (err) {
@@ -317,6 +801,19 @@ function PatientAuth({ onLogin }: { onLogin: (token: string) => void }) {
   };
 
   const register = async () => {
+    const trimmedPhone = phone.trim();
+    const trimmedEmail = email.trim();
+    const trimmedFullName = fullName.trim();
+
+    if (!trimmedPhone || !password || !trimmedFullName) {
+      setError("Phone number, full name, and password are required.");
+      return;
+    }
+    if (password.length < 8) {
+      setError("Password must be at least 8 characters.");
+      return;
+    }
+
     setLoading(true);
     setError("");
     setNotice("");
@@ -324,14 +821,17 @@ function PatientAuth({ onLogin }: { onLogin: (token: string) => void }) {
       await apiRequest(endpoints.patientRegister, {
         method: "POST",
         body: {
-          phone_number: phone.trim(),
-          email: email.trim(),
+          phone_number: trimmedPhone,
+          email: trimmedEmail || undefined,
           password,
-          full_name: fullName.trim(),
-          date_of_birth: dateOfBirth ? new Date(dateOfBirth).toISOString() : undefined
-        }
+          full_name: trimmedFullName,
+          date_of_birth: dateOfBirth
+            ? new Date(dateOfBirth).toISOString()
+            : undefined,
+        },
       });
-      setNotice("Registration started. Verify the phone OTP, then paste the email verification token if needed.");
+      setOtp("");
+      setNotice("Registration started. Enter the OTP sent to your phone.");
       setMode("otp");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Registration failed.");
@@ -341,14 +841,20 @@ function PatientAuth({ onLogin }: { onLogin: (token: string) => void }) {
   };
 
   const verifyOtp = async () => {
+    if (!phone.trim() || !otp.trim()) {
+      setError("Enter the OTP sent to your phone.");
+      return;
+    }
+
     setLoading(true);
     setError("");
+    setNotice("");
     try {
       await apiRequest(endpoints.patientVerifyOtp, {
         method: "POST",
-        body: { phone_number: phone.trim(), otp: otp.trim() }
+        body: { phone_number: phone.trim(), otp: otp.trim() },
       });
-      setNotice("Phone verified. Continue to email verification or sign in if your account is ready.");
+      setNotice("Phone verified. Check your email for the verification link.");
       setMode("email");
     } catch (err) {
       setError(err instanceof Error ? err.message : "OTP verification failed.");
@@ -357,57 +863,143 @@ function PatientAuth({ onLogin }: { onLogin: (token: string) => void }) {
     }
   };
 
-  const verifyEmail = async () => {
-    setLoading(true);
-    setError("");
-    try {
-      await apiRequest(endpoints.patientVerifyEmail, {
-        method: "POST",
-        body: { token: emailToken.trim() }
-      });
-      setNotice("Email verified. You can sign in now.");
-      setMode("login");
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Email verification failed.");
-    } finally {
-      setLoading(false);
-    }
-  };
-
   return (
-    <ScrollView contentContainerStyle={styles.authScroll}>
+    <ScrollView
+      contentContainerStyle={styles.authScroll}
+      showsVerticalScrollIndicator={false}
+    >
       <View style={styles.authPanel}>
         <Text style={styles.screenTitle}>
-          {mode === "login" ? "Patient sign in" : mode === "register" ? "Create patient account" : mode === "otp" ? "Verify phone" : "Verify email"}
+          {mode === "login"
+            ? "Patient Sign In"
+            : mode === "register"
+              ? "Create Account"
+              : mode === "otp"
+                ? "Verify Phone"
+                : "Check Your Email"}
         </Text>
-        <Text style={styles.screenCopy}>Secure mobile access to Zorba voice support, consent controls, call summaries, and health-record answers.</Text>
+        <Text style={styles.screenCopy}>
+          {mode === "email"
+            ? "Open the verification link sent to your email address, then return here to sign in."
+            : "Access Zorba health record insights, voice assistant options, and clinic logs securely."}
+        </Text>
+
         <View style={styles.stack}>
-          {mode !== "email" ? <Field label="Phone number" value={phone} onChangeText={setPhone} keyboardType="phone-pad" placeholder="+1 555 123 4567" /> : null}
-          {(mode === "login" || mode === "register") && (
-            <>
-              <Field label="Email" value={email} onChangeText={setEmail} keyboardType="email-address" autoCapitalize="none" />
-              <Field label="Password" value={password} onChangeText={setPassword} secureTextEntry />
-            </>
-          )}
+          {mode === "login" ? (
+            <Field
+              label="Email or phone number"
+              value={loginIdentifier}
+              onChangeText={setLoginIdentifier}
+              autoCapitalize="none"
+              placeholder="you@example.com or +15551234567"
+            />
+          ) : null}
+          {mode !== "login" && mode !== "email" ? (
+            <Field
+              label="Phone number"
+              value={phone}
+              onChangeText={setPhone}
+              keyboardType="phone-pad"
+              placeholder="+15551234567"
+            />
+          ) : null}
+          {mode === "register" ? (
+            <Field
+              label="Email Address"
+              value={email}
+              onChangeText={setEmail}
+              keyboardType="email-address"
+              autoCapitalize="none"
+              placeholder="you@example.com"
+            />
+          ) : null}
+          {mode === "login" || mode === "register" ? (
+            <Field
+              label="Password"
+              value={password}
+              onChangeText={setPassword}
+              secureTextEntry
+              placeholder="••••••••"
+            />
+          ) : null}
           {mode === "register" && (
             <>
-              <Field label="Full name" value={fullName} onChangeText={setFullName} />
-              <Field label="Date of birth" value={dateOfBirth} onChangeText={setDateOfBirth} placeholder="YYYY-MM-DD" />
+              <Field
+                label="Full name"
+                value={fullName}
+                onChangeText={setFullName}
+                placeholder="John Doe"
+              />
+              <Field
+                label="Date of birth"
+                value={dateOfBirth}
+                onChangeText={setDateOfBirth}
+                placeholder="YYYY-MM-DD"
+              />
             </>
           )}
-          {mode === "otp" ? <Field label="One-time code" value={otp} onChangeText={setOtp} keyboardType="number-pad" /> : null}
-          {mode === "email" ? <Field label="Email verification token" value={emailToken} onChangeText={setEmailToken} autoCapitalize="none" /> : null}
+          {mode === "otp" ? (
+            <Field
+              label="One-time code"
+              value={otp}
+              onChangeText={setOtp}
+              keyboardType="number-pad"
+              placeholder="6-digit code"
+            />
+          ) : null}
+          {mode === "email" ? (
+            <View style={styles.emailNoticeCard}>
+              <Ionicons name="mail-unread-outline" size={24} color="#4f46e5" />
+              <View style={styles.flex}>
+                <Text style={styles.cardTitle}>
+                  Email verification required
+                </Text>
+                <Text style={styles.cardBody}>
+                  We sent a secure verification link to{" "}
+                  {email.trim() || "your email address"}. After verification,
+                  use your credentials to sign in.
+                </Text>
+              </View>
+            </View>
+          ) : null}
         </View>
-        <PrimaryButton
-          icon={mode === "login" ? "log-in-outline" : "checkmark-circle-outline"}
-          label={loading ? "Working..." : mode === "login" ? "Sign in" : mode === "register" ? "Start registration" : mode === "otp" ? "Verify OTP" : "Verify email"}
-          disabled={loading}
-          onPress={mode === "login" ? login : mode === "register" ? register : mode === "otp" ? verifyOtp : verifyEmail}
-        />
+
+        {mode === "email" ? (
+          <PrimaryButton
+            icon="log-in-outline"
+            label="Go to Sign In"
+            onPress={() => switchMode("login")}
+          />
+        ) : (
+          <PrimaryButton
+            icon={
+              mode === "login" ? "log-in-outline" : "checkmark-circle-outline"
+            }
+            label={
+              loading
+                ? "Working..."
+                : mode === "login"
+                  ? "Sign In"
+                  : mode === "register"
+                    ? "Start Registration"
+                    : "Verify OTP"
+            }
+            disabled={loading}
+            onPress={
+              mode === "login"
+                ? login
+                : mode === "register"
+                  ? register
+                  : verifyOtp
+            }
+          />
+        )}
+
         <View style={styles.inlineActions}>
-          <TextButton label={mode === "login" ? "Create account" : "Back to sign in"} onPress={() => setMode(mode === "login" ? "register" : "login")} />
-          <TextButton label="Enter OTP" onPress={() => setMode("otp")} />
-          <TextButton label="Email token" onPress={() => setMode("email")} />
+          <TextButton
+            label={mode === "login" ? "Create account" : "Back to sign in"}
+            onPress={() => switchMode(mode === "login" ? "register" : "login")}
+          />
         </View>
         <Feedback error={error} notice={notice} />
       </View>
@@ -425,12 +1017,17 @@ function HospitalAuth({ onLogin }: { onLogin: (token: string) => void }) {
     setLoading(true);
     setError("");
     try {
-      const data = await apiRequest<HospitalLoginData>(endpoints.hospitalLogin, {
-        method: "POST",
-        body: { email: email.trim(), password }
-      });
-      if (!data.access_token) throw new Error("Login succeeded but no hospital token was returned.");
-      await saveSecure("hospital_access_token", data.access_token);
+      const data = await apiRequest<HospitalLoginData>(
+        endpoints.hospitalLogin,
+        {
+          method: "POST",
+          body: { email: email.trim(), password },
+        },
+      );
+      if (!data.access_token)
+        throw new Error("Login succeeded but no hospital token was returned.");
+      if (data.refresh_token)
+        await saveSecure("hospital_refresh_token", data.refresh_token);
       onLogin(data.access_token);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Hospital login failed.");
@@ -440,61 +1037,250 @@ function HospitalAuth({ onLogin }: { onLogin: (token: string) => void }) {
   };
 
   return (
-    <ScrollView contentContainerStyle={styles.authScroll}>
+    <ScrollView
+      contentContainerStyle={styles.authScroll}
+      showsVerticalScrollIndicator={false}
+    >
       <View style={styles.authPanel}>
-        <Text style={styles.screenTitle}>Hospital staff sign in</Text>
-        <Text style={styles.screenCopy}>Review emergency incidents, generate patient summaries, and inspect patient audit activity.</Text>
+        <Text style={styles.screenTitle}>Hospital Sign In</Text>
+        <Text style={styles.screenCopy}>
+          Access clinical dashboards, monitor emergency incident indicators, and
+          inspect patient logs.
+        </Text>
+
         <View style={styles.stack}>
-          <Field label="Email" value={email} onChangeText={setEmail} keyboardType="email-address" autoCapitalize="none" />
-          <Field label="Password" value={password} onChangeText={setPassword} secureTextEntry />
+          <Field
+            label="Clinical Email Address"
+            value={email}
+            onChangeText={setEmail}
+            keyboardType="email-address"
+            autoCapitalize="none"
+            placeholder="staff@hospital.com"
+          />
+          <Field
+            label="Password"
+            value={password}
+            onChangeText={setPassword}
+            secureTextEntry
+            placeholder="••••••••"
+          />
         </View>
-        <PrimaryButton icon="shield-checkmark-outline" label={loading ? "Signing in..." : "Sign in"} disabled={loading} onPress={login} />
+
+        <PrimaryButton
+          icon="shield-checkmark-outline"
+          label={loading ? "Signing in..." : "Sign In"}
+          disabled={loading}
+          onPress={login}
+        />
         <Feedback error={error} />
       </View>
     </ScrollView>
   );
 }
 
-function PatientPortal({ token, onSignOut }: { token: string; onSignOut: () => void }) {
+function PatientPortal({
+  token,
+  onSignOut,
+}: {
+  token: string;
+  onSignOut: () => void;
+}) {
   const [tab, setTab] = useState<PatientTab>("home");
   const [profile, setProfile] = useState<PatientProfile | null>(null);
   const [consents, setConsents] = useState<ConsentRecord[]>([]);
+  const [hospitalConsents, setHospitalConsents] = useState<PatientHospitalConsent[]>([]);
   const [calls, setCalls] = useState<CallSummary[]>([]);
   const [audit, setAudit] = useState<AuditEvent[]>([]);
+  const [meetings, setMeetings] = useState<HospitalMeeting[]>([]);
+  const [schedulableStaff, setSchedulableStaff] = useState<PatientSchedulableStaffMember[]>([]);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState("");
+  const [showScheduleForm, setShowScheduleForm] = useState(false);
+  const [scheduleStaffID, setScheduleStaffID] = useState("");
+  const [scheduleHospitalID, setScheduleHospitalID] = useState("");
+  const [scheduleStartsAt, setScheduleStartsAt] = useState("");
+  const [scheduleDuration, setScheduleDuration] = useState("30");
+  const [scheduleTimezone, setScheduleTimezone] = useState(
+    Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC",
+  );
+  const [scheduleTitle, setScheduleTitle] = useState("");
+  const [scheduleNotes, setScheduleNotes] = useState("");
+  const [submittingSchedule, setSubmittingSchedule] = useState(false);
+  const [mutatingMeetingID, setMutatingMeetingID] = useState("");
 
-  const load = useCallback(async () => {
-    setLoading(true);
+  const load = useCallback(async (showPageLoader = true) => {
+    if (showPageLoader) {
+      setLoading(true);
+    } else {
+      setRefreshing(true);
+    }
     setError("");
     try {
-      const [profileData, consentData, callData, auditData] = await Promise.all([
-        apiRequest<PatientProfile>(endpoints.patientProfile, { token }),
-        apiRequest<{ consents?: ConsentRecord[] }>(endpoints.patientConsents, { token }),
-        apiRequest<{ calls?: CallSummary[] }>(endpoints.patientCalls, { token }),
-        apiRequest<{ events?: AuditEvent[] }>(endpoints.patientAudit, { token })
-      ]);
+      const cacheOptions = {
+        cacheTTL: MOBILE_CACHE_TTL_MS,
+        forceRefresh: !showPageLoader,
+      };
+      const [profileData, consentData, hospitalConsentData, callData, auditData, meetingsData] = await Promise.all(
+        [
+          apiRequest<PatientProfile>(endpoints.patientProfile, {
+            token,
+            role: "patient",
+            ...cacheOptions,
+          }),
+          apiRequest<{ consents?: ConsentRecord[] }>(
+            endpoints.patientConsents,
+            { token, role: "patient", ...cacheOptions },
+          ),
+          apiRequest<{ consents?: PatientHospitalConsent[] }>(
+            endpoints.patientHospitalConsents,
+            { token, role: "patient", ...cacheOptions },
+          ),
+          apiRequest<{ calls?: CallSummary[] }>(endpoints.patientCalls, {
+            token,
+            role: "patient",
+            ...cacheOptions,
+          }),
+          apiRequest<{ events?: AuditEvent[] }>(endpoints.patientAudit, {
+            token,
+            role: "patient",
+            ...cacheOptions,
+          }),
+          apiRequest<{ meetings?: HospitalMeeting[] }>(
+            endpoints.patientMeetings,
+            { token, role: "patient", ...cacheOptions },
+          ),
+        ],
+      );
       setProfile(profileData);
       setConsents(consentData.consents ?? []);
-      setCalls(callData.calls ?? []);
+      setHospitalConsents(hospitalConsentData.consents ?? []);
+      setCalls(normalizeCalls(callData));
       setAudit(auditData.events ?? []);
+      setMeetings(meetingsData.meetings ?? []);
     } catch (err) {
-      const message = err instanceof Error ? err.message : "Unable to load patient data.";
+      const message =
+        err instanceof Error ? err.message : "Unable to load patient data.";
       setError(message);
       if (message.toLowerCase().includes("token")) onSignOut();
     } finally {
-      setLoading(false);
+      if (showPageLoader) {
+        setLoading(false);
+      } else {
+        setRefreshing(false);
+      }
     }
   }, [onSignOut, token]);
 
   useEffect(() => {
-    void load();
+    void load(true);
   }, [load]);
+
+  useEffect(() => {
+    void apiRequest<{ calls?: CallSummary[] }>(endpoints.patientCalls, {
+      token,
+      role: "patient",
+      cacheTTL: 60_000,
+    }).catch(() => undefined);
+    void apiRequest<{ events?: AuditEvent[] }>(endpoints.patientAudit, {
+      token,
+      role: "patient",
+      cacheTTL: 60_000,
+    }).catch(() => undefined);
+    void apiRequest<{ meetings?: HospitalMeeting[] }>(endpoints.patientMeetings, {
+      token,
+      role: "patient",
+      cacheTTL: 60_000,
+    }).catch(() => undefined);
+  }, [token]);
+
+  const refresh = useCallback(() => {
+    void load(false);
+  }, [load]);
+
+  const loadSchedulableStaff = useCallback(async (hospitalID: string) => {
+    if (!hospitalID) return;
+    try {
+      const data = await apiRequest<{ staff?: PatientSchedulableStaffMember[] }>(
+        `${endpoints.patientSchedulableStaff}?hospital_id=${encodeURIComponent(hospitalID)}`,
+        { token, role: "patient", cacheTTL: 5 * 60_000 },
+      );
+      setSchedulableStaff(data.staff ?? []);
+    } catch {
+      // best-effort
+    }
+  }, [token]);
+
+  const handleScheduleMeeting = async () => {
+    if (!token) return;
+    setSubmittingSchedule(true);
+    setError("");
+    try {
+      const data = await apiRequest<{ meeting?: HospitalMeeting }>(
+        endpoints.patientMeetings,
+        {
+          method: "POST",
+          token,
+          role: "patient",
+          body: {
+            staff_id: scheduleStaffID,
+            hospital_id: scheduleHospitalID,
+            starts_at: new Date(scheduleStartsAt).toISOString(),
+            duration_minutes: Number(scheduleDuration) || 30,
+            timezone: scheduleTimezone,
+            title: scheduleTitle || undefined,
+            notes: scheduleNotes || undefined,
+          },
+        },
+      );
+      if (data.meeting) setMeetings((prev) => [data.meeting!, ...prev]);
+      setShowScheduleForm(false);
+      setScheduleStaffID("");
+      setScheduleStartsAt("");
+      setScheduleTitle("");
+      setScheduleNotes("");
+      setError("");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Unable to schedule meeting.");
+    } finally {
+      setSubmittingSchedule(false);
+    }
+  };
+
+  const handleCancelMeeting = async (meetingID: string) => {
+    if (!token) return;
+    setMutatingMeetingID(meetingID);
+    setError("");
+    try {
+      const data = await apiRequest<{ meeting?: HospitalMeeting }>(
+        `${endpoints.patientMeetings}/${encodeURIComponent(meetingID)}`,
+        {
+          method: "DELETE",
+          token,
+          role: "patient",
+          body: { reason: "Cancelled by patient" },
+        },
+      );
+      if (data.meeting) {
+        setMeetings((prev) =>
+          prev.map((m) => (m.id === meetingID ? data.meeting! : m)),
+        );
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Unable to cancel meeting.");
+    } finally {
+      setMutatingMeetingID("");
+    }
+  };
 
   const activeConsents = useMemo(() => {
     const map = new Map<string, ConsentRecord>();
     for (const consent of consents) {
-      if (consent.consent_type && !consent.revoked_at && consent.status !== "revoked") {
+      if (
+        consent.consent_type &&
+        !consent.revoked_at &&
+        consent.status !== "revoked"
+      ) {
         map.set(consent.consent_type, consent);
       }
     }
@@ -509,21 +1295,100 @@ function PatientPortal({ token, onSignOut }: { token: string; onSignOut: () => v
         options={[
           { value: "home", label: "Home", icon: "home-outline" },
           { value: "consents", label: "Consent", icon: "options-outline" },
+          { value: "scan", label: "Scan", icon: "qr-code-outline" },
           { value: "records", label: "Ask", icon: "chatbubbles-outline" },
           { value: "calls", label: "Calls", icon: "call-outline" },
+          { value: "meetings", label: "Meetings", icon: "calendar-outline" },
           { value: "audit", label: "Audit", icon: "reader-outline" },
-          { value: "location", label: "GPS", icon: "navigate-outline" }
+          { value: "location", label: "GPS", icon: "navigate-outline" },
         ]}
       />
-      <ScrollView contentContainerStyle={styles.content}>
+      <ScrollView
+        contentContainerStyle={styles.content}
+        showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={refresh}
+            tintColor="#4f46e5"
+            colors={["#4f46e5"]}
+          />
+        }
+      >
         {loading ? <LoadingCard /> : null}
         <Feedback error={error} />
-        {!loading && tab === "home" ? <PatientHome profile={profile} calls={calls} audit={audit} onRefresh={load} /> : null}
-        {!loading && tab === "consents" ? <ConsentCenter token={token} consents={consents} setConsents={setConsents} /> : null}
-        {!loading && tab === "records" ? <HealthQuestion token={token} /> : null}
-        {!loading && tab === "calls" ? <CallList calls={calls} voicePhone={profile?.voice_phone} /> : null}
+        {!loading && tab === "home" ? (
+          <PatientHome
+            profile={profile}
+            calls={calls}
+            audit={audit}
+            onRefresh={refresh}
+          />
+        ) : null}
+        {!loading && tab === "consents" ? (
+          <ConsentCenter
+            token={token}
+            consents={consents}
+            setConsents={setConsents}
+            hospitalConsents={hospitalConsents}
+            setHospitalConsents={setHospitalConsents}
+          />
+        ) : null}
+        {!loading && tab === "scan" ? (
+          <PatientConsentScanner
+            token={token}
+            setHospitalConsents={setHospitalConsents}
+          />
+        ) : null}
+        {!loading && tab === "records" ? (
+          <HealthQuestion token={token} />
+        ) : null}
+        {!loading && tab === "calls" ? (
+          <CallList
+            token={token}
+            calls={calls}
+            voicePhone={profile?.voice_phone}
+            hospitalConsents={hospitalConsents}
+          />
+        ) : null}
+        {!loading && tab === "meetings" ? (
+          <PatientMeetings
+            token={token}
+            meetings={meetings}
+            setMeetings={setMeetings}
+            schedulableStaff={schedulableStaff}
+            hospitalConsents={hospitalConsents}
+            showScheduleForm={showScheduleForm}
+            setShowScheduleForm={setShowScheduleForm}
+            scheduleStaffID={scheduleStaffID}
+            setScheduleStaffID={setScheduleStaffID}
+            scheduleHospitalID={scheduleHospitalID}
+            setScheduleHospitalID={setScheduleHospitalID}
+            scheduleStartsAt={scheduleStartsAt}
+            setScheduleStartsAt={setScheduleStartsAt}
+            scheduleDuration={scheduleDuration}
+            setScheduleDuration={setScheduleDuration}
+            scheduleTimezone={scheduleTimezone}
+            setScheduleTimezone={setScheduleTimezone}
+            scheduleTitle={scheduleTitle}
+            setScheduleTitle={setScheduleTitle}
+            scheduleNotes={scheduleNotes}
+            setScheduleNotes={setScheduleNotes}
+            submittingSchedule={submittingSchedule}
+            mutatingMeetingID={mutatingMeetingID}
+            onSchedule={handleScheduleMeeting}
+            onCancel={handleCancelMeeting}
+            onLoadSchedulableStaff={loadSchedulableStaff}
+            onRefresh={() => void load(false)}
+          />
+        ) : null}
         {!loading && tab === "audit" ? <AuditList events={audit} /> : null}
-        {!loading && tab === "location" ? <LocationSharing token={token} enabled={activeConsents.has("LOCATION_ACCESS")} /> : null}
+        {!loading && tab === "location" ? (
+          <LocationSharing
+            token={token}
+            enabled={activeConsents.has("LOCATION_ACCESS")}
+          />
+        ) : null}
       </ScrollView>
     </View>
   );
@@ -533,7 +1398,7 @@ function PatientHome({
   profile,
   calls,
   audit,
-  onRefresh
+  onRefresh,
 }: {
   profile: PatientProfile | null;
   calls: CallSummary[];
@@ -543,23 +1408,54 @@ function PatientHome({
   return (
     <View style={styles.stack}>
       <View style={styles.heroPanel}>
-        <Text style={styles.eyebrow}>Patient home</Text>
-        <Text style={styles.largeTitle}>{profile?.full_name || "Welcome"}</Text>
-        <Text style={styles.heroCopy}>{profile?.support_window || "24/7"} support through {profile?.voice_phone || "the Zorba voice line"}.</Text>
+        <View style={styles.rowBetween}>
+          <Text style={styles.eyebrow}>Patient Home</Text>
+          <Pressable onPress={onRefresh} style={styles.refreshIcon}>
+            <Ionicons name="refresh" size={18} color="#e0e7ff" />
+          </Pressable>
+        </View>
+        <Text style={styles.largeTitle}>
+          {profile?.full_name || "Welcome Back"}
+        </Text>
+        <Text style={styles.heroCopy}>
+          Zorba Voice Care: {profile?.voice_phone || "Support line active"}
+        </Text>
+
         <View style={styles.heroActions}>
-          <PrimaryButton icon="call-outline" label="Call Zorba" onPress={() => callNumber(profile?.voice_phone)} />
-          <IconButton icon="refresh-outline" label="Refresh" onPress={onRefresh} tone="neutral" />
+          <Pressable
+            onPress={() => callNumber(profile?.voice_phone)}
+            style={styles.heroCallBtn}
+          >
+            <Ionicons name="call" size={16} color="#4f46e5" />
+            <Text style={styles.heroCallBtnText}>Call Assistant</Text>
+          </Pressable>
         </View>
       </View>
+
       <View style={styles.gridTwo}>
-        <InfoCard icon="person-outline" title="Profile" body={`${profile?.phone_number || "No phone"}\n${profile?.email || "No email"}`} />
-        <InfoCard icon="document-text-outline" title="Recent activity" body={audit[0] ? `${titleFromCode(audit[0].event_type)}\n${formatTime(audit[0].timestamp)}` : "No audit events yet."} />
+        <InfoCard
+          icon="person-outline"
+          title="Demographics"
+          body={`${profile?.phone_number || "No phone listed"}\n${profile?.email || "No email listed"}`}
+        />
+        <InfoCard
+          icon="document-text-outline"
+          title="Last Audit Event"
+          body={
+            audit[0]
+              ? `${titleFromCode(audit[0].event_type)}\n${formatTime(audit[0].timestamp)}`
+              : "No audit trail logs yet."
+          }
+        />
       </View>
-      <Section title="Recent calls">
-        {calls.slice(0, 3).map((call) => (
+
+      <Section title="Recent Calls">
+        {calls.slice(0, 2).map((call) => (
           <CallRow key={String(call.id)} call={call} />
         ))}
-        {calls.length === 0 ? <EmptyText text="No call summaries yet." /> : null}
+        {calls.length === 0 ? (
+          <EmptyText text="No call logs captured yet." />
+        ) : null}
       </Section>
     </View>
   );
@@ -568,11 +1464,15 @@ function PatientHome({
 function ConsentCenter({
   token,
   consents,
-  setConsents
+  setConsents,
+  hospitalConsents,
+  setHospitalConsents,
 }: {
   token: string;
   consents: ConsentRecord[];
   setConsents: (items: ConsentRecord[]) => void;
+  hospitalConsents: PatientHospitalConsent[];
+  setHospitalConsents: React.Dispatch<React.SetStateAction<PatientHospitalConsent[]>>;
 }) {
   const [mutating, setMutating] = useState("");
   const [error, setError] = useState("");
@@ -580,7 +1480,11 @@ function ConsentCenter({
   const active = useMemo(() => {
     const map = new Map<string, ConsentRecord>();
     for (const consent of consents) {
-      if (consent.consent_type && !consent.revoked_at && consent.status !== "revoked") {
+      if (
+        consent.consent_type &&
+        !consent.revoked_at &&
+        consent.status !== "revoked"
+      ) {
         map.set(consent.consent_type, consent);
       }
     }
@@ -591,13 +1495,19 @@ function ConsentCenter({
     setMutating(type);
     setError("");
     try {
-      const data = await apiRequest<{ consent?: ConsentRecord }>(endpoints.patientConsents, {
-        method: grant ? "POST" : "DELETE",
-        token,
-        body: { consent_type: type, source: "patient-mobile-app" }
-      });
+      const data = await apiRequest<{ consent?: ConsentRecord }>(
+        endpoints.patientConsents,
+        {
+          method: grant ? "POST" : "DELETE",
+          token,
+          body: { consent_type: type, source: "patient-mobile-app" },
+        },
+      );
       if (data.consent) {
-        setConsents([data.consent, ...consents.filter((item) => item.consent_type !== type)]);
+        setConsents([
+          data.consent,
+          ...consents.filter((item) => item.consent_type !== type),
+        ]);
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Consent update failed.");
@@ -606,33 +1516,258 @@ function ConsentCenter({
     }
   };
 
+  const revokeHospitalConsent = async (hospitalID?: string) => {
+    if (!hospitalID) return;
+    setMutating(hospitalID);
+    setError("");
+    try {
+      await apiRequest(endpoints.patientHospitalConsents + `/${encodeURIComponent(hospitalID)}`, {
+        method: "DELETE",
+        token,
+        role: "patient",
+      });
+      setHospitalConsents((current) =>
+        current.map((item) =>
+          item.hospital_id === hospitalID
+            ? { ...item, status: "revoked", revoked_at: new Date().toISOString() }
+            : item,
+        ),
+      );
+    } catch (err) {
+      setError(
+        err instanceof Error ? err.message : "Hospital consent update failed.",
+      );
+    } finally {
+      setMutating("");
+    }
+  };
+
   return (
     <View style={styles.stack}>
-      <ScreenHeading title="Consent center" subtitle="Review every consent type modeled by the backend and change it directly from mobile." />
+      <ScreenHeading
+        title="Consent Center"
+        subtitle="Manage permissions for voice processing, safety GPS, and record summarizers."
+      />
       <Feedback error={error} />
       {consentTypes.map((type) => {
         const granted = active.has(type);
         return (
-          <View key={type} style={styles.card}>
+          <View
+            key={type}
+            style={[styles.card, granted ? styles.cardActive : null]}
+          >
             <View style={styles.rowBetween}>
               <View style={styles.flex}>
                 <Text style={styles.cardTitle}>{consentCopy[type].label}</Text>
-                <Text style={styles.cardBody}>{consentCopy[type].description}</Text>
+                <Text style={styles.cardBody}>
+                  {consentCopy[type].description}
+                </Text>
               </View>
               <Pressable
                 accessibilityRole="switch"
                 accessibilityState={{ checked: granted }}
                 disabled={mutating === type}
                 onPress={() => mutate(type, !granted)}
-                style={[styles.switchTrack, granted ? styles.switchOn : styles.switchOff]}
+                style={[
+                  styles.switchTrack,
+                  granted ? styles.switchOn : styles.switchOff,
+                ]}
               >
-                <View style={[styles.switchThumb, granted ? styles.switchThumbOn : styles.switchThumbOff]} />
+                <View
+                  style={[
+                    styles.switchThumb,
+                    granted ? styles.switchThumbOn : styles.switchThumbOff,
+                  ]}
+                />
               </Pressable>
             </View>
-            <Text style={styles.meta}>{granted ? `Granted ${formatTime(active.get(type)?.granted_at)}` : "Not currently granted"}</Text>
+            <Text style={styles.meta}>
+              {granted
+                ? `Granted • ${formatTime(active.get(type)?.granted_at)}`
+                : "Inactive"}
+            </Text>
           </View>
         );
       })}
+      <Section title="Hospital Access">
+        {hospitalConsents.map((consent) => (
+          <View key={consent.hospital_id} style={styles.card}>
+            <View style={styles.rowBetween}>
+              <View style={styles.flex}>
+                <Text style={styles.cardTitle}>
+                  {consent.hospital_name || consent.hospital_id}
+                </Text>
+                <Text style={styles.meta}>
+                  {consent.status || "active"} • {formatTime(consent.granted_at)}
+                </Text>
+              </View>
+              {consent.status !== "revoked" ? (
+                <IconButton
+                  icon="trash-outline"
+                  label={mutating === consent.hospital_id ? "Revoking" : "Revoke"}
+                  onPress={() => revokeHospitalConsent(consent.hospital_id)}
+                  tone="neutral"
+                />
+              ) : null}
+            </View>
+          </View>
+        ))}
+        {hospitalConsents.length === 0 ? (
+          <EmptyText text="No hospital has access to your patient record." />
+        ) : null}
+      </Section>
+    </View>
+  );
+}
+
+function PatientConsentScanner({
+  token,
+  setHospitalConsents,
+}: {
+  token: string;
+  setHospitalConsents: React.Dispatch<React.SetStateAction<PatientHospitalConsent[]>>;
+}) {
+  const [permission, requestPermission] = useCameraPermissions();
+  const [manualToken, setManualToken] = useState("");
+  const [request, setRequest] = useState<HospitalConsentRequest | null>(null);
+  const [notice, setNotice] = useState("");
+  const [error, setError] = useState("");
+  const [scanned, setScanned] = useState(false);
+  const [approving, setApproving] = useState(false);
+
+  const lookup = async (rawValue: string) => {
+    const requestToken = extractConsentToken(rawValue);
+    if (!requestToken) return;
+    setError("");
+    setNotice("");
+    try {
+      const data = await apiRequest<{ request?: HospitalConsentRequest }>(
+        `${endpoints.patientConsentRequests}/${encodeURIComponent(requestToken)}`,
+        { token, role: "patient" },
+      );
+      setRequest(data.request ?? null);
+      setManualToken(requestToken);
+      setScanned(true);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Consent request lookup failed.");
+      setScanned(false);
+    }
+  };
+
+  const approve = async () => {
+    const requestToken = request?.token || manualToken;
+    if (!requestToken) return;
+    setApproving(true);
+    setError("");
+    try {
+      const data = await apiRequest<{
+        message?: string;
+        consent?: PatientHospitalConsent;
+      }>(
+        `${endpoints.patientConsentRequests}/${encodeURIComponent(requestToken)}/approve`,
+        { method: "POST", token, role: "patient" },
+      );
+      if (data.consent) {
+        setHospitalConsents((current) => [
+          data.consent as PatientHospitalConsent,
+          ...current.filter(
+            (item) => item.hospital_id !== data.consent?.hospital_id,
+          ),
+        ]);
+      }
+      setNotice(data.message || "Hospital consent granted.");
+      setRequest(null);
+      setManualToken("");
+      setScanned(false);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Consent approval failed.");
+    } finally {
+      setApproving(false);
+    }
+  };
+
+  const onBarcodeScanned = ({ data }: BarcodeScanningResult) => {
+    if (scanned) return;
+    setScanned(true);
+    void lookup(data);
+  };
+
+  return (
+    <View style={styles.stack}>
+      <ScreenHeading
+        title="Scan Hospital QR"
+        subtitle="Review hospital access requests from staff, then confirm consent from this portal."
+      />
+      <Feedback error={error} notice={notice} />
+      {!permission?.granted ? (
+        <PrimaryButton
+          icon="camera-outline"
+          label="Allow Camera"
+          onPress={() => void requestPermission()}
+        />
+      ) : (
+        <View style={styles.cameraFrame}>
+          <CameraView
+            style={styles.cameraPreview}
+            facing="back"
+            barcodeScannerSettings={{ barcodeTypes: ["qr"] }}
+            onBarcodeScanned={scanned ? undefined : onBarcodeScanned}
+          />
+        </View>
+      )}
+      {scanned ? (
+        <IconButton
+          icon="refresh-outline"
+          label="Scan another"
+          onPress={() => {
+            setScanned(false);
+            setRequest(null);
+          }}
+          tone="neutral"
+        />
+      ) : null}
+      <Field
+        label="Manual QR Token"
+        value={manualToken}
+        onChangeText={setManualToken}
+        autoCapitalize="none"
+        placeholder="Paste token if camera is unavailable"
+      />
+      <PrimaryButton
+        icon="search-outline"
+        label="Lookup Consent Request"
+        onPress={() => void lookup(manualToken)}
+      />
+      {request ? (
+        <View style={[styles.card, styles.cardActive]}>
+          <Text style={styles.eyebrow}>Pending consent request</Text>
+          <Text style={styles.cardTitle}>
+            {request.hospital_name || "Hospital access request"}
+          </Text>
+          <Text style={styles.cardBody}>
+            Requested by {request.staff_name || "hospital staff"}
+          </Text>
+          {request.note ? (
+            <Text style={styles.cardBody}>{request.note}</Text>
+          ) : null}
+          <Text style={styles.meta}>
+            Expires {formatTime(request.expires_at)}
+          </Text>
+          <View style={styles.chipRow}>
+            {(request.requested_permissions ?? []).map((permissionName) => (
+              <Text key={permissionName} style={styles.badge}>
+                {titleFromCode(permissionName)}
+              </Text>
+            ))}
+          </View>
+          <PrimaryButton
+            icon="checkmark-circle-outline"
+            label={approving ? "Approving..." : "Approve Hospital Access"}
+            disabled={approving}
+            onPress={approve}
+          />
+        </View>
+      ) : null}
     </View>
   );
 }
@@ -643,23 +1778,34 @@ function HealthQuestion({ token }: { token: string }) {
   const [citations, setCitations] = useState<Citation[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [notice, setNotice] = useState("");
 
   const ask = async () => {
     if (!question.trim()) return;
     setLoading(true);
     setError("");
+    setNotice("");
     setAnswer("");
     setCitations([]);
     try {
-      const data = await apiRequest<{ answer?: string; citations?: Citation[] }>(endpoints.patientRecordsAnswer, {
+      const data = await apiRequest<{
+        answer?: string;
+        citations?: Citation[];
+      }>(endpoints.patientRecordsAnswer, {
         method: "POST",
         token,
-        body: { question: question.trim(), top_k: 5 }
+        body: { question: question.trim(), top_k: 5 },
       });
       setAnswer(data.answer ?? "No answer returned.");
       setCitations(data.citations ?? []);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Unable to answer that question.");
+      if (err instanceof RequestError && err.code === "NO_HEALTH_RECORDS") {
+        setNotice(err.message);
+        return;
+      }
+      setError(
+        err instanceof Error ? err.message : "Unable to answer that question.",
+      );
     } finally {
       setLoading(false);
     }
@@ -667,21 +1813,60 @@ function HealthQuestion({ token }: { token: string }) {
 
   return (
     <View style={styles.stack}>
-      <ScreenHeading title="Ask your records" subtitle="Questions are answered from the backend health-record retrieval flow." />
-      <Field label="Question" value={question} onChangeText={setQuestion} multiline placeholder="What medications are in my record?" />
-      <PrimaryButton icon="send-outline" label={loading ? "Asking..." : "Ask Zorba"} disabled={loading} onPress={ask} />
-      <Feedback error={error} />
+      <ScreenHeading
+        title="Ask Your Records"
+        subtitle="Query clinical files grounded in compliant record datasets."
+      />
+      <Field
+        label="Inquiry Text"
+        value={question}
+        onChangeText={setQuestion}
+        multiline
+        placeholder="What medications are active in my record?"
+      />
+      <PrimaryButton
+        icon="send-outline"
+        label={loading ? "Analyzing..." : "Ask Zorba"}
+        disabled={loading}
+        onPress={ask}
+      />
+      <Feedback error={error} notice={notice} />
+
       {answer ? (
-        <Section title="Answer">
-          <Text style={styles.bodyText}>{answer}</Text>
+        <Section title="Clinician Answer">
+          <View style={styles.card}>
+            <Text style={styles.bodyText}>{answer}</Text>
+          </View>
         </Section>
       ) : null}
+
       {citations.length > 0 ? (
-        <Section title="Sources">
+        <Section title="Sources Referenced">
           {citations.map((citation, index) => (
-            <View key={`${citation.source_file}-${index}`} style={styles.subCard}>
-              <Text style={styles.cardTitle}>{citation.source_file || "Record source"}</Text>
-              <Text style={styles.cardBody}>{citation.text || "No snippet returned."}</Text>
+            <View
+              key={`${citation.source_file}-${index}`}
+              style={styles.subCard}
+            >
+              <View
+                style={{
+                  flexDirection: "row",
+                  alignItems: "center",
+                  gap: 6,
+                  marginBottom: 4,
+                }}
+              >
+                <Ionicons
+                  name="document-text-outline"
+                  size={14}
+                  color="#4f46e5"
+                />
+                <Text style={styles.cardTitle}>
+                  {citation.source_file || "Record Source"}
+                </Text>
+              </View>
+              <Text style={styles.cardBody}>
+                {citation.text || "Snippet detail."}
+              </Text>
             </View>
           ))}
         </Section>
@@ -690,142 +1875,1010 @@ function HealthQuestion({ token }: { token: string }) {
   );
 }
 
-function CallList({ calls, voicePhone }: { calls: CallSummary[]; voicePhone?: string }) {
+function CallList({
+  token,
+  calls,
+  voicePhone,
+  hospitalConsents,
+}: {
+  token: string;
+  calls: CallSummary[];
+  voicePhone?: string;
+  hospitalConsents: PatientHospitalConsent[];
+}) {
+  const liveSessionId = useMemo(() => resolveLiveCallSessionId(calls), [calls]);
+  const [hospitalID, setHospitalID] = useState(hospitalConsents[0]?.hospital_id || "");
+  const [staffID, setStaffID] = useState("");
+  const [enabled, setEnabled] = useState(true);
+  const [languageMode, setLanguageMode] = useState("auto");
+  const [languageCode, setLanguageCode] = useState("es");
+  const [notice, setNotice] = useState("");
+  const [session, setSession] = useState<BridgedCallSession | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [bridgeRoomState, setBridgeRoomState] = useState<"disconnected" | "connecting" | "connected">("disconnected");
+  const [bridgeCaptions, setBridgeCaptions] = useState<InterpretationSegmentMessage[]>([]);
+  const bridgeRoomRef = useRef<Room | null>(null);
+
+  useEffect(() => {
+    if (hospitalID.trim() || hospitalConsents.length === 0) {
+      return;
+    }
+    const first = hospitalConsents.find((item) => item.hospital_id)?.hospital_id;
+    if (first) {
+      setHospitalID(first);
+    }
+  }, [hospitalConsents, hospitalID]);
+
+  const disconnectBridgeRoom = useCallback(async () => {
+    const room = bridgeRoomRef.current;
+    if (!room) {
+      setBridgeRoomState("disconnected");
+      return;
+    }
+    bridgeRoomRef.current = null;
+    room.disconnect();
+    setBridgeRoomState("disconnected");
+  }, []);
+
+  const joinBridgeRoom = useCallback(
+    async (wsUrl?: string, tokenValue?: string) => {
+      if (!wsUrl || !tokenValue) return;
+      await disconnectBridgeRoom();
+      const room = new Room();
+      bridgeRoomRef.current = room;
+      setBridgeRoomState("connecting");
+      room.on(RoomEvent.DataReceived, (payload: Uint8Array, _participant, _kind, topic?: string) => {
+        if (topic !== "zorba.interpretation") return;
+        try {
+          const message: InterpretationSegmentMessage = JSON.parse(
+            new TextDecoder().decode(payload),
+          );
+          if (message.type !== "interpretation.segment") return;
+          setBridgeCaptions((current) => [...current.slice(-49), message]);
+        } catch {
+          // Ignore malformed bridge packets.
+        }
+      });
+      room.on(RoomEvent.Disconnected, () => {
+        if (bridgeRoomRef.current === room) {
+          bridgeRoomRef.current = null;
+          setBridgeRoomState("disconnected");
+        }
+      });
+      try {
+        await room.connect(wsUrl, tokenValue);
+        setBridgeRoomState("connected");
+      } catch {
+        setNotice("Interpreter started, but companion captions could not join.");
+        await disconnectBridgeRoom();
+      }
+    },
+    [disconnectBridgeRoom],
+  );
+
+  useEffect(() => () => {
+    void disconnectBridgeRoom();
+  }, [disconnectBridgeRoom]);
+
+  const requestTransfer = async () => {
+    if (!liveSessionId.trim()) {
+      setNotice(
+        "Start a verified call with Zorba first. We detect your active call automatically.",
+      );
+      return;
+    }
+    if (!hospitalID.trim()) {
+      setNotice("Choose an approved hospital first.");
+      return;
+    }
+    setBusy(true);
+    setNotice("");
+    try {
+      const data = await apiRequest<BridgedCallSessionResponseData>(
+        endpoints.patientBridgedCallTransfer,
+        {
+          method: "POST",
+          token,
+          role: "patient",
+          body: {
+            session_id: liveSessionId.trim(),
+            room_sid: liveSessionId.trim(),
+            hospital_id: hospitalID.trim(),
+            staff_id: staffID.trim(),
+            transfer_reason: "Patient requested live interpretation",
+          },
+        },
+      );
+      setSession(data.session ?? null);
+      setBridgeCaptions([]);
+      if (data.patient_room_token && data.livekit_ws_url) {
+        await joinBridgeRoom(data.livekit_ws_url, data.patient_room_token);
+      }
+      setNotice("Hospital notified. A clinician can connect from their dashboard.");
+    } catch (err) {
+      setNotice(err instanceof Error ? err.message : "Unable to request transfer.");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const refreshSession = async () => {
+    if (!liveSessionId.trim()) {
+      setNotice("No active phone call detected yet.");
+      return;
+    }
+    setBusy(true);
+    setNotice("");
+    try {
+      const data = await apiRequest<BridgedCallSessionResponseData>(
+        `${endpoints.patientBridgedCallSession}?session_id=${encodeURIComponent(liveSessionId.trim())}`,
+        { token, role: "patient" },
+      );
+      setSession(data.session ?? null);
+      if (data.patient_room_token && data.livekit_ws_url) {
+        await joinBridgeRoom(data.livekit_ws_url, data.patient_room_token);
+      }
+      setNotice(data.session ? "Interpreter status refreshed." : "No interpreter session yet.");
+    } catch (err) {
+      setNotice(err instanceof Error ? err.message : "Unable to refresh session.");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const updateTranslation = async () => {
+    if (!liveSessionId.trim()) {
+      setNotice("No active phone call detected yet.");
+      return;
+    }
+    setBusy(true);
+    setNotice("");
+    try {
+      const data = await apiRequest<{ session?: BridgedCallSession }>(
+        endpoints.patientBridgedCallTranslation,
+        {
+          method: "PUT",
+          token,
+          role: "patient",
+          body: {
+            session_id: liveSessionId.trim(),
+            participant: "patient",
+            translation: {
+              enabled,
+              language_mode: languageMode,
+              language_code: languageCode.trim().toLowerCase(),
+            },
+          },
+        },
+      );
+      setSession(data.session ?? null);
+      setNotice("Patient translation preferences updated.");
+    } catch (err) {
+      setNotice(err instanceof Error ? err.message : "Unable to update preferences.");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const endBridge = async () => {
+    if (!liveSessionId.trim()) {
+      setNotice("No active phone call detected yet.");
+      return;
+    }
+    setBusy(true);
+    setNotice("");
+    try {
+      const data = await apiRequest<{ session?: BridgedCallSession }>(
+        endpoints.patientBridgedCallEnd,
+        {
+          method: "POST",
+          token,
+          role: "patient",
+          body: {
+            session_id: liveSessionId.trim(),
+            reason: "Ended by patient",
+          },
+        },
+      );
+      setSession(data.session ?? null);
+      setBridgeCaptions([]);
+      await disconnectBridgeRoom();
+      setNotice("Bridged call ended.");
+    } catch (err) {
+      setNotice(err instanceof Error ? err.message : "Unable to end bridged call.");
+    } finally {
+      setBusy(false);
+    }
+  };
+
   return (
     <View style={styles.stack}>
-      <ScreenHeading title="Call summaries" subtitle="Phone-based voice support remains the entry point while in-app calling is deferred." />
-      <PrimaryButton icon="call-outline" label="Call Zorba" onPress={() => callNumber(voicePhone)} />
-      <Section title="Recent calls">
+      <ScreenHeading
+        title="Call History Logs"
+        subtitle="Consult automated session transcripts and summaries."
+      />
+      <PrimaryButton
+        icon="call-outline"
+        label="Call Assistance Hotline"
+        onPress={() => callNumber(voicePhone)}
+      />
+
+      <Section title="Hospital interpreter">
+        <Text style={styles.cardBody}>
+          During a verified call with Zorba, request a hospital clinician with live translation. No session IDs to copy.
+        </Text>
+        <View
+          style={[
+            styles.card,
+            liveSessionId
+              ? { borderColor: "#6ee7b7", backgroundColor: "#ecfdf5" }
+              : { borderColor: "#fcd34d", backgroundColor: "#fffbeb" },
+          ]}
+        >
+          <Text style={styles.cardTitle}>
+            {liveSessionId ? "Active call detected" : "No active call yet"}
+          </Text>
+          <Text style={styles.meta}>
+            {liveSessionId
+              ? "You can request an interpreter below."
+              : "Call the hotline, complete verification, then return here."}
+          </Text>
+        </View>
+        {hospitalConsents.length === 0 ? (
+          <Text style={styles.meta}>Approve a hospital under Consents first.</Text>
+        ) : (
+          <>
+            <Text style={styles.label}>Hospital</Text>
+            <View style={styles.row}>
+              {hospitalConsents.map((item) => {
+                const id = item.hospital_id || "";
+                if (!id) return null;
+                const selected = hospitalID === id;
+                return (
+                  <Pressable
+                    key={id}
+                    onPress={() => setHospitalID(id)}
+                    style={[styles.chip, selected ? styles.chipActive : null]}
+                  >
+                    <Text
+                      style={[
+                        styles.chipText,
+                        selected ? styles.chipTextActive : null,
+                      ]}
+                    >
+                      {item.hospital_name || "Hospital"}
+                    </Text>
+                  </Pressable>
+                );
+              })}
+            </View>
+          </>
+        )}
+        <Field
+          label="Preferred clinician (optional)"
+          value={staffID}
+          onChangeText={setStaffID}
+          placeholder="Any available staff"
+        />
+        <View style={styles.row}>
+          <Pressable
+            onPress={() => setEnabled(!enabled)}
+            style={[styles.chip, enabled ? styles.chipActive : null]}
+          >
+            <Text style={[styles.chipText, enabled ? styles.chipTextActive : null]}>
+              {enabled ? "Translation On" : "Translation Off"}
+            </Text>
+          </Pressable>
+          <Pressable
+            onPress={() =>
+              setLanguageMode(languageMode === "auto" ? "manual" : "auto")
+            }
+            style={[
+              styles.chip,
+              languageMode === "auto" ? styles.chipActive : null,
+            ]}
+          >
+            <Text
+              style={[
+                styles.chipText,
+                languageMode === "auto" ? styles.chipTextActive : null,
+              ]}
+            >
+              {languageMode === "auto" ? "Auto Detect" : "Manual"}
+            </Text>
+          </Pressable>
+        </View>
+        <Field
+          label="Language you want to hear"
+          value={languageCode}
+          onChangeText={setLanguageCode}
+          placeholder="es, ne, hi…"
+        />
+        <View style={styles.row}>
+          <PrimaryButton
+            icon="git-merge-outline"
+            label={busy ? "Saving..." : "Request interpreter"}
+            onPress={() => void requestTransfer()}
+          />
+          <IconButton
+            icon="refresh-outline"
+            label="Refresh"
+            onPress={() => void refreshSession()}
+            tone="neutral"
+          />
+          <IconButton
+            icon="language-outline"
+            label="Update Prefs"
+            onPress={() => void updateTranslation()}
+            tone="neutral"
+          />
+          <IconButton
+            icon="exit-outline"
+            label="End Bridge"
+            onPress={() => void endBridge()}
+            tone="neutral"
+          />
+        </View>
+        {notice ? <Text style={styles.meta}>{notice}</Text> : null}
+        {session ? (
+          <View style={styles.card}>
+            <Text style={styles.cardTitle}>Session Status: {session.status || "pending"}</Text>
+            <Text style={styles.meta}>Hospital: {session.hospital_id || "unknown"}</Text>
+            <Text style={styles.meta}>Staff: {session.staff_id || "awaiting assignment"}</Text>
+            <Text style={styles.meta}>
+              Your translation: {session.patient_translation?.enabled ? "enabled" : "disabled"} / {session.patient_translation?.language_mode || "auto"} / {session.patient_translation?.language_code || "default"}
+            </Text>
+            <Text style={styles.meta}>
+              Companion captions: {bridgeRoomState}
+            </Text>
+            <Text style={styles.meta}>
+              Interpreter mode: {session.status === "connected" ? "live" : "waiting for clinician"}
+            </Text>
+          </View>
+        ) : null}
+        {bridgeRoomState !== "disconnected" || bridgeCaptions.length > 0 ? (
+          <View style={styles.card}>
+            <Text style={styles.cardTitle}>Live Interpreter Captions</Text>
+            <Text style={styles.meta}>
+              Audio continues on the phone call. This screen mirrors interpreter captions only.
+            </Text>
+            {bridgeCaptions.length === 0 ? (
+              <Text style={styles.meta}>Waiting for the patient or clinician to speak...</Text>
+            ) : (
+              bridgeCaptions.map((caption, index) => (
+                <View key={`${caption.participant || "caption"}-${index}`} style={styles.subCard}>
+                  <Text style={styles.badge}>{bridgeCaptionLabel(caption.participant)}</Text>
+                  <Text style={styles.cardBody}>
+                    {caption.translated_text || caption.original_text || "..."}
+                  </Text>
+                  {!caption.passthrough &&
+                  caption.original_text &&
+                  caption.original_text !== caption.translated_text ? (
+                    <Text style={styles.meta}>{caption.original_text}</Text>
+                  ) : null}
+                </View>
+              ))
+            )}
+          </View>
+        ) : null}
+      </Section>
+
+      <Section title="Call Logs">
         {calls.map((call) => (
           <CallRow key={String(call.id)} call={call} />
         ))}
-        {calls.length === 0 ? <EmptyText text="No call summaries have been returned by the backend." /> : null}
+        {calls.length === 0 ? (
+          <EmptyText text="No clinical calls archived." />
+        ) : null}
       </Section>
     </View>
   );
 }
 
-function LocationSharing({ token, enabled }: { token: string; enabled: boolean }) {
-  const [status, setStatus] = useState(enabled ? "Waiting for a voice session." : "Enable emergency location consent first.");
+function LocationSharing({
+  token,
+  enabled,
+}: {
+  token: string;
+  enabled: boolean;
+}) {
+  const [status, setStatus] = useState(
+    enabled
+      ? "Waiting for voice session request."
+      : "Grant emergency location consent first.",
+  );
   const [connected, setConnected] = useState(false);
   const [activeSession, setActiveSession] = useState("");
   const wsRef = useRef<WebSocket | null>(null);
   const subscriptionRef = useRef<Location.LocationSubscription | null>(null);
+  const reconnectRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const activeSessionRef = useRef("");
 
-  const stopWatch = useCallback(() => {
+  const stopWatch = useCallback((clearSession = true) => {
     subscriptionRef.current?.remove();
     subscriptionRef.current = null;
-    setActiveSession("");
+    if (clearSession) {
+      activeSessionRef.current = "";
+      setActiveSession("");
+    }
   }, []);
 
-  useEffect(() => {
-    if (!enabled) {
-      stopWatch();
-      wsRef.current?.close();
-      setConnected(false);
-      setStatus("Enable emergency location consent first.");
-      return;
-    }
+  const startLocationStream = useCallback(
+    async (sessionID: string, ws: WebSocket) => {
+      activeSessionRef.current = sessionID;
+      setActiveSession(sessionID);
 
-    const wsURL = `${LOCATION_WS_URL.replace(/\/$/, "")}/ws/location?token=${encodeURIComponent(token)}`;
-    const ws = new WebSocket(wsURL);
-    wsRef.current = ws;
-    ws.onopen = () => {
-      setConnected(true);
-      setStatus("Connected. GPS starts only when a voice session asks for it.");
-    };
-    ws.onclose = () => {
-      setConnected(false);
-      stopWatch();
-      setStatus("Location channel closed.");
-    };
-    ws.onerror = () => {
-      setStatus("Location channel error.");
-    };
-    ws.onmessage = async (event) => {
-      const command = parseLocationCommand(event.data);
-      if (!command) return;
-      if (command.command === "stop_location") {
-        stopWatch();
-        setStatus("Location sharing stopped.");
+      const permission = await Location.requestForegroundPermissionsAsync();
+      if (permission.status !== "granted") {
+        setStatus("GPS hardware access denied.");
         return;
       }
-      if (command.command === "start_location" && command.sessionID) {
-        setActiveSession(command.sessionID);
-        const permission = await Location.requestForegroundPermissionsAsync();
-        if (permission.status !== "granted") {
-          setStatus("Location permission was not granted.");
-          return;
-        }
-        stopWatch();
+
+      stopWatch(false);
+
+      const sendPosition = (position: Location.LocationObject) => {
+        if (ws.readyState !== WebSocket.OPEN) return;
+        ws.send(
+          JSON.stringify({
+            type: "location_update",
+            sessionID,
+            lat: position.coords.latitude,
+            lng: position.coords.longitude,
+            accuracy: position.coords.accuracy ?? 0,
+            method: "gps",
+          }),
+        );
+      };
+
+      try {
+        const current = await Location.getCurrentPositionAsync({
+          accuracy: Location.Accuracy.High,
+        });
+        sendPosition(current);
+
         subscriptionRef.current = await Location.watchPositionAsync(
           {
             accuracy: Location.Accuracy.High,
             timeInterval: 5000,
-            distanceInterval: 10
+            distanceInterval: 10,
           },
-          (position) => {
-            if (ws.readyState === WebSocket.OPEN) {
-              ws.send(
-                JSON.stringify({
-                  type: "location_update",
-                  sessionID: command.sessionID,
-                  lat: position.coords.latitude,
-                  lng: position.coords.longitude,
-                  accuracy: position.coords.accuracy ?? 0,
-                  method: "gps"
-                })
-              );
-            }
-          }
+          sendPosition,
         );
-        setStatus("Sharing live GPS for the active voice session.");
+        setStatus("Broadcasting safety GPS location stream.");
+      } catch {
+        setStatus("Could not read GPS location. Try again from the GPS tab.");
+      }
+    },
+    [stopWatch],
+  );
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const clearReconnect = () => {
+      if (reconnectRef.current) {
+        clearTimeout(reconnectRef.current);
+        reconnectRef.current = null;
       }
     };
 
-    return () => {
+    if (!enabled) {
+      clearReconnect();
       stopWatch();
-      ws.close();
+      wsRef.current?.close();
+      setConnected(false);
+      setStatus("Grant emergency location consent first.");
+      return;
+    }
+
+    const connect = () => {
+      clearReconnect();
+      const wsURL = locationWSURLWithToken(token);
+      setStatus(`Connecting GPS channel to ${locationWSDisplayName()}...`);
+      const ws = new WebSocket(wsURL);
+      wsRef.current = ws;
+      ws.onopen = () => {
+        setConnected(true);
+        const activeSessionID = activeSessionRef.current;
+        if (activeSessionID) {
+          void startLocationStream(activeSessionID, ws);
+        } else {
+          setStatus(
+            "GPS is idle. Location coordinates route only when dispatch asks.",
+          );
+        }
+      };
+      ws.onclose = () => {
+        setConnected(false);
+        stopWatch(false);
+        if (!cancelled) {
+          setStatus(`GPS channel offline. Retrying ${locationWSDisplayName()}...`);
+          reconnectRef.current = setTimeout(connect, LOCATION_WS_RECONNECT_MS);
+        }
+      };
+      ws.onerror = () => {
+        setStatus(
+          `GPS channel error. Check EXPO_PUBLIC_LOCATION_WS_URL (${LOCATION_WS_URL}).`,
+        );
+      };
+      ws.onmessage = async (event) => {
+        const command = parseLocationCommand(event.data);
+        if (!command) return;
+        if (command.command === "stop_location") {
+          stopWatch();
+          setStatus("Location dispatch stopped.");
+          return;
+        }
+        if (command.command === "start_location" && command.sessionID) {
+          await startLocationStream(command.sessionID, ws);
+        }
+      };
     };
-  }, [enabled, stopWatch, token]);
+
+    connect();
+
+    return () => {
+      cancelled = true;
+      clearReconnect();
+      stopWatch();
+      wsRef.current?.close();
+    };
+  }, [enabled, startLocationStream, stopWatch, token]);
 
   return (
     <View style={styles.stack}>
-      <ScreenHeading title="Emergency location" subtitle="The websocket is kept ready, but coordinates are sent only after the backend starts an emergency voice session." />
+      <ScreenHeading
+        title="Safety GPS Channel"
+        subtitle="WS connection stands ready for location tracing during emergency calls."
+      />
       <View style={styles.card}>
         <View style={styles.rowBetween}>
-          <View>
-            <Text style={styles.cardTitle}>{connected ? "Connected" : "Disconnected"}</Text>
+          <View style={styles.flex}>
+            <Text style={styles.cardTitle}>
+              {connected ? "Connection Secure" : "Channel Offline"}
+            </Text>
             <Text style={styles.cardBody}>{status}</Text>
           </View>
-          <Ionicons name={connected ? "radio-outline" : "radio-button-off-outline"} size={28} color={connected ? "#047857" : "#64748b"} />
+          <Ionicons
+            name={connected ? "radio-outline" : "radio-button-off-outline"}
+            size={26}
+            color={connected ? "#059669" : "#64748b"}
+          />
         </View>
-        <Text style={styles.meta}>Active session: {activeSession || "none"}</Text>
+        <Text style={styles.meta}>
+          Session ID Ref: {activeSession || "None active"}
+        </Text>
       </View>
     </View>
   );
 }
 
-function HospitalPortal({ token, onSignOut }: { token: string; onSignOut: () => void }) {
-  const [tab, setTab] = useState<HospitalTab>("summary");
+function PatientMeetings({
+  token,
+  meetings,
+  setMeetings,
+  schedulableStaff,
+  hospitalConsents,
+  showScheduleForm,
+  setShowScheduleForm,
+  scheduleStaffID,
+  setScheduleStaffID,
+  scheduleHospitalID,
+  setScheduleHospitalID,
+  scheduleStartsAt,
+  setScheduleStartsAt,
+  scheduleDuration,
+  setScheduleDuration,
+  scheduleTimezone,
+  setScheduleTimezone,
+  scheduleTitle,
+  setScheduleTitle,
+  scheduleNotes,
+  setScheduleNotes,
+  submittingSchedule,
+  mutatingMeetingID,
+  onSchedule,
+  onCancel,
+  onLoadSchedulableStaff,
+  onRefresh,
+}: {
+  token: string;
+  meetings: HospitalMeeting[];
+  setMeetings: React.Dispatch<React.SetStateAction<HospitalMeeting[]>>;
+  schedulableStaff: PatientSchedulableStaffMember[];
+  hospitalConsents: PatientHospitalConsent[];
+  showScheduleForm: boolean;
+  setShowScheduleForm: (v: boolean) => void;
+  scheduleStaffID: string;
+  setScheduleStaffID: (v: string) => void;
+  scheduleHospitalID: string;
+  setScheduleHospitalID: (v: string) => void;
+  scheduleStartsAt: string;
+  setScheduleStartsAt: (v: string) => void;
+  scheduleDuration: string;
+  setScheduleDuration: (v: string) => void;
+  scheduleTimezone: string;
+  setScheduleTimezone: (v: string) => void;
+  scheduleTitle: string;
+  setScheduleTitle: (v: string) => void;
+  scheduleNotes: string;
+  setScheduleNotes: (v: string) => void;
+  submittingSchedule: boolean;
+  mutatingMeetingID: string;
+  onSchedule: () => void;
+  onCancel: (id: string) => void;
+  onLoadSchedulableStaff: (hospitalID: string) => void;
+  onRefresh: () => void;
+}) {
+  const [error, setError] = useState("");
+  const activeConsents = useMemo(
+    () => hospitalConsents.filter((hc) => !hc.revoked_at),
+    [hospitalConsents],
+  );
+
+  return (
+    <View style={styles.stack}>
+      <ScreenHeading
+        title="My Meetings"
+        subtitle="Schedule video visits with hospital staff."
+      />
+      <View style={{ flexDirection: "row", gap: 8, flexWrap: "wrap" }}>
+        <IconButton
+          icon={showScheduleForm ? "close-outline" : "add-outline"}
+          label={showScheduleForm ? "Back to List" : "Schedule New"}
+          onPress={() => {
+            if (!showScheduleForm && activeConsents.length > 0) {
+              const first = activeConsents[0];
+              setScheduleHospitalID(first.hospital_id || "");
+              onLoadSchedulableStaff(first.hospital_id || "");
+            }
+            setShowScheduleForm(!showScheduleForm);
+          }}
+          tone="accent"
+        />
+        <IconButton
+          icon="refresh-outline"
+          label="Refresh"
+          onPress={onRefresh}
+          tone="neutral"
+        />
+      </View>
+      <Feedback error={error} />
+
+      {showScheduleForm ? (
+        <View style={styles.card}>
+          <Text style={styles.sectionTitle}>Schedule New Meeting</Text>
+          {activeConsents.length > 0 ? (
+            <View style={{ gap: 4, marginBottom: 8 }}>
+              <Text style={styles.label}>Hospital</Text>
+              {activeConsents.map((hc) => {
+                const selected = scheduleHospitalID === hc.hospital_id;
+                return (
+                  <Pressable
+                    key={hc.hospital_id}
+                    onPress={() => {
+                      setScheduleHospitalID(hc.hospital_id || "");
+                      onLoadSchedulableStaff(hc.hospital_id || "");
+                    }}
+                    style={[
+                      styles.card,
+                      selected && {
+                        borderColor: "#4f46e5",
+                        borderWidth: 2,
+                      },
+                    ]}
+                  >
+                    <Text style={styles.cardTitle}>{hc.hospital_name || hc.hospital_id}</Text>
+                    <Text style={styles.meta}>{hc.status || "active"}</Text>
+                  </Pressable>
+                );
+              })}
+            </View>
+          ) : (
+            <Field
+              label="Hospital ID"
+              value={scheduleHospitalID}
+              onChangeText={(value) => {
+                setScheduleHospitalID(value);
+                onLoadSchedulableStaff(value);
+              }}
+              placeholder="Hospital ID"
+            />
+          )}
+          {schedulableStaff.length > 0 ? (
+            <View style={{ gap: 4, marginBottom: 8 }}>
+              <Text style={styles.label}>Available Staff</Text>
+              {schedulableStaff.map((staff) => {
+                const selected = scheduleStaffID === staff.staff_id;
+                return (
+                  <Pressable
+                    key={staff.staff_id}
+                    onPress={() => setScheduleStaffID(staff.staff_id)}
+                    style={[
+                      styles.card,
+                      selected && {
+                        borderColor: "#4f46e5",
+                        borderWidth: 2,
+                      },
+                    ]}
+                  >
+                    <Text style={styles.cardTitle}>{staff.name || staff.staff_id}</Text>
+                    <Text style={styles.meta}>
+                      {staff.role || "staff"} • {staff.email}
+                    </Text>
+                  </Pressable>
+                );
+              })}
+            </View>
+          ) : scheduleHospitalID ? (
+            <Text style={styles.muted}>No staff available for this hospital.</Text>
+          ) : null}
+          <Field
+            label="Date & Time"
+            value={scheduleStartsAt}
+            onChangeText={setScheduleStartsAt}
+            placeholder="e.g. 2026-06-10T14:00"
+          />
+          <Field
+            label="Duration (minutes)"
+            value={scheduleDuration}
+            onChangeText={setScheduleDuration}
+            placeholder="30"
+            keyboardType="number-pad"
+          />
+          <Field
+            label="Timezone"
+            value={scheduleTimezone}
+            onChangeText={setScheduleTimezone}
+            placeholder="UTC"
+          />
+          <Field
+            label="Title"
+            value={scheduleTitle}
+            onChangeText={setScheduleTitle}
+            placeholder="Zorba Health video visit"
+          />
+          <Field
+            label="Notes"
+            value={scheduleNotes}
+            onChangeText={setScheduleNotes}
+            placeholder="Optional notes"
+            multiline
+          />
+          <PrimaryButton
+            icon="calendar-outline"
+            label={submittingSchedule ? "Scheduling..." : "Schedule Meeting"}
+            onPress={onSchedule}
+            disabled={submittingSchedule}
+          />
+        </View>
+      ) : null}
+
+      {!showScheduleForm && meetings.length === 0 ? (
+        <EmptyText text="No meetings scheduled." />
+      ) : null}
+
+      {!showScheduleForm
+        ? meetings.map((meeting) => {
+            const cancelled = meeting.status === "cancelled";
+            return (
+              <View key={meeting.id} style={styles.card}>
+                <View style={styles.rowBetween}>
+                  <View style={styles.flex}>
+                    <Text style={styles.cardTitle}>
+                      {meeting.title || "Zorba Health video visit"}
+                    </Text>
+                    <Text style={styles.cardBody}>
+                      Staff Ref: {meeting.staff_id || "Unassigned"}
+                    </Text>
+                    <Text style={styles.meta}>
+                      {formatTime(meeting.starts_at)} • {meeting.duration_minutes || 30} min
+                    </Text>
+                  </View>
+                  <Text style={[styles.badge, cancelled ? styles.badgeWarn : null]}>
+                    {meeting.status || "pending"}
+                  </Text>
+                </View>
+                <View style={styles.inlineActions}>
+                  {meeting.join_url && !cancelled ? (
+                    <IconButton
+                      icon="videocam-outline"
+                      label="Join"
+                      onPress={() => Linking.openURL(meeting.join_url as string)}
+                      tone="accent"
+                    />
+                  ) : null}
+                  {!cancelled ? (
+                    <IconButton
+                      icon="close-outline"
+                      label={
+                        mutatingMeetingID === meeting.id ? "Cancelling" : "Cancel"
+                      }
+                      onPress={() => onCancel(meeting.id)}
+                      tone="neutral"
+                    />
+                  ) : null}
+                </View>
+              </View>
+            );
+          })
+        : null}
+    </View>
+  );
+}
+
+function HospitalPortal({
+  token,
+  onSignOut,
+}: {
+  token: string;
+  onSignOut: () => void;
+}) {
+  const [tab, setTab] = useState<HospitalTab>("home");
+  const [patients, setPatients] = useState<HospitalPatient[]>([]);
+  const [patientLookup, setPatientLookup] = useState("");
   const [incidents, setIncidents] = useState<Incident[]>([]);
+  const [meetings, setMeetings] = useState<HospitalMeeting[]>([]);
+  const [consentRequests, setConsentRequests] = useState<HospitalConsentRequest[]>([]);
   const [loadingIncidents, setLoadingIncidents] = useState(false);
+  const [loadingPatients, setLoadingPatients] = useState(false);
+  const [loadingMeetings, setLoadingMeetings] = useState(false);
+  const [loadingConsentRequests, setLoadingConsentRequests] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
+  const [summaryRefreshSignal, setSummaryRefreshSignal] = useState(0);
+  const [auditRefreshSignal, setAuditRefreshSignal] = useState(0);
+  const [showHospitalSchedule, setShowHospitalSchedule] = useState(false);
+  const [hospSchedulePatientID, setHospSchedulePatientID] = useState("");
+  const [hospScheduleStartsAt, setHospScheduleStartsAt] = useState("");
+  const [hospScheduleDuration, setHospScheduleDuration] = useState("30");
+  const [hospScheduleTimezone, setHospScheduleTimezone] = useState(
+    Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC",
+  );
+  const [hospScheduleTitle, setHospScheduleTitle] = useState("");
+  const [hospScheduleNotes, setHospScheduleNotes] = useState("");
+  const [submittingHospSchedule, setSubmittingHospSchedule] = useState(false);
+
+  const loadPatients = useCallback(
+    async (query = "") => {
+      setLoadingPatients(true);
+      try {
+        const suffix = query.trim()
+          ? `?query=${encodeURIComponent(query.trim())}`
+          : "";
+        const data = await apiRequest<{ patients?: HospitalPatient[] }>(
+          `${endpoints.hospitalPatients}${suffix}`,
+          { token, role: "hospital" },
+        );
+        setPatients(data.patients ?? []);
+      } catch (err) {
+        if (err instanceof Error && err.message.toLowerCase().includes("token"))
+          onSignOut();
+      } finally {
+        setLoadingPatients(false);
+      }
+    },
+    [onSignOut, token],
+  );
 
   const loadIncidents = useCallback(async () => {
     setLoadingIncidents(true);
     try {
-      const data = await apiRequest<{ incidents?: Incident[] }>(endpoints.hospitalIncidents, { token });
+      const data = await apiRequest<{ incidents?: Incident[] }>(
+        endpoints.hospitalIncidents,
+        { token },
+      );
       setIncidents(data.incidents ?? []);
     } catch (err) {
-      if (err instanceof Error && err.message.toLowerCase().includes("token")) onSignOut();
+      if (err instanceof Error && err.message.toLowerCase().includes("token"))
+        onSignOut();
     } finally {
       setLoadingIncidents(false);
     }
   }, [onSignOut, token]);
 
+  const loadMeetings = useCallback(async () => {
+    setLoadingMeetings(true);
+    try {
+      const data = await apiRequest<{ meetings?: HospitalMeeting[] }>(
+        endpoints.hospitalMeetings,
+        { token, role: "hospital" },
+      );
+      setMeetings(data.meetings ?? []);
+    } catch (err) {
+      if (err instanceof Error && err.message.toLowerCase().includes("token"))
+        onSignOut();
+    } finally {
+      setLoadingMeetings(false);
+    }
+  }, [onSignOut, token]);
+
+  const loadConsentRequests = useCallback(async () => {
+    setLoadingConsentRequests(true);
+    try {
+      const data = await apiRequest<{ requests?: HospitalConsentRequest[] }>(
+        endpoints.hospitalConsentRequests,
+        { token, role: "hospital" },
+      );
+      setConsentRequests(data.requests ?? []);
+    } catch (err) {
+      if (err instanceof Error && err.message.toLowerCase().includes("token"))
+        onSignOut();
+    } finally {
+      setLoadingConsentRequests(false);
+    }
+  }, [onSignOut, token]);
+
+  const handleHospitalSchedule = async () => {
+    setSubmittingHospSchedule(true);
+    try {
+      const data = await apiRequest<{ meeting?: HospitalMeeting }>(
+        endpoints.hospitalMeetings,
+        {
+          method: "POST",
+          token,
+          role: "hospital",
+          body: {
+            patient_id: hospSchedulePatientID.trim(),
+            starts_at: new Date(hospScheduleStartsAt).toISOString(),
+            duration_minutes: Number(hospScheduleDuration) || 30,
+            timezone: hospScheduleTimezone,
+            title: hospScheduleTitle || undefined,
+            notes: hospScheduleNotes || undefined,
+          },
+        },
+      );
+      if (data.meeting) setMeetings((prev) => [data.meeting!, ...prev]);
+      setShowHospitalSchedule(false);
+      setHospSchedulePatientID("");
+      setHospScheduleStartsAt("");
+      setHospScheduleTitle("");
+      setHospScheduleNotes("");
+    } catch (err) {
+      Alert.alert("Schedule failed", err instanceof Error ? err.message : "Unknown error");
+    } finally {
+      setSubmittingHospSchedule(false);
+    }
+  };
+
   useEffect(() => {
+    void loadPatients();
     void loadIncidents();
-  }, [loadIncidents]);
+    void loadMeetings();
+    void loadConsentRequests();
+  }, [loadConsentRequests, loadIncidents, loadMeetings, loadPatients]);
+
+  const completeRefresh = useCallback(() => {
+    setRefreshing(false);
+  }, []);
+
+  const refreshCurrentTab = useCallback(() => {
+    setRefreshing(true);
+    if (tab === "incidents") {
+      void loadIncidents().finally(completeRefresh);
+      return;
+    }
+    if (tab === "home") {
+      void loadPatients().finally(completeRefresh);
+      return;
+    }
+    if (tab === "meetings") {
+      void loadMeetings().finally(completeRefresh);
+      return;
+    }
+    if (tab === "consent") {
+      void loadConsentRequests().finally(completeRefresh);
+      return;
+    }
+    if (tab === "summary") {
+      setSummaryRefreshSignal((current) => current + 1);
+      return;
+    }
+    if (tab === "audit") {
+      setAuditRefreshSignal((current) => current + 1);
+      return;
+    }
+    setRefreshing(false);
+  }, [completeRefresh, loadConsentRequests, loadIncidents, loadMeetings, loadPatients, tab]);
 
   return (
     <View style={styles.portal}>
@@ -833,66 +2886,736 @@ function HospitalPortal({ token, onSignOut }: { token: string; onSignOut: () => 
         value={tab}
         onChange={(value) => setTab(value as HospitalTab)}
         options={[
-          { value: "summary", label: "Summary", icon: "medkit-outline" },
-          { value: "incidents", label: "Incidents", icon: "alert-circle-outline" },
-          { value: "audit", label: "Audit", icon: "reader-outline" }
+          { value: "home", label: "Home", icon: "home-outline" },
+          { value: "summary", label: "Summarize", icon: "medkit-outline" },
+          { value: "meetings", label: "Meetings", icon: "calendar-outline" },
+          { value: "staff", label: "Staff", icon: "person-add-outline" },
+          { value: "consent", label: "Consent", icon: "qr-code-outline" },
+          {
+            value: "incidents",
+            label: "Alerts Inbox",
+            icon: "alert-circle-outline",
+          },
+          { value: "audit", label: "Audit Search", icon: "reader-outline" },
         ]}
       />
-      <ScrollView contentContainerStyle={styles.content}>
-        {tab === "summary" ? <HospitalSummary token={token} /> : null}
-        {tab === "incidents" ? <IncidentList incidents={incidents} loading={loadingIncidents} onRefresh={loadIncidents} /> : null}
-        {tab === "audit" ? <HospitalAudit token={token} /> : null}
+      <ScrollView
+        contentContainerStyle={styles.content}
+        showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={refreshCurrentTab}
+            tintColor="#4f46e5"
+            colors={["#4f46e5"]}
+          />
+        }
+      >
+        {tab === "home" ? (
+          <HospitalHome
+            patients={patients}
+            loading={loadingPatients}
+            onSearch={loadPatients}
+            onSummary={(lookup) => {
+              setPatientLookup(lookup);
+              setTab("summary");
+            }}
+            onAudit={(lookup) => {
+              setPatientLookup(lookup);
+              setTab("audit");
+            }}
+          />
+        ) : null}
+        {tab === "summary" ? (
+          <HospitalSummary
+            token={token}
+            initialLookup={patientLookup}
+            refreshSignal={summaryRefreshSignal}
+            onRefreshComplete={completeRefresh}
+          />
+        ) : null}
+        {tab === "incidents" ? (
+          <IncidentList
+            incidents={incidents}
+            loading={loadingIncidents}
+            onRefresh={loadIncidents}
+          />
+        ) : null}
+        {tab === "meetings" ? (
+          <HospitalMeetings
+            token={token}
+            meetings={meetings}
+            loading={loadingMeetings}
+            setMeetings={setMeetings}
+            onRefresh={loadMeetings}
+            showScheduleForm={showHospitalSchedule}
+            setShowScheduleForm={setShowHospitalSchedule}
+            schedulePatientID={hospSchedulePatientID}
+            setSchedulePatientID={setHospSchedulePatientID}
+            scheduleStartsAt={hospScheduleStartsAt}
+            setScheduleStartsAt={setHospScheduleStartsAt}
+            scheduleDuration={hospScheduleDuration}
+            setScheduleDuration={setHospScheduleDuration}
+            scheduleTimezone={hospScheduleTimezone}
+            setScheduleTimezone={setHospScheduleTimezone}
+            scheduleTitle={hospScheduleTitle}
+            setScheduleTitle={setHospScheduleTitle}
+            scheduleNotes={hospScheduleNotes}
+            setScheduleNotes={setHospScheduleNotes}
+            submittingSchedule={submittingHospSchedule}
+            onSchedule={handleHospitalSchedule}
+          />
+        ) : null}
+        {tab === "staff" ? <HospitalStaffRegistration token={token} /> : null}
+        {tab === "consent" ? (
+          <HospitalConsentRequests
+            token={token}
+            requests={consentRequests}
+            loading={loadingConsentRequests}
+            setRequests={setConsentRequests}
+            onRefresh={loadConsentRequests}
+          />
+        ) : null}
+        {tab === "audit" ? (
+          <HospitalAudit
+            token={token}
+            initialLookup={patientLookup}
+            refreshSignal={auditRefreshSignal}
+            onRefreshComplete={completeRefresh}
+          />
+        ) : null}
       </ScrollView>
     </View>
   );
 }
 
-function HospitalSummary({ token }: { token: string }) {
-  const [patientID, setPatientID] = useState("");
+function HospitalHome({
+  patients,
+  loading,
+  onSearch,
+  onSummary,
+  onAudit,
+}: {
+  patients: HospitalPatient[];
+  loading: boolean;
+  onSearch: (query?: string) => void;
+  onSummary: (lookup: string) => void;
+  onAudit: (lookup: string) => void;
+}) {
+  const [query, setQuery] = useState("");
+
+  return (
+    <View style={styles.stack}>
+      <ScreenHeading
+        title="Consented Patients"
+        subtitle="Patients with active consent for this hospital."
+      />
+      <Field
+        label="Patient Lookup"
+        value={query}
+        onChangeText={setQuery}
+        autoCapitalize="none"
+        placeholder="Name, email, or patient ID"
+      />
+      <View style={styles.inlineActions}>
+        <IconButton
+          icon="search-outline"
+          label={loading ? "Searching..." : "Search"}
+          onPress={() => onSearch(query)}
+          tone="accent"
+        />
+        <IconButton
+          icon="refresh-outline"
+          label="All patients"
+          onPress={() => {
+            setQuery("");
+            onSearch("");
+          }}
+          tone="neutral"
+        />
+      </View>
+      {patients.map((patient) => {
+        const lookup = patient.patient_id || patient.email || patient.full_name || "";
+        return (
+          <View key={lookup} style={styles.card}>
+            <View style={styles.rowBetween}>
+              <View style={styles.flex}>
+                <Text style={styles.cardTitle}>
+                  {patient.full_name || "Unnamed patient"}
+                </Text>
+                <Text style={styles.cardBody}>
+                  {patient.email || "No email on file"}
+                </Text>
+              </View>
+              <Text style={styles.badge}>Active</Text>
+            </View>
+            <Text style={styles.meta}>ID: {patient.patient_id || "Unknown"}</Text>
+            <Text style={styles.meta}>
+              Consent: {formatTime(patient.consent_granted_at)}
+            </Text>
+            <Text style={styles.meta}>
+              Last call: {patient.last_call_at ? formatTime(patient.last_call_at) : "No calls yet"}
+            </Text>
+            <View style={styles.inlineActions}>
+              <IconButton
+                icon="sparkles-outline"
+                label="Summary"
+                onPress={() => onSummary(lookup)}
+                tone="accent"
+              />
+              <IconButton
+                icon="reader-outline"
+                label="Audit"
+                onPress={() => onAudit(lookup)}
+                tone="neutral"
+              />
+            </View>
+          </View>
+        );
+      })}
+      {patients.length === 0 ? (
+        <EmptyText
+          text={loading ? "Loading consented patients..." : "No active hospital consents matched."}
+        />
+      ) : null}
+    </View>
+  );
+}
+
+function HospitalSummary({
+  token,
+  initialLookup = "",
+  refreshSignal = 0,
+  onRefreshComplete,
+}: {
+  token: string;
+  initialLookup?: string;
+  refreshSignal?: number;
+  onRefreshComplete?: () => void;
+}) {
+  const [patientID, setPatientID] = useState(initialLookup);
   const [focus, setFocus] = useState("full");
   const [summary, setSummary] = useState("");
   const [audit, setAudit] = useState<AuditEvent[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
-  const generate = async () => {
+  useEffect(() => {
+    setPatientID(initialLookup);
+  }, [initialLookup]);
+
+  const generate = useCallback(async () => {
     if (!patientID.trim()) return;
     setLoading(true);
     setError("");
     setSummary("");
     setAudit([]);
     try {
-      const data = await apiRequest<{ summary?: string }>(endpoints.hospitalSummary, {
-        method: "POST",
-        token,
-        body: { patient_id: patientID.trim(), focus }
-      });
+      const data = await apiRequest<{ patient_id?: string; summary?: string }>(
+        endpoints.hospitalSummary,
+        {
+          method: "POST",
+          token,
+          body: { patient_id: patientID.trim(), focus },
+        },
+      );
+      if (data.patient_id) setPatientID(data.patient_id);
       setSummary(data.summary ?? "No summary returned.");
       const auditData = await apiRequest<{ events?: AuditEvent[] }>(
-        `${endpoints.hospitalPatientAudit}?patient_id=${encodeURIComponent(patientID.trim())}`,
-        { token }
+        `${endpoints.hospitalPatientAudit}?patient_id=${encodeURIComponent(data.patient_id || patientID.trim())}`,
+        { token },
       );
       setAudit(auditData.events ?? []);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Unable to summarize patient records.");
+      setError(
+        err instanceof Error
+          ? err.message
+          : "Unable to summarize patient records.",
+      );
     } finally {
       setLoading(false);
+    }
+  }, [focus, patientID, token]);
+
+  useEffect(() => {
+    if (!refreshSignal) return;
+    void generate().finally(onRefreshComplete);
+  }, [generate, onRefreshComplete, refreshSignal]);
+
+  return (
+    <View style={styles.stack}>
+      <ScreenHeading
+        title="Record Summarizer"
+        subtitle="Generate clinical record translations based on compliant database traces."
+      />
+      <Field
+        label="Target Patient"
+        value={patientID}
+        onChangeText={setPatientID}
+        autoCapitalize="none"
+        placeholder="Name, email, or patient ID"
+      />
+      <Text style={styles.label}>Focus Area Select</Text>
+      <Segmented
+        value={focus}
+        options={focusOptions.map((value) => ({ value, label: value }))}
+        onChange={setFocus}
+      />
+      <PrimaryButton
+        icon="sparkles-outline"
+        label={loading ? "Compiling..." : "Generate Summary"}
+        disabled={loading}
+        onPress={generate}
+      />
+      <Feedback error={error} />
+
+      {summary ? (
+        <Section title="Generated Summary Document">
+          <View style={styles.card}>
+            <Text style={styles.bodyText}>{summary}</Text>
+          </View>
+        </Section>
+      ) : null}
+
+      {audit.length > 0 ? (
+        <Section title="Patient Audit Access Ledger">
+          <AuditList events={audit} compact />
+        </Section>
+      ) : null}
+    </View>
+  );
+}
+
+function HospitalMeetings({
+  token,
+  meetings,
+  loading,
+  setMeetings,
+  onRefresh,
+  showScheduleForm,
+  setShowScheduleForm,
+  schedulePatientID,
+  setSchedulePatientID,
+  scheduleStartsAt,
+  setScheduleStartsAt,
+  scheduleDuration,
+  setScheduleDuration,
+  scheduleTimezone,
+  setScheduleTimezone,
+  scheduleTitle,
+  setScheduleTitle,
+  scheduleNotes,
+  setScheduleNotes,
+  submittingSchedule,
+  onSchedule,
+}: {
+  token: string;
+  meetings: HospitalMeeting[];
+  loading: boolean;
+  setMeetings: React.Dispatch<React.SetStateAction<HospitalMeeting[]>>;
+  onRefresh: () => void;
+  showScheduleForm?: boolean;
+  setShowScheduleForm?: (v: boolean) => void;
+  schedulePatientID?: string;
+  setSchedulePatientID?: (v: string) => void;
+  scheduleStartsAt?: string;
+  setScheduleStartsAt?: (v: string) => void;
+  scheduleDuration?: string;
+  setScheduleDuration?: (v: string) => void;
+  scheduleTimezone?: string;
+  setScheduleTimezone?: (v: string) => void;
+  scheduleTitle?: string;
+  setScheduleTitle?: (v: string) => void;
+  scheduleNotes?: string;
+  setScheduleNotes?: (v: string) => void;
+  submittingSchedule?: boolean;
+  onSchedule?: () => void;
+}) {
+  const [mutating, setMutating] = useState("");
+  const [error, setError] = useState("");
+
+  const mergeMeeting = (meeting?: HospitalMeeting) => {
+    if (!meeting?.id) return;
+    setMeetings((current) =>
+      current.some((item) => item.id === meeting.id)
+        ? current.map((item) => (item.id === meeting.id ? meeting : item))
+        : [meeting, ...current],
+    );
+  };
+
+  const mutate = async (meeting: HospitalMeeting, action: "accept" | "cancel") => {
+    if (!meeting.id) return;
+    setMutating(meeting.id);
+    setError("");
+    try {
+      const path =
+        action === "accept"
+          ? `${endpoints.hospitalMeetings}/${encodeURIComponent(meeting.id)}/accept`
+          : `${endpoints.hospitalMeetings}/${encodeURIComponent(meeting.id)}`;
+      const data = await apiRequest<{ meeting?: HospitalMeeting }>(path, {
+        method: action === "accept" ? "POST" : "DELETE",
+        token,
+        role: "hospital",
+        body:
+          action === "cancel"
+            ? { reason: "Cancelled from mobile hospital console" }
+            : undefined,
+      });
+      mergeMeeting(data.meeting);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Meeting update failed.");
+    } finally {
+      setMutating("");
     }
   };
 
   return (
     <View style={styles.stack}>
-      <ScreenHeading title="Patient record summary" subtitle="Generate staff-facing summaries using the backend record summarizer." />
-      <Field label="Patient ID" value={patientID} onChangeText={setPatientID} autoCapitalize="none" />
-      <Segmented value={focus} options={focusOptions.map((value) => ({ value, label: value }))} onChange={setFocus} />
-      <PrimaryButton icon="sparkles-outline" label={loading ? "Generating..." : "Generate summary"} disabled={loading} onPress={generate} />
+      <ScreenHeading
+        title="Visit Requests"
+        subtitle="Review patient scheduling requests and accept or cancel from mobile."
+      />
+      <View style={{ flexDirection: "row", gap: 8, flexWrap: "wrap" }}>
+        <IconButton
+          icon={showScheduleForm ? "close-outline" : "add-outline"}
+          label={showScheduleForm ? "Back to List" : "Schedule New"}
+          onPress={() => setShowScheduleForm?.(!showScheduleForm)}
+          tone="accent"
+        />
+        <IconButton
+          icon="refresh-outline"
+          label={loading ? "Refreshing..." : "Refresh"}
+          onPress={onRefresh}
+          tone="neutral"
+        />
+      </View>
       <Feedback error={error} />
-      {summary ? (
-        <Section title="Summary">
-          <Text style={styles.bodyText}>{summary}</Text>
-        </Section>
+
+      {showScheduleForm && onSchedule ? (
+        <View style={styles.card}>
+          <Text style={styles.sectionTitle}>Schedule New Meeting</Text>
+          <Field
+            label="Patient ID"
+            value={schedulePatientID || ""}
+            onChangeText={(v) => setSchedulePatientID?.(v)}
+            placeholder="Enter patient ID"
+          />
+          <Field
+            label="Date & Time"
+            value={scheduleStartsAt || ""}
+            onChangeText={(v) => setScheduleStartsAt?.(v)}
+            placeholder="e.g. 2026-06-10T14:00"
+          />
+          <Field
+            label="Duration (minutes)"
+            value={scheduleDuration || "30"}
+            onChangeText={(v) => setScheduleDuration?.(v)}
+            keyboardType="number-pad"
+          />
+          <Field
+            label="Timezone"
+            value={scheduleTimezone || "UTC"}
+            onChangeText={(v) => setScheduleTimezone?.(v)}
+          />
+          <Field
+            label="Title"
+            value={scheduleTitle || ""}
+            onChangeText={(v) => setScheduleTitle?.(v)}
+            placeholder="Zorba Health video visit"
+          />
+          <Field
+            label="Notes"
+            value={scheduleNotes || ""}
+            onChangeText={(v) => setScheduleNotes?.(v)}
+            placeholder="Optional notes"
+            multiline
+          />
+          <PrimaryButton
+            icon="calendar-outline"
+            label={submittingSchedule ? "Scheduling..." : "Schedule Meeting"}
+            onPress={onSchedule}
+            disabled={submittingSchedule}
+          />
+        </View>
       ) : null}
-      {audit.length > 0 ? <AuditList events={audit} compact /> : null}
+
+      {!showScheduleForm && meetings.length === 0 ? (
+        <EmptyText text={loading ? "Loading meetings..." : "No visit requests found."} />
+      ) : null}
+
+      {!showScheduleForm
+        ? meetings.map((meeting) => {
+            const pending = meeting.status === "pending";
+            const cancelled = meeting.status === "cancelled";
+            return (
+              <View key={meeting.id} style={styles.card}>
+                <View style={styles.rowBetween}>
+                  <View style={styles.flex}>
+                    <Text style={styles.cardTitle}>
+                      {meeting.title || "Zorba Health video visit"}
+                    </Text>
+                    <Text style={styles.cardBody}>
+                      Patient Ref: {meeting.patient_id || "Unlisted"}
+                    </Text>
+                    <Text style={styles.meta}>
+                      {formatTime(meeting.starts_at)} • {meeting.duration_minutes || 30} min
+                    </Text>
+                  </View>
+                  <Text style={[styles.badge, cancelled ? styles.badgeWarn : null]}>
+                    {meeting.status || "pending"}
+                  </Text>
+                </View>
+                <View style={styles.inlineActions}>
+                  {pending ? (
+                    <IconButton
+                      icon="checkmark-outline"
+                      label={mutating === meeting.id ? "Accepting" : "Accept"}
+                      onPress={() => mutate(meeting, "accept")}
+                      tone="accent"
+                    />
+                  ) : null}
+                  {meeting.join_url ? (
+                    <IconButton
+                      icon="videocam-outline"
+                      label="Join"
+                      onPress={() => Linking.openURL(meeting.join_url as string)}
+                      tone="neutral"
+                    />
+                  ) : null}
+                  {!cancelled ? (
+                    <IconButton
+                      icon="close-outline"
+                      label={mutating === meeting.id ? "Cancelling" : "Cancel"}
+                      onPress={() => mutate(meeting, "cancel")}
+                      tone="neutral"
+                    />
+                  ) : null}
+                </View>
+              </View>
+            );
+          })
+        : null}
+    </View>
+  );
+}
+
+function HospitalStaffRegistration({ token }: { token: string }) {
+  const [staffName, setStaffName] = useState("");
+  const [email, setEmail] = useState("");
+  const [phone, setPhone] = useState("");
+  const [password, setPassword] = useState("");
+  const [role, setRole] = useState("doctor");
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState("");
+  const [notice, setNotice] = useState("");
+
+  const submit = async () => {
+    setSubmitting(true);
+    setError("");
+    setNotice("");
+    try {
+      const data = await apiRequest<{ staff_id?: string; message?: string }>(
+        endpoints.hospitalStaffRegister,
+        {
+          method: "POST",
+          token,
+          role: "hospital",
+          body: {
+            staff_name: staffName.trim(),
+            email: email.trim(),
+            phone_number: phone.trim() || undefined,
+            password,
+            staff_role: role,
+          },
+        },
+      );
+      setNotice(data.message || `Staff account created${data.staff_id ? `: ${data.staff_id}` : "."}`);
+      setStaffName("");
+      setEmail("");
+      setPhone("");
+      setPassword("");
+      setRole("doctor");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Staff registration failed.");
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  return (
+    <View style={styles.stack}>
+      <ScreenHeading
+        title="Register Staff"
+        subtitle="Create hospital staff login credentials linked to this hospital."
+      />
+      <Feedback error={error} notice={notice} />
+      <Field label="Staff Name" value={staffName} onChangeText={setStaffName} placeholder="Dr. Jane Clinician" />
+      <Field label="Email" value={email} onChangeText={setEmail} keyboardType="email-address" autoCapitalize="none" placeholder="clinician@hospital.org" />
+      <Field label="Phone" value={phone} onChangeText={setPhone} keyboardType="phone-pad" placeholder="+15551234567" />
+      <Field label="Temporary Password" value={password} onChangeText={setPassword} secureTextEntry placeholder="At least 8 characters" />
+      <Text style={styles.label}>Staff Role</Text>
+      <Segmented
+        value={role}
+        options={[
+          { value: "doctor", label: "Doctor" },
+          { value: "nurse", label: "Nurse" },
+          { value: "billing", label: "Billing" },
+          { value: "admin", label: "Admin" },
+        ]}
+        onChange={setRole}
+      />
+      <PrimaryButton
+        icon="person-add-outline"
+        label={submitting ? "Registering..." : "Register Staff"}
+        disabled={submitting}
+        onPress={submit}
+      />
+    </View>
+  );
+}
+
+const hospitalConsentPermissionOptions = [
+  "HEALTH_RECORD_ACCESS",
+  "AI_SUMMARIZATION",
+  "SCHEDULING",
+  "EMERGENCY_ESCALATION",
+];
+
+function HospitalConsentRequests({
+  token,
+  requests,
+  loading,
+  setRequests,
+  onRefresh,
+}: {
+  token: string;
+  requests: HospitalConsentRequest[];
+  loading: boolean;
+  setRequests: React.Dispatch<React.SetStateAction<HospitalConsentRequest[]>>;
+  onRefresh: () => void;
+}) {
+  const [note, setNote] = useState("");
+  const [expiresIn, setExpiresIn] = useState("30");
+  const [permissions, setPermissions] = useState([
+    "HEALTH_RECORD_ACCESS",
+    "AI_SUMMARIZATION",
+    "SCHEDULING",
+  ]);
+  const [qrDataURL, setQrDataURL] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState("");
+
+  const togglePermission = (permissionName: string) => {
+    setPermissions((current) =>
+      current.includes(permissionName)
+        ? current.filter((item) => item !== permissionName)
+        : [...current, permissionName],
+    );
+  };
+
+  const create = async () => {
+    setSubmitting(true);
+    setError("");
+    try {
+      const data = await apiRequest<{ request?: HospitalConsentRequest }>(
+        endpoints.hospitalConsentRequests,
+        {
+          method: "POST",
+          token,
+          role: "hospital",
+          body: {
+            note: note.trim() || undefined,
+            requested_permissions: permissions,
+            expires_in_minutes: Number(expiresIn) || 30,
+          },
+        },
+      );
+      if (data.request) {
+        setRequests((current) => [data.request as HospitalConsentRequest, ...current]);
+        setQrDataURL(await QRCode.toDataURL(data.request.qr_payload || data.request.token || ""));
+        setNote("");
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Consent request failed.");
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  return (
+    <View style={styles.stack}>
+      <ScreenHeading
+        title="Consent QR"
+        subtitle="Generate a unique QR request that a patient can scan and approve."
+      />
+      <IconButton
+        icon="refresh-outline"
+        label={loading ? "Refreshing..." : "Refresh requests"}
+        onPress={onRefresh}
+        tone="neutral"
+      />
+      <Feedback error={error} />
+      <Field label="Request Note" value={note} onChangeText={setNote} placeholder="Reason for access" />
+      <Text style={styles.label}>Expires In</Text>
+      <Segmented
+        value={expiresIn}
+        options={[
+          { value: "15", label: "15m" },
+          { value: "30", label: "30m" },
+          { value: "60", label: "1h" },
+          { value: "240", label: "4h" },
+        ]}
+        onChange={setExpiresIn}
+      />
+      <View style={styles.chipRow}>
+        {hospitalConsentPermissionOptions.map((permissionName) => {
+          const selected = permissions.includes(permissionName);
+          return (
+            <Pressable
+              key={permissionName}
+              onPress={() => togglePermission(permissionName)}
+              style={[styles.chip, selected ? styles.chipActive : null]}
+            >
+              <Text style={[styles.chipText, selected ? styles.chipTextActive : null]}>
+                {titleFromCode(permissionName)}
+              </Text>
+            </Pressable>
+          );
+        })}
+      </View>
+      <PrimaryButton
+        icon="qr-code-outline"
+        label={submitting ? "Generating..." : "Generate QR Request"}
+        disabled={submitting || permissions.length === 0}
+        onPress={create}
+      />
+      {qrDataURL ? (
+        <View style={styles.qrCard}>
+          <Image source={{ uri: qrDataURL }} style={styles.qrImage} />
+          <Text style={styles.meta}>{requests[0]?.token}</Text>
+        </View>
+      ) : null}
+      <Section title="Recent Requests">
+        {requests.map((request) => (
+          <View key={request.id || request.token} style={styles.card}>
+            <View style={styles.rowBetween}>
+              <View style={styles.flex}>
+                <Text style={styles.cardTitle}>
+                  {request.patient_id || "Patient claims on scan"}
+                </Text>
+                <Text style={styles.meta}>
+                  {request.status || "pending"} • Expires {formatTime(request.expires_at)}
+                </Text>
+              </View>
+              <Text style={styles.badge}>{request.status || "pending"}</Text>
+            </View>
+            <Text style={styles.cardBody}>{request.token}</Text>
+          </View>
+        ))}
+        {requests.length === 0 ? (
+          <EmptyText text="No consent requests generated yet." />
+        ) : null}
+      </Section>
     </View>
   );
 }
@@ -900,7 +3623,7 @@ function HospitalSummary({ token }: { token: string }) {
 function IncidentList({
   incidents,
   loading,
-  onRefresh
+  onRefresh,
 }: {
   incidents: Incident[];
   loading: boolean;
@@ -908,76 +3631,259 @@ function IncidentList({
 }) {
   return (
     <View style={styles.stack}>
-      <ScreenHeading title="Emergency incidents" subtitle="Recent emergency events visible to the logged-in hospital." />
-      <IconButton icon="refresh-outline" label={loading ? "Refreshing" : "Refresh"} onPress={onRefresh} tone="neutral" />
-      {incidents.map((incident) => (
-        <View key={incident.event_id ?? `${incident.patient_id}-${incident.timestamp}`} style={styles.card}>
-          <View style={styles.rowBetween}>
-            <Text style={styles.cardTitle}>{incident.severity || "Incident"}</Text>
-            <Text style={styles.badge}>{incident.service_name || "service"}</Text>
+      <ScreenHeading
+        title="Emergency Safety Inbox"
+        subtitle="Safety dispatch logs flagged during active AI voice triage sessions."
+      />
+      <IconButton
+        icon="refresh-outline"
+        label={loading ? "Refreshing..." : "Refresh alerts feed"}
+        onPress={onRefresh}
+        tone="neutral"
+      />
+
+      {incidents.map((incident) => {
+        const critical =
+          incident.severity?.toLowerCase() === "critical" ||
+          incident.severity?.toLowerCase() === "high";
+        return (
+          <View
+            key={
+              incident.event_id ??
+              `${incident.patient_id}-${incident.timestamp}`
+            }
+            style={[styles.card, critical ? styles.cardAlert : null]}
+          >
+            <View style={styles.rowBetween}>
+              <Text
+                style={[styles.cardTitle, critical ? styles.textAlert : null]}
+              >
+                {critical ? "⚠️ " : ""}
+                {incident.severity || "Incident Alarm"}
+              </Text>
+              <Text style={[styles.badge, critical ? styles.badgeWarn : null]}>
+                {incident.service_name || "voice service"}
+              </Text>
+            </View>
+            <Text style={styles.cardBody}>
+              Patient Ref: {incident.patient_id || "Unlisted"}
+            </Text>
+            <Text style={styles.meta}>
+              Session: {incident.session_id || "None active"} |{" "}
+              {formatTime(incident.timestamp)}
+            </Text>
+            {incident.failure_reason ? (
+              <View style={styles.failureReasonBox}>
+                <Text style={styles.errorText}>{incident.failure_reason}</Text>
+              </View>
+            ) : null}
           </View>
-          <Text style={styles.cardBody}>Patient: {incident.patient_id || "Unknown"}</Text>
-          <Text style={styles.meta}>Session: {incident.session_id || "none"} | {formatTime(incident.timestamp)}</Text>
-          {incident.failure_reason ? <Text style={styles.errorText}>{incident.failure_reason}</Text> : null}
-        </View>
-      ))}
-      {incidents.length === 0 ? <EmptyText text={loading ? "Loading incidents..." : "No incidents returned."} /> : null}
+        );
+      })}
+      {incidents.length === 0 ? (
+        <EmptyText
+          text={loading ? "Loading incidents..." : "No incidents reported."}
+        />
+      ) : null}
     </View>
   );
 }
 
-function HospitalAudit({ token }: { token: string }) {
-  const [patientID, setPatientID] = useState("");
+function HospitalAudit({
+  token,
+  initialLookup = "",
+  refreshSignal = 0,
+  onRefreshComplete,
+}: {
+  token: string;
+  initialLookup?: string;
+  refreshSignal?: number;
+  onRefreshComplete?: () => void;
+}) {
+  const [patientID, setPatientID] = useState(initialLookup);
   const [events, setEvents] = useState<AuditEvent[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
-  const load = async () => {
+  useEffect(() => {
+    setPatientID(initialLookup);
+  }, [initialLookup]);
+
+  const load = useCallback(async () => {
     if (!patientID.trim()) return;
     setLoading(true);
     setError("");
     try {
       const data = await apiRequest<{ events?: AuditEvent[] }>(
         `${endpoints.hospitalPatientAudit}?patient_id=${encodeURIComponent(patientID.trim())}`,
-        { token }
+        { token },
       );
       setEvents(data.events ?? []);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Unable to load audit trail.");
+      setError(
+        err instanceof Error ? err.message : "Unable to load audit trail.",
+      );
     } finally {
       setLoading(false);
     }
-  };
+  }, [patientID, token]);
+
+  useEffect(() => {
+    if (!refreshSignal) return;
+    void load().finally(onRefreshComplete);
+  }, [load, onRefreshComplete, refreshSignal]);
 
   return (
     <View style={styles.stack}>
-      <ScreenHeading title="Patient audit trail" subtitle="Look up patient-specific audit events allowed by the hospital token." />
-      <Field label="Patient ID" value={patientID} onChangeText={setPatientID} autoCapitalize="none" />
-      <PrimaryButton icon="search-outline" label={loading ? "Loading..." : "Load audit"} disabled={loading} onPress={load} />
+      <ScreenHeading
+        title="Clinical Audit Lookup"
+        subtitle="Audit compliance log tracking under clinical credentials."
+      />
+      <Field
+        label="Search Patient"
+        value={patientID}
+        onChangeText={setPatientID}
+        autoCapitalize="none"
+        placeholder="Name, email, or patient ID"
+      />
+      <PrimaryButton
+        icon="search-outline"
+        label={loading ? "Tracing logs..." : "Load Audit Trail"}
+        disabled={loading}
+        onPress={load}
+      />
       <Feedback error={error} />
       <AuditList events={events} compact />
     </View>
   );
 }
 
-function AuditList({ events, compact = false }: { events: AuditEvent[]; compact?: boolean }) {
+function AuditList({
+  events,
+  compact = false,
+}: {
+  events: AuditEvent[];
+  compact?: boolean;
+}) {
+  const [typeFilter, setTypeFilter] = useState("all");
+  const [fromFilter, setFromFilter] = useState("");
+  const [toFilter, setToFilter] = useState("");
+  const [showTypeOptions, setShowTypeOptions] = useState(false);
+
+  const eventTypes = useMemo(() => getAuditEventTypeOptions(events), [events]);
+  const filteredEvents = useMemo(
+    () => filterAuditEvents(events, typeFilter, fromFilter, toFilter),
+    [events, fromFilter, toFilter, typeFilter],
+  );
+  const selectedTypeLabel =
+    typeFilter === "all" ? "All audit types" : titleFromCode(typeFilter);
+
   return (
     <View style={styles.stack}>
-      {!compact ? <ScreenHeading title="Audit trail" subtitle="Recent backend audit events for this account." /> : null}
-      {events.map((event) => (
-        <View key={event.event_id ?? `${event.event_type}-${event.timestamp}`} style={styles.card}>
-          <View style={styles.rowBetween}>
-            <Text style={styles.cardTitle}>{titleFromCode(event.event_type)}</Text>
-            <Text style={[styles.badge, event.success_status === false ? styles.badgeWarn : null]}>
-              {event.success_status === false ? "failed" : "ok"}
-            </Text>
+      {!compact ? (
+        <ScreenHeading
+          title="Access Logs Trace"
+          subtitle="Immutable activity ledger verification traces."
+        />
+      ) : null}
+      <View style={styles.filterPanel}>
+        <Text style={styles.label}>Event Type</Text>
+        <Pressable
+          style={styles.selectButton}
+          onPress={() => setShowTypeOptions((current) => !current)}
+        >
+          <Text style={styles.selectButtonText}>{selectedTypeLabel}</Text>
+          <Ionicons
+            name={showTypeOptions ? "chevron-up" : "chevron-down"}
+            size={16}
+            color="#475569"
+          />
+        </Pressable>
+        {showTypeOptions ? (
+          <View style={styles.selectMenu}>
+            {[
+              { value: "all", label: "All audit types" },
+              ...eventTypes.map((eventType) => ({
+                value: eventType,
+                label: titleFromCode(eventType),
+              })),
+            ].map((option) => (
+              <Pressable
+                key={option.value}
+                style={[
+                  styles.selectOption,
+                  typeFilter === option.value
+                    ? styles.selectOptionActive
+                    : null,
+                ]}
+                onPress={() => {
+                  setTypeFilter(option.value);
+                  setShowTypeOptions(false);
+                }}
+              >
+                <Text
+                  style={[
+                    styles.selectOptionText,
+                    typeFilter === option.value
+                      ? styles.selectOptionTextActive
+                      : null,
+                  ]}
+                >
+                  {option.label}
+                </Text>
+              </Pressable>
+            ))}
           </View>
-          <Text style={styles.cardBody}>Service: {event.service_name || "Unknown"}</Text>
-          <Text style={styles.meta}>{formatTime(event.timestamp)}</Text>
-          {event.failure_reason ? <Text style={styles.errorText}>{event.failure_reason}</Text> : null}
+        ) : null}
+        <View style={styles.gridTwo}>
+          <View style={styles.flex}>
+            <Field
+              label="From"
+              value={fromFilter}
+              onChangeText={setFromFilter}
+              placeholder="YYYY-MM-DD HH:mm"
+            />
+          </View>
+          <View style={styles.flex}>
+            <Field
+              label="To"
+              value={toFilter}
+              onChangeText={setToFilter}
+              placeholder="YYYY-MM-DD HH:mm"
+            />
+          </View>
         </View>
-      ))}
-      {events.length === 0 ? <EmptyText text="No audit events returned." /> : null}
+      </View>
+      {filteredEvents.map((event, idx) => {
+        const failed = event.success_status === false;
+        return (
+          <View
+            key={event.event_id ?? `${event.event_type}-${idx}`}
+            style={styles.card}
+          >
+            <View style={styles.rowBetween}>
+              <Text style={styles.cardTitle}>
+                {titleFromCode(event.event_type)}
+              </Text>
+              <Text style={[styles.badge, failed ? styles.badgeWarn : null]}>
+                {failed ? "Access failed" : "Verified"}
+              </Text>
+            </View>
+            <Text style={styles.cardBody}>
+              Service: {event.service_name || "Record Manager"}
+            </Text>
+            <Text style={styles.meta}>{formatTime(event.timestamp)}</Text>
+            {event.failure_reason ? (
+              <Text style={styles.errorText}>
+                Failure Details: {event.failure_reason}
+              </Text>
+            ) : null}
+          </View>
+        );
+      })}
+      {filteredEvents.length === 0 ? (
+        <EmptyText text="No audit history matches the current filters." />
+      ) : null}
     </View>
   );
 }
@@ -986,172 +3892,38 @@ function CallRow({ call }: { call: CallSummary }) {
   return (
     <View style={styles.card}>
       <View style={styles.rowBetween}>
-        <Text style={styles.cardTitle}>Call #{call.id}</Text>
-        <Text style={styles.badge}>{call.status || "unknown"}</Text>
+        <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+          <Ionicons name="call-outline" size={16} color="#4f46e5" />
+          <Text style={styles.cardTitle}>Call Ref #{call.id}</Text>
+        </View>
+        <Text style={styles.badge}>{call.status || "Completed"}</Text>
       </View>
-      <Text style={styles.meta}>{formatTime(call.started_at)} - {call.ended_at ? formatTime(call.ended_at) : "active or unknown"}</Text>
-      <Text style={styles.cardBody}>{call.summary || "No summary returned for this call."}</Text>
-      {call.recording_url ? <TextButton label="Open recording" onPress={() => Linking.openURL(call.recording_url as string)} /> : null}
-    </View>
-  );
-}
-
-function Field(props: {
-  label: string;
-  value: string;
-  onChangeText: (value: string) => void;
-  placeholder?: string;
-  secureTextEntry?: boolean;
-  keyboardType?: "default" | "email-address" | "number-pad" | "phone-pad";
-  autoCapitalize?: "none" | "sentences" | "words" | "characters";
-  multiline?: boolean;
-}) {
-  return (
-    <View style={styles.field}>
-      <Text style={styles.label}>{props.label}</Text>
-      <TextInput
-        style={[styles.input, props.multiline ? styles.textArea : null]}
-        value={props.value}
-        onChangeText={props.onChangeText}
-        placeholder={props.placeholder}
-        secureTextEntry={props.secureTextEntry}
-        keyboardType={props.keyboardType}
-        autoCapitalize={props.autoCapitalize}
-        multiline={props.multiline}
-        placeholderTextColor="#94a3b8"
-      />
-    </View>
-  );
-}
-
-function PrimaryButton({ icon, label, onPress, disabled = false }: { icon: keyof typeof Ionicons.glyphMap; label: string; onPress: () => void; disabled?: boolean }) {
-  return (
-    <Pressable disabled={disabled} onPress={onPress} style={[styles.primaryButton, disabled ? styles.disabled : null]}>
-      <Ionicons name={icon} size={18} color="#ffffff" />
-      <Text style={styles.primaryText}>{label}</Text>
-    </Pressable>
-  );
-}
-
-function IconButton({
-  icon,
-  label,
-  onPress,
-  tone
-}: {
-  icon: keyof typeof Ionicons.glyphMap;
-  label: string;
-  onPress: () => void;
-  tone: "neutral" | "accent";
-}) {
-  return (
-    <Pressable onPress={onPress} style={[styles.iconButton, tone === "accent" ? styles.iconAccent : null]}>
-      <Ionicons name={icon} size={17} color={tone === "accent" ? "#ffffff" : "#334155"} />
-      <Text style={[styles.iconButtonText, tone === "accent" ? styles.iconAccentText : null]}>{label}</Text>
-    </Pressable>
-  );
-}
-
-function TextButton({ label, onPress }: { label: string; onPress: () => void }) {
-  return (
-    <Pressable onPress={onPress} style={styles.textButton}>
-      <Text style={styles.textButtonLabel}>{label}</Text>
-    </Pressable>
-  );
-}
-
-function Segmented({ value, options, onChange }: { value: string; options: { value: string; label: string }[]; onChange: (value: string) => void }) {
-  return (
-    <View style={styles.segmented}>
-      {options.map((option) => {
-        const active = value === option.value;
-        return (
-          <Pressable key={option.value} onPress={() => onChange(option.value)} style={[styles.segment, active ? styles.segmentActive : null]}>
-            <Text style={[styles.segmentText, active ? styles.segmentTextActive : null]}>{option.label}</Text>
-          </Pressable>
-        );
-      })}
-    </View>
-  );
-}
-
-function TabBar({
-  value,
-  options,
-  onChange
-}: {
-  value: string;
-  options: { value: string; label: string; icon: keyof typeof Ionicons.glyphMap }[];
-  onChange: (value: string) => void;
-}) {
-  return (
-    <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.tabBar}>
-      {options.map((option) => {
-        const active = value === option.value;
-        return (
-          <Pressable key={option.value} onPress={() => onChange(option.value)} style={[styles.tab, active ? styles.tabActive : null]}>
-            <Ionicons name={option.icon} size={17} color={active ? "#ffffff" : "#475569"} />
-            <Text style={[styles.tabText, active ? styles.tabTextActive : null]}>{option.label}</Text>
-          </Pressable>
-        );
-      })}
-    </ScrollView>
-  );
-}
-
-function Section({ title, children }: { title: string; children: React.ReactNode }) {
-  return (
-    <View style={styles.section}>
-      <Text style={styles.sectionTitle}>{title}</Text>
-      <View style={styles.stack}>{children}</View>
-    </View>
-  );
-}
-
-function ScreenHeading({ title, subtitle }: { title: string; subtitle: string }) {
-  return (
-    <View>
-      <Text style={styles.screenTitle}>{title}</Text>
-      <Text style={styles.screenCopy}>{subtitle}</Text>
-    </View>
-  );
-}
-
-function InfoCard({ icon, title, body }: { icon: keyof typeof Ionicons.glyphMap; title: string; body: string }) {
-  return (
-    <View style={styles.infoCard}>
-      <Ionicons name={icon} size={22} color="#0f766e" />
-      <Text style={styles.cardTitle}>{title}</Text>
-      <Text style={styles.cardBody}>{body}</Text>
-    </View>
-  );
-}
-
-function LoadingCard() {
-  return (
-    <View style={styles.card}>
-      <ActivityIndicator />
-      <Text style={styles.muted}>Loading backend features...</Text>
-    </View>
-  );
-}
-
-function EmptyText({ text }: { text: string }) {
-  return <Text style={styles.emptyText}>{text}</Text>;
-}
-
-function Feedback({ error, notice }: { error?: string; notice?: string }) {
-  if (!error && !notice) return null;
-  return (
-    <View style={[styles.feedback, error ? styles.feedbackError : styles.feedbackNotice]}>
-      <Text style={error ? styles.errorText : styles.noticeText}>{error || notice}</Text>
+      <Text style={styles.meta}>
+        {formatTime(call.started_at)} •{" "}
+        {call.ended_at ? formatTime(call.ended_at) : "Active triage"}
+      </Text>
+      <Text style={styles.cardBody}>
+        {call.summary || "automated summary transcription file."}
+      </Text>
+      {call.recording_url ? (
+        <Pressable
+          onPress={() => Linking.openURL(call.recording_url as string)}
+          style={styles.playRecordBtn}
+        >
+          <Ionicons name="play" size={12} color="#4f46e5" />
+          <Text style={styles.playRecordBtnText}>Open Audio Recording</Text>
+        </Pressable>
+      ) : null}
     </View>
   );
 }
 
 function callNumber(phone?: string) {
   if (!phone) {
-    Alert.alert("Voice phone unavailable", "The backend did not return a voice support number.");
+    Alert.alert(
+      "Voice phone unavailable",
+      "The backend did not return a voice support number.",
+    );
     return;
   }
   Linking.openURL(`tel:${phone.replace(/[^\d+]/g, "")}`).catch(() => {
@@ -1159,391 +3931,44 @@ function callNumber(phone?: string) {
   });
 }
 
-function parseLocationCommand(payload: unknown): { command: string; sessionID?: string } | null {
+function extractConsentToken(value: string) {
+  const trimmed = value.trim();
+  if (!trimmed) return "";
+  try {
+    const parsed = JSON.parse(trimmed) as { token?: string };
+    if (parsed.token) return parsed.token.trim();
+  } catch {
+    // Raw token fallback.
+  }
+  return trimmed;
+}
+
+function parseLocationCommand(
+  payload: unknown,
+): { command: string; sessionID?: string } | null {
   try {
     const data = typeof payload === "string" ? JSON.parse(payload) : payload;
     if (!data || typeof data !== "object") return null;
     const record = data as Record<string, unknown>;
-    const command = String(record.command ?? record.Command ?? "");
-    const sessionID = String(record.sessionID ?? record.SessionID ?? "");
+    const nested =
+      record.data && typeof record.data === "object"
+        ? (record.data as Record<string, unknown>)
+        : {};
+    const command = String(
+      record.command ?? record.Command ?? record.type ?? "",
+    );
+    const sessionID = String(
+      record.sessionID ??
+        record.SessionID ??
+        record.session_id ??
+        nested.sessionID ??
+        nested.SessionID ??
+        nested.session_id ??
+        "",
+    );
     if (!command) return null;
     return { command, sessionID };
   } catch {
     return null;
   }
 }
-
-const styles = StyleSheet.create({
-  safeArea: {
-    flex: 1,
-    backgroundColor: "#f8fafc"
-  },
-  shell: {
-    flex: 1,
-    backgroundColor: "#f8fafc"
-  },
-  center: {
-    flex: 1,
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 12
-  },
-  header: {
-    paddingHorizontal: 18,
-    paddingVertical: 14,
-    borderBottomWidth: 1,
-    borderBottomColor: "#e2e8f0",
-    backgroundColor: "#ffffff",
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    gap: 12
-  },
-  brand: {
-    fontSize: 20,
-    fontWeight: "800",
-    color: "#0f172a"
-  },
-  headerSub: {
-    marginTop: 2,
-    fontSize: 12,
-    color: "#64748b"
-  },
-  headerActions: {
-    flexShrink: 1,
-    alignItems: "flex-end"
-  },
-  authScroll: {
-    flexGrow: 1,
-    padding: 18,
-    justifyContent: "center"
-  },
-  authPanel: {
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: "#e2e8f0",
-    backgroundColor: "#ffffff",
-    padding: 18,
-    gap: 16,
-    shadowColor: "#0f172a",
-    shadowOpacity: 0.08,
-    shadowRadius: 18,
-    shadowOffset: { width: 0, height: 10 },
-    elevation: 2
-  },
-  portal: {
-    flex: 1
-  },
-  content: {
-    padding: 16,
-    paddingBottom: 28
-  },
-  stack: {
-    gap: 12
-  },
-  screenTitle: {
-    fontSize: 24,
-    fontWeight: "800",
-    color: "#0f172a"
-  },
-  largeTitle: {
-    fontSize: 30,
-    fontWeight: "800",
-    color: "#ffffff",
-    marginTop: 4
-  },
-  screenCopy: {
-    marginTop: 6,
-    color: "#475569",
-    lineHeight: 20
-  },
-  heroPanel: {
-    borderRadius: 8,
-    padding: 20,
-    backgroundColor: "#0f766e",
-    gap: 12
-  },
-  eyebrow: {
-    color: "#ccfbf1",
-    fontSize: 12,
-    fontWeight: "700",
-    textTransform: "uppercase"
-  },
-  heroCopy: {
-    color: "#ecfeff",
-    lineHeight: 21
-  },
-  heroActions: {
-    flexDirection: "row",
-    gap: 10,
-    flexWrap: "wrap"
-  },
-  gridTwo: {
-    gap: 12
-  },
-  infoCard: {
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: "#e2e8f0",
-    backgroundColor: "#ffffff",
-    padding: 16,
-    gap: 8
-  },
-  card: {
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: "#e2e8f0",
-    backgroundColor: "#ffffff",
-    padding: 14,
-    gap: 8
-  },
-  subCard: {
-    borderRadius: 8,
-    backgroundColor: "#f8fafc",
-    borderWidth: 1,
-    borderColor: "#e2e8f0",
-    padding: 12,
-    gap: 6
-  },
-  section: {
-    gap: 10
-  },
-  sectionTitle: {
-    fontSize: 17,
-    fontWeight: "800",
-    color: "#0f172a"
-  },
-  cardTitle: {
-    fontSize: 15,
-    fontWeight: "800",
-    color: "#0f172a",
-    textTransform: "capitalize"
-  },
-  cardBody: {
-    color: "#475569",
-    lineHeight: 20
-  },
-  bodyText: {
-    color: "#334155",
-    lineHeight: 22
-  },
-  meta: {
-    color: "#64748b",
-    fontSize: 12,
-    lineHeight: 17
-  },
-  muted: {
-    color: "#64748b"
-  },
-  emptyText: {
-    color: "#64748b",
-    paddingVertical: 6
-  },
-  rowBetween: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    gap: 12
-  },
-  flex: {
-    flex: 1
-  },
-  field: {
-    gap: 7
-  },
-  label: {
-    color: "#334155",
-    fontWeight: "700",
-    fontSize: 13
-  },
-  input: {
-    minHeight: 46,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: "#cbd5e1",
-    backgroundColor: "#ffffff",
-    paddingHorizontal: 12,
-    color: "#0f172a",
-    fontSize: 16
-  },
-  textArea: {
-    minHeight: 110,
-    textAlignVertical: "top",
-    paddingTop: 12
-  },
-  primaryButton: {
-    minHeight: 48,
-    borderRadius: 8,
-    paddingHorizontal: 16,
-    backgroundColor: "#0f766e",
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 8
-  },
-  primaryText: {
-    color: "#ffffff",
-    fontWeight: "800",
-    fontSize: 15
-  },
-  disabled: {
-    opacity: 0.6
-  },
-  iconButton: {
-    minHeight: 38,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: "#cbd5e1",
-    backgroundColor: "#ffffff",
-    paddingHorizontal: 11,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 6
-  },
-  iconAccent: {
-    borderColor: "#0f766e",
-    backgroundColor: "#0f766e"
-  },
-  iconButtonText: {
-    color: "#334155",
-    fontWeight: "700"
-  },
-  iconAccentText: {
-    color: "#ffffff"
-  },
-  textButton: {
-    paddingVertical: 6
-  },
-  textButtonLabel: {
-    color: "#0f766e",
-    fontWeight: "800"
-  },
-  inlineActions: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: 14
-  },
-  segmented: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: 6,
-    borderRadius: 8,
-    backgroundColor: "#f1f5f9",
-    padding: 4
-  },
-  segment: {
-    minHeight: 34,
-    borderRadius: 7,
-    paddingHorizontal: 10,
-    alignItems: "center",
-    justifyContent: "center"
-  },
-  segmentActive: {
-    backgroundColor: "#ffffff",
-    shadowColor: "#0f172a",
-    shadowOpacity: 0.08,
-    shadowRadius: 4,
-    shadowOffset: { width: 0, height: 2 },
-    elevation: 1
-  },
-  segmentText: {
-    color: "#475569",
-    fontWeight: "700",
-    textTransform: "capitalize"
-  },
-  segmentTextActive: {
-    color: "#0f172a"
-  },
-  tabBar: {
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    gap: 8,
-    borderBottomWidth: 1,
-    borderBottomColor: "#e2e8f0",
-    backgroundColor: "#ffffff"
-  },
-  tab: {
-    minHeight: 38,
-    borderRadius: 8,
-    paddingHorizontal: 12,
-    borderWidth: 1,
-    borderColor: "#e2e8f0",
-    backgroundColor: "#ffffff",
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 6
-  },
-  tabActive: {
-    borderColor: "#0f766e",
-    backgroundColor: "#0f766e"
-  },
-  tabText: {
-    color: "#475569",
-    fontWeight: "800"
-  },
-  tabTextActive: {
-    color: "#ffffff"
-  },
-  badge: {
-    overflow: "hidden",
-    borderRadius: 999,
-    backgroundColor: "#dcfce7",
-    color: "#166534",
-    paddingHorizontal: 9,
-    paddingVertical: Platform.select({ ios: 4, default: 3 }),
-    fontSize: 12,
-    fontWeight: "800",
-    textTransform: "capitalize"
-  },
-  badgeWarn: {
-    backgroundColor: "#fee2e2",
-    color: "#991b1b"
-  },
-  switchTrack: {
-    width: 52,
-    height: 30,
-    borderRadius: 999,
-    padding: 3,
-    justifyContent: "center"
-  },
-  switchOn: {
-    backgroundColor: "#0f766e"
-  },
-  switchOff: {
-    backgroundColor: "#cbd5e1"
-  },
-  switchThumb: {
-    width: 24,
-    height: 24,
-    borderRadius: 999,
-    backgroundColor: "#ffffff"
-  },
-  switchThumbOn: {
-    alignSelf: "flex-end"
-  },
-  switchThumbOff: {
-    alignSelf: "flex-start"
-  },
-  feedback: {
-    borderRadius: 8,
-    padding: 12,
-    borderWidth: 1
-  },
-  feedbackError: {
-    backgroundColor: "#fef2f2",
-    borderColor: "#fecaca"
-  },
-  feedbackNotice: {
-    backgroundColor: "#ecfdf5",
-    borderColor: "#bbf7d0"
-  },
-  errorText: {
-    color: "#991b1b",
-    lineHeight: 19
-  },
-  noticeText: {
-    color: "#166534",
-    lineHeight: 19
-  }
-});

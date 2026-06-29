@@ -5,17 +5,29 @@
     "version": "0.1.0",
     "orientation": "portrait",
     "scheme": "zorbahealth",
-    "userInterfaceStyle": "light",
+    "userInterfaceStyle": "automatic",
+    "icon": "./assets/icon.png",
+    "splash": {
+      "image": "./assets/splash-icon.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#EEF2FF"
+    },
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.zorbahealth.mobile",
       "infoPlist": {
+        "NSCameraUsageDescription": "Zorba Health uses the camera to scan hospital consent QR codes.",
         "NSLocationWhenInUseUsageDescription": "Zorba Health uses your location only during emergency voice sessions when you opt in."
       }
     },
     "android": {
       "package": "com.zorbahealth.mobile",
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#EEF2FF"
+      },
       "permissions": [
+        "CAMERA",
         "ACCESS_COARSE_LOCATION",
         "ACCESS_FINE_LOCATION"
       ]
@@ -26,6 +38,12 @@
         "expo-location",
         {
           "locationWhenInUsePermission": "Zorba Health uses your location only during emergency voice sessions when you opt in."
+        }
+      ],
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "Zorba Health uses the camera to scan hospital consent QR codes."
         }
       ],
       "expo-asset"
