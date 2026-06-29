@@ -27,11 +27,13 @@ class MCPClient:
             await self._session.close()
 
     async def call_tool(self, name: str, arguments: dict[str, Any]) -> str:
+        attrs: dict[str, Any] = {"mcp.tool.name": name}
+        channel = arguments.get("verificationChannel")
+        if channel:
+            attrs["voice.verification.channel"] = str(channel)
         with tracer.start_as_current_span(
             "mcp.tools.call",
-            attributes={
-                "mcp.tool.name": name,
-            },
+            attributes=attrs,
         ) as span:
             result = await self._rpc("tools/call", {"name": name, "arguments": arguments})
             is_error = bool(result.get("isError"))
