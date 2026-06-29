@@ -1,0 +1,6 @@
+apiVersion: v2
+name: location-service
+description: Location service — real-time geolocation with WebSocket
+type: application
+version: 0.1.0
+appVersion: "1.0"

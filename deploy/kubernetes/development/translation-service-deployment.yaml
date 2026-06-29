@@ -14,7 +14,7 @@ spec:
     spec:
       containers:
         - name: translation-service
-          image: zorba-health/translation-service
+          image: translation-service
           ports:
             - containerPort: 50057
               name: grpc
@@ -40,6 +40,16 @@ spec:
               valueFrom:
                 configMapKeyRef:
                   key: TRANSLATION_SERVICE_GRPC_ADDR
+                  name: app-config
+            - name: TRANSLATION_PROVIDER
+              valueFrom:
+                configMapKeyRef:
+                  key: TRANSLATION_PROVIDER
+                  name: app-config
+            - name: AWS_REGION
+              valueFrom:
+                configMapKeyRef:
+                  key: AWS_REGION
                   name: app-config
             - name: TRANSLATION_MODEL_BASE_URL
               valueFrom:

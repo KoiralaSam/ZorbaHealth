@@ -1,0 +1,97 @@
+image:
+  repository: 954976298234.dkr.ecr.us-east-1.amazonaws.com/location-service
+  tag: latest
+  pullPolicy: IfNotPresent
+replicaCount: 1
+ports:
+  - containerPort: 50051
+    name: grpc
+  - containerPort: 8090
+    name: http
+env:
+  - name: ENVIRONMENT
+    valueFrom:
+      configMapKeyRef:
+        key: ENVIRONMENT
+        name: app-config
+  - name: JAEGER_ENDPOINT
+    valueFrom:
+      configMapKeyRef:
+        key: JAEGER_ENDPOINT
+        name: app-config
+  - name: LOCATION_SERVICE_HTTP_ADDR
+    valueFrom:
+      configMapKeyRef:
+        key: LOCATION_SERVICE_HTTP_ADDR
+        name: app-config
+  - name: LOCATION_SERVICE_GRPC_ADDR
+    valueFrom:
+      configMapKeyRef:
+        key: LOCATION_SERVICE_GRPC_ADDR
+        name: app-config
+  - name: REDIS_ADDR
+    valueFrom:
+      configMapKeyRef:
+        key: REDIS_ADDR
+        name: app-config
+  - name: LOCATION_REDIS_DB
+    valueFrom:
+      configMapKeyRef:
+        key: LOCATION_REDIS_DB
+        name: app-config
+  - name: LOCATION_REDIS_KEY_PREFIX
+    valueFrom:
+      configMapKeyRef:
+        key: LOCATION_REDIS_KEY_PREFIX
+        name: app-config
+  - name: LOCATION_REDIS_SESSION_TTL_SEC
+    valueFrom:
+      configMapKeyRef:
+        key: LOCATION_REDIS_SESSION_TTL_SEC
+        name: app-config
+  - name: IP_GEOLOCATION_TIMEOUT_SEC
+    valueFrom:
+      configMapKeyRef:
+        key: IP_GEOLOCATION_TIMEOUT_SEC
+        name: app-config
+  - name: RABBITMQ_URI
+    valueFrom:
+      secretKeyRef:
+        key: uri
+        name: rabbitmq-credentials
+  - name: PATIENT_SERVICE_JWT_SECRET
+    valueFrom:
+      secretKeyRef:
+        key: PATIENT_SERVICE_JWT_SECRET
+        name: app-secrets
+  - name: INTERNAL_SERVICE_SECRET
+    valueFrom:
+      secretKeyRef:
+        key: INTERNAL_SERVICE_SECRET
+        name: app-secrets
+  - name: REDIS_PASSWORD
+    valueFrom:
+      secretKeyRef:
+        key: REDIS_PASSWORD
+        name: app-secrets
+  - name: IP_GEOLOCATION_ENDPOINT_TEMPLATE
+    valueFrom:
+      secretKeyRef:
+        key: IP_GEOLOCATION_ENDPOINT_TEMPLATE
+        name: app-secrets
+resources:
+  requests:
+    memory: 128Mi
+    cpu: 125m
+  limits:
+    memory: 256Mi
+    cpu: 250m
+service:
+  type: ClusterIP
+  ports:
+    - port: 50051
+      targetPort: 50051
+      name: grpc
+    - port: 8090
+      targetPort: 8090
+      name: http

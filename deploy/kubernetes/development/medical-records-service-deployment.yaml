@@ -14,7 +14,7 @@ spec:
     spec:
       containers:
         - name: medical-records-service
-          image: zorba-health/medical-records-service
+          image: medical-records-service
           ports:
             - containerPort: 50054
               name: grpc

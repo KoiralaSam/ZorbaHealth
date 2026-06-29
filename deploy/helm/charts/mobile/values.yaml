@@ -1,0 +1,43 @@
+image:
+  repository: 954976298234.dkr.ecr.us-east-1.amazonaws.com/mobile
+  tag: latest
+  pullPolicy: IfNotPresent
+replicaCount: 1
+ports:
+  - containerPort: 8084
+    name: expo
+env:
+  - name: NODE_ENV
+    value: "development"
+  - name: EXPO_NO_TELEMETRY
+    value: "1"
+  - name: CI
+    value: "1"
+resources:
+  requests:
+    memory: 256Mi
+    cpu: 100m
+  limits:
+    memory: 1Gi
+    cpu: 1000m
+probes:
+  readinessProbe:
+    tcpSocket:
+      port: expo
+    initialDelaySeconds: 10
+    periodSeconds: 10
+    timeoutSeconds: 5
+    failureThreshold: 6
+  livenessProbe:
+    tcpSocket:
+      port: expo
+    initialDelaySeconds: 30
+    periodSeconds: 20
+    timeoutSeconds: 5
+    failureThreshold: 3
+service:
+  type: ClusterIP
+  ports:
+    - port: 8084
+      targetPort: 8084
+      name: expo

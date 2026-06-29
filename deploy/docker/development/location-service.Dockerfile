@@ -18,7 +18,7 @@ COPY shared ./shared
 WORKDIR /app/services/location-service
 RUN --mount=type=cache,target=/root/.cache/go-build \
     --mount=type=cache,target=/go/pkg/mod \
-    CGO_ENABLED=0 GOOS=linux go build -o /app/build/location-service ./cmd/location-service
+    CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o /app/build/location-service ./cmd/location-service
 
 # Final stage
 FROM alpine:latest

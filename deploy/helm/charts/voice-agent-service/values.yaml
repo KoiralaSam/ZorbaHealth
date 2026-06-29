@@ -1,0 +1,128 @@
+image:
+  repository: 954976298234.dkr.ecr.us-east-1.amazonaws.com/voice-agent-service
+  tag: latest
+  pullPolicy: IfNotPresent
+replicaCount: 1
+ports:
+  - containerPort: 8090
+    name: http
+env:
+  - name: ENVIRONMENT
+    valueFrom:
+      configMapKeyRef:
+        key: ENVIRONMENT
+        name: app-config
+  - name: JAEGER_ENDPOINT
+    valueFrom:
+      configMapKeyRef:
+        key: JAEGER_ENDPOINT
+        name: app-config
+  - name: LIVEKIT_URL
+    valueFrom:
+      configMapKeyRef:
+        key: LIVEKIT_URL
+        name: app-config
+  - name: LIVEKIT_API_KEY
+    valueFrom:
+      secretKeyRef:
+        key: apiKey
+        name: livekit-credentials
+  - name: LIVEKIT_API_SECRET
+    valueFrom:
+      secretKeyRef:
+        key: apiSecret
+        name: livekit-credentials
+  - name: LIVEKIT_AGENT_NAME
+    value: "zorba-health-voice"
+  - name: VOICE_AGENT_HTTP_ADDR
+    value: ":8090"
+  - name: MCP_SERVER_URL
+    value: "http://mcp-server:8092"
+  - name: INTERPRETATION_SERVICE_URL
+    value: "http://interpretation-service:8095"
+  - name: INTERNAL_SERVICE_SECRET
+    valueFrom:
+      secretKeyRef:
+        key: INTERNAL_SERVICE_SECRET
+        name: app-secrets
+  - name: PATIENT_SERVICE_JWT_SECRET
+    valueFrom:
+      secretKeyRef:
+        key: PATIENT_SERVICE_JWT_SECRET
+        name: app-secrets
+  - name: OPENAI_API_KEY
+    valueFrom:
+      secretKeyRef:
+        key: apiKey
+        name: openai-credentials
+  - name: OPENAI_MODEL
+    value: "gpt-4o"
+  - name: TTS_PROVIDER
+    value: "deepgram"
+  - name: DEEPGRAM_TTS_MODEL
+    value: "aura-2-andromeda-en"
+  - name: ENABLE_TURN_DETECTOR
+    value: "false"
+  - name: VOICE_AGENT_NUM_IDLE_PROCESSES
+    value: "1"
+  - name: VOICE_AGENT_LOAD_THRESHOLD
+    value: "0.75"
+  - name: VOICE_AGENT_SHUTDOWN_PROCESS_TIMEOUT
+    value: "30"
+  - name: VOICE_AGENT_INITIALIZE_PROCESS_TIMEOUT
+    value: "45"
+  - name: VOICE_AGENT_JOB_MEMORY_WARN_MB
+    value: "1200"
+  - name: LIVEKIT_LOG_LEVEL
+    value: "INFO"
+  - name: DEEPGRAM_API_KEY
+    valueFrom:
+      secretKeyRef:
+        key: apiKey
+        name: deepgram-credentials
+  - name: ELEVENLABS_API_KEY
+    valueFrom:
+      secretKeyRef:
+        key: apiKey
+        name: elevenlabs-credentials
+  - name: ELEVENLABS_VOICE_ID
+    valueFrom:
+      secretKeyRef:
+        key: voiceId
+        name: elevenlabs-credentials
+        optional: true
+  - name: ELEVENLABS_MODEL
+    value: "eleven_turbo_v2_5"
+resources:
+  requests:
+    memory: 2Gi
+    cpu: 1000m
+  limits:
+    memory: 4Gi
+    cpu: 2000m
+probes:
+  startup:
+    path: /health
+    port: http
+    periodSeconds: 10
+    failureThreshold: 30
+  readiness:
+    path: /health
+    port: http
+    initialDelaySeconds: 5
+    periodSeconds: 10
+    timeoutSeconds: 3
+    failureThreshold: 3
+  liveness:
+    path: /health
+    port: http
+    initialDelaySeconds: 30
+    periodSeconds: 20
+    timeoutSeconds: 5
+    failureThreshold: 3
+service:
+  type: ClusterIP
+  ports:
+    - port: 8090
+      targetPort: 8090
+      name: http

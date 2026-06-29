@@ -1,0 +1,186 @@
+services:
+  postgres:
+    image: pgvector/pgvector:pg16
+    environment:
+      POSTGRES_DB: healthai
+      POSTGRES_USER: healthai
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-healthai}
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U healthai -d healthai"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  rabbitmq:
+    image: rabbitmq:3-management
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "check_port_connectivity"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  jaeger:
+    image: jaegertracing/all-in-one:1.62.0
+    ports:
+      - "16686:16686"
+      - "4317:4317"
+      - "4318:4318"
+
+  otel-collector:
+    image: otel/opentelemetry-collector-contrib:0.108.0
+    command: ["--config=/etc/otelcol/config.yaml"]
+    volumes:
+      - ../observability/otel-collector-config.yaml:/etc/otelcol/config.yaml:ro
+    ports:
+      - "9464:9464"
+    depends_on:
+      - jaeger
+
+  prometheus:
+    image: prom/prometheus:v2.55.1
+    command: ["--config.file=/etc/prometheus/prometheus.yml"]
+    volumes:
+      - ../observability/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+    ports:
+      - "9090:9090"
+    depends_on:
+      - otel-collector
+
+  grafana:
+    image: grafana/grafana:11.2.0
+    ports:
+      - "3001:3000"
+    depends_on:
+      - prometheus
+
+  auth-service:
+    build:
+      context: ../..
+      dockerfile: deploy/docker/development/auth-service.Dockerfile
+    env_file:
+      - ../../examples/sample-env/.env.example
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  patient-service:
+    build:
+      context: ../..
+      dockerfile: deploy/docker/development/patient-service.Dockerfile
+    env_file:
+      - ../../examples/sample-env/.env.example
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+
+  audit-service:
+    build:
+      context: ../..
+      dockerfile: deploy/docker/development/audit-service.Dockerfile
+    env_file:
+      - ../../examples/sample-env/.env.example
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  health-records-service:
+    build:
+      context: ../..
+      dockerfile: deploy/docker/development/health-records-service.Dockerfile
+    env_file:
+      - ../../examples/sample-env/.env.example
+    depends_on:
+      postgres:
+        condition: service_healthy
+      audit-service:
+        condition: service_started
+
+  location-service:
+    build:
+      context: ../..
+      dockerfile: deploy/docker/development/location-service.Dockerfile
+    env_file:
+      - ../../examples/sample-env/.env.example
+    depends_on:
+      redis:
+        condition: service_healthy
+
+  translation-service:
+    build:
+      context: ../..
+      dockerfile: deploy/docker/development/translation-service.Dockerfile
+    env_file:
+      - ../../examples/sample-env/.env.example
+
+  notification-service:
+    build:
+      context: ../..
+      dockerfile: deploy/docker/development/notification-service.Dockerfile
+    env_file:
+      - ../../examples/sample-env/.env.example
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+
+  mcp-server:
+    build:
+      context: ../..
+      dockerfile: deploy/docker/development/mcp-server.Dockerfile
+    env_file:
+      - ../../examples/sample-env/.env.example
+    depends_on:
+      audit-service:
+        condition: service_started
+      health-records-service:
+        condition: service_started
+      translation-service:
+        condition: service_started
+      location-service:
+        condition: service_started
+
+  api-gateway:
+    build:
+      context: ../..
+      dockerfile: deploy/docker/development/api-gateway.Dockerfile
+    env_file:
+      - ../../examples/sample-env/.env.example
+    ports:
+      - "8081:8081"
+    depends_on:
+      auth-service:
+        condition: service_started
+      patient-service:
+        condition: service_started
+
+  web:
+    build:
+      context: ../..
+      dockerfile: deploy/docker/development/web.Dockerfile
+    env_file:
+      - ../../examples/sample-env/.env.example
+    ports:
+      - "3000:3000"
+    depends_on:
+      api-gateway:
+        condition: service_started

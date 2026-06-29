@@ -1,0 +1,41 @@
+image:
+  repository: 954976298234.dkr.ecr.us-east-1.amazonaws.com/web
+  tag: latest
+  pullPolicy: IfNotPresent
+replicaCount: 1
+ports:
+  - containerPort: 3000
+    name: http
+env:
+  - name: NODE_ENV
+    value: "development"
+resources:
+  requests:
+    memory: 256Mi
+    cpu: 100m
+  limits:
+    memory: 512Mi
+    cpu: 500m
+probes:
+  readinessProbe:
+    httpGet:
+      path: /
+      port: http
+    initialDelaySeconds: 30
+    periodSeconds: 10
+    timeoutSeconds: 10
+    failureThreshold: 3
+  livenessProbe:
+    httpGet:
+      path: /
+      port: http
+    initialDelaySeconds: 60
+    periodSeconds: 20
+    timeoutSeconds: 10
+    failureThreshold: 3
+service:
+  type: ClusterIP
+  ports:
+    - port: 3000
+      targetPort: 3000
+      name: http

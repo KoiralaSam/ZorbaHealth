@@ -1,0 +1,77 @@
+image:
+  repository: 954976298234.dkr.ecr.us-east-1.amazonaws.com/translation-service
+  tag: latest
+  pullPolicy: IfNotPresent
+replicaCount: 1
+ports:
+  - containerPort: 50057
+    name: grpc
+env:
+  - name: ENVIRONMENT
+    valueFrom:
+      configMapKeyRef:
+        key: ENVIRONMENT
+        name: app-config
+  - name: JAEGER_ENDPOINT
+    valueFrom:
+      configMapKeyRef:
+        key: JAEGER_ENDPOINT
+        name: app-config
+  - name: TRANSLATION_SERVICE_GRPC_ADDR
+    valueFrom:
+      configMapKeyRef:
+        key: TRANSLATION_SERVICE_GRPC_ADDR
+        name: app-config
+  - name: TRANSLATION_PROVIDER
+    valueFrom:
+      configMapKeyRef:
+        key: TRANSLATION_PROVIDER
+        name: app-config
+  - name: AWS_REGION
+    valueFrom:
+      configMapKeyRef:
+        key: AWS_REGION
+        name: app-config
+  - name: TRANSLATION_MODEL_BASE_URL
+    valueFrom:
+      configMapKeyRef:
+        key: TRANSLATION_MODEL_BASE_URL
+        name: app-config
+  - name: TRANSLATION_MODEL_TIMEOUT_SECONDS
+    value: "90"
+  - name: TRANSLATION_MODEL_MAX_TOKENS
+    value: "128"
+  - name: TRANSLATION_SERVICE_MAX_TEXT_LENGTH
+    value: "10000"
+  - name: TRANSLATION_SERVICE_RATE_LIMIT_PER_MINUTE
+    value: "60"
+  - name: TRANSLATION_SERVICE_ENABLE_GRPC_REFLECTION
+    value: "false"
+  - name: INTERNAL_SERVICE_SECRET
+    valueFrom:
+      secretKeyRef:
+        key: INTERNAL_SERVICE_SECRET
+        name: app-secrets
+  - name: PATIENT_SERVICE_JWT_SECRET
+    valueFrom:
+      secretKeyRef:
+        key: PATIENT_SERVICE_JWT_SECRET
+        name: app-secrets
+  - name: AUTH_SERVICE_JWT_SECRET
+    valueFrom:
+      secretKeyRef:
+        key: AUTH_SERVICE_JWT_SECRET
+        name: app-secrets
+resources:
+  requests:
+    memory: 128Mi
+    cpu: 50m
+  limits:
+    memory: 256Mi
+    cpu: 250m
+service:
+  type: ClusterIP
+  ports:
+    - port: 50057
+      targetPort: 50057
+      name: grpc

@@ -14,12 +14,18 @@ credentials
 config.local.*
 *-secret.*
 
+# Local AWS/EKS env (copy from eks.env.example)
+deploy/aws/eks.env
+deploy/aws/static-egress/egress.env
+
 # Plans and internal docs (do not expose)
 plans/
 Plans/
 
 # Build and temp
 tmp/
+.tmp/
+.cursor-tmp/
 temp/
 build/
 bin/
@@ -27,8 +33,15 @@ dist/
 dist-ssr/
 *.local
 
+# Generated Helm dependency archives (run `helm dependency build` to regenerate)
+deploy/helm/charts/*.tgz
+
 # Dependencies
 node_modules/
+mobile/.expo/
+agent-worker
+github.com/
+services/interpretation-service/interpretation-service
 
 # Logs
 logs/

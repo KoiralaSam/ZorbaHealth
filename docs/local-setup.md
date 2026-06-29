@@ -36,15 +36,42 @@ For a contributor-friendly view of environment variables, also see:
 
 ## Start the local stack
 
+### Option A: Docker Compose
+
+For a single-command OSS setup path:
+
 ```bash
+docker compose -f deploy/docker/docker-compose.yml up --build
+```
+
+This starts Postgres (pgvector), Redis, RabbitMQ, Jaeger, the OTEL collector, Prometheus, Grafana, and the core Go / web services using the sample environment contract.
+
+### Option B: Tilt on Kubernetes
+
+```bash
+aws eks update-kubeconfig --region us-east-1 --name floral-bluegrass-sheepdog
+aws ecr get-login-password --region us-east-1 | \
+  docker login --username AWS --password-stdin 954976298234.dkr.ecr.us-east-1.amazonaws.com
 tilt up
 ```
 
-Tilt currently builds and applies:
+Tilt applies everything in `deploy/kubernetes/development/` (via Kustomize), including **Postgres, Redis, RabbitMQ, and Jaeger**, plus:
+
+- **`db-migrate`** (label **database**) — runs `make migrate-up` when `DATABASE_URL` is set and `migrations/` changes. Requires the [`migrate`](https://github.com/golang-migrate/migrate) CLI on your laptop and a URL pointing at **`localhost:5432`** (Tilt port-forwards Postgres). Example:
+
+```bash
+export DATABASE_URL='postgres://healthai:YOUR_POSTGRES_PASSWORD@localhost:5432/healthai?sslmode=disable'
+tilt up
+```
+
+If `DATABASE_URL` is empty, the **db-migrate** resource fails until you export it (same password as in `secrets.yaml`).
+
+Application services Tilt builds and deploys:
 
 - PostgreSQL
 - Redis
 - RabbitMQ
+- Jaeger
 - API gateway
 - Auth service
 - Patient service
@@ -52,9 +79,10 @@ Tilt currently builds and applies:
 - Health records service
 - Analytics service
 - Location service
-- Translation model and translation service
-- Agent worker service
-- Web frontend
+- MCP server and voice-agent service
+- Web and mobile frontends
+
+**Not enabled in Tilt:** translation-model / translation-service (large LLM PVC; manifests exist but are omitted from `kustomization.yaml`). Legacy manifests (`rag-service`, `medical-records-service`) are also omitted.
 
 ## Common commands
 
@@ -70,7 +98,13 @@ kubectl get pods
 - Web app: `http://localhost:3000`
 - API gateway (REST): `http://localhost:8081`
 - Location service (patient WebSocket): `ws://localhost:8091` → path `/ws/location` (Tilt forwards host `8091` to container `8090`; voice-agent uses host `8090`)
+- Jaeger UI: `http://localhost:16686`
+- RabbitMQ management: `http://localhost:15672` (credentials from `rabbitmq-credentials` in `secrets.yaml`)
+- Postgres: `localhost:5432` (via Tilt port-forward; see `postgres-secret` in `secrets.yaml`)
+- Redis: `localhost:6379`
 - Tilt UI: `http://localhost:10350`
+- Prometheus: `http://localhost:9090`
+- Grafana: `http://localhost:3001`
 
 The web app reads `NEXT_PUBLIC_API_URL` and `NEXT_PUBLIC_LOCATION_WS_URL` at **build** time. For Tilt, those are set in the `web` image build (`Tiltfile` + `deploy/docker/development/web.Dockerfile`). For local `npm run dev`, copy `web/.env.example` to `web/.env.local`.
 
@@ -100,6 +134,10 @@ Some services require external credentials or separately managed infrastructure:
 - VoIP.ms
 
 Those integrations are part of the current implementation but are not yet fully abstracted behind provider interfaces.
+
+### Secrets loading
+
+Services can now use the shared `shared/secrets` package to prefer mounted secret files and fall back to environment variables. This keeps local Compose, local Kubernetes, and managed environments on the same lookup contract.
 
 ## Demo-friendly feature checks
 

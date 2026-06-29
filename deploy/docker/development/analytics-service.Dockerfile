@@ -12,7 +12,7 @@ COPY services/analytics-service ./services/analytics-service
 
 RUN --mount=type=cache,target=/root/.cache/go-build \
     --mount=type=cache,target=/go/pkg/mod \
-    CGO_ENABLED=0 GOOS=linux go build -o /app/build/analytics-service ./services/analytics-service/cmd/analytics-service
+    CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o /app/build/analytics-service ./services/analytics-service/cmd/analytics-service
 
 FROM alpine:3.19
 WORKDIR /app
