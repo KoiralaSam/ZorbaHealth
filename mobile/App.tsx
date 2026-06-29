@@ -144,6 +144,30 @@ class RequestError extends Error {
   }
 }
 
+const MOBILE_CACHE_TTL_MS = 45_000;
+const mobileApiCache = new Map<
+  string,
+  {
+    expiresAt: number;
+    value?: unknown;
+    promise?: Promise<unknown>;
+  }
+>();
+
+function mobileCacheKey(endpoint: string, token?: string, role?: Role) {
+  return `${role ?? "public"}:${(token ?? "").slice(-16)}:${endpoint}`;
+}
+
+function clearMobileApiCache(role?: Role) {
+  if (!role) {
+    mobileApiCache.clear();
+    return;
+  }
+  for (const key of mobileApiCache.keys()) {
+    if (key.startsWith(`${role}:`)) mobileApiCache.delete(key);
+  }
+}
+
 type PatientLoginData = {
   message?: string;
   access_token?: string;
@@ -409,7 +433,59 @@ async function apiRequest<T>(
     body?: unknown;
     role?: Role;
     skipAuthRetry?: boolean;
+    cacheTTL?: number;
+    forceRefresh?: boolean;
   } = {},
+): Promise<T> {
+  const method = options.method ?? "GET";
+  const canUseCache = method === "GET" && Boolean(options.cacheTTL);
+  const key = mobileCacheKey(endpoint, options.token, options.role);
+  const now = Date.now();
+  const cached = mobileApiCache.get(key);
+  if (canUseCache && !options.forceRefresh && cached?.value !== undefined && cached.expiresAt > now) {
+    return cached.value as T;
+  }
+  if (canUseCache && !options.forceRefresh && cached?.promise) {
+    return cached.promise as Promise<T>;
+  }
+
+  const requestPromise = performApiRequest<T>(endpoint, options, method);
+  if (canUseCache) {
+    mobileApiCache.set(key, {
+      expiresAt: now + (options.cacheTTL ?? MOBILE_CACHE_TTL_MS),
+      promise: requestPromise,
+    });
+  }
+
+  try {
+    const value = await requestPromise;
+    if (canUseCache) {
+      mobileApiCache.set(key, {
+        expiresAt: Date.now() + (options.cacheTTL ?? MOBILE_CACHE_TTL_MS),
+        value,
+      });
+    } else if (method !== "GET") {
+      clearMobileApiCache(options.role);
+    }
+    return value;
+  } catch (error) {
+    if (canUseCache) mobileApiCache.delete(key);
+    throw error;
+  }
+}
+
+async function performApiRequest<T>(
+  endpoint: string,
+  options: {
+    method?: string;
+    token?: string;
+    body?: unknown;
+    role?: Role;
+    skipAuthRetry?: boolean;
+    cacheTTL?: number;
+    forceRefresh?: boolean;
+  },
+  method: string,
 ): Promise<T> {
   const headers: Record<string, string> = {
     Accept: "application/json",
@@ -423,7 +499,7 @@ async function apiRequest<T>(
   }
 
   const response = await fetch(`${API_URL}${endpoint}`, {
-    method: options.method ?? "GET",
+    method,
     headers,
     body: options.body === undefined ? undefined : JSON.stringify(options.body),
   });
@@ -575,6 +651,7 @@ export default function App() {
       deleteSecure("patient_id"),
       deleteSecure("hospital_refresh_token"),
     ]);
+    clearMobileApiCache();
     setPatientToken("");
     setHospitalToken("");
   };
@@ -1040,31 +1117,38 @@ function PatientPortal({
     }
     setError("");
     try {
+      const cacheOptions = {
+        cacheTTL: MOBILE_CACHE_TTL_MS,
+        forceRefresh: !showPageLoader,
+      };
       const [profileData, consentData, hospitalConsentData, callData, auditData, meetingsData] = await Promise.all(
         [
           apiRequest<PatientProfile>(endpoints.patientProfile, {
             token,
             role: "patient",
+            ...cacheOptions,
           }),
           apiRequest<{ consents?: ConsentRecord[] }>(
             endpoints.patientConsents,
-            { token, role: "patient" },
+            { token, role: "patient", ...cacheOptions },
           ),
           apiRequest<{ consents?: PatientHospitalConsent[] }>(
             endpoints.patientHospitalConsents,
-            { token, role: "patient" },
+            { token, role: "patient", ...cacheOptions },
           ),
           apiRequest<{ calls?: CallSummary[] }>(endpoints.patientCalls, {
             token,
             role: "patient",
+            ...cacheOptions,
           }),
           apiRequest<{ events?: AuditEvent[] }>(endpoints.patientAudit, {
             token,
             role: "patient",
+            ...cacheOptions,
           }),
           apiRequest<{ meetings?: HospitalMeeting[] }>(
             endpoints.patientMeetings,
-            { token, role: "patient" },
+            { token, role: "patient", ...cacheOptions },
           ),
         ],
       );
@@ -1092,6 +1176,24 @@ function PatientPortal({
     void load(true);
   }, [load]);
 
+  useEffect(() => {
+    void apiRequest<{ calls?: CallSummary[] }>(endpoints.patientCalls, {
+      token,
+      role: "patient",
+      cacheTTL: 60_000,
+    }).catch(() => undefined);
+    void apiRequest<{ events?: AuditEvent[] }>(endpoints.patientAudit, {
+      token,
+      role: "patient",
+      cacheTTL: 60_000,
+    }).catch(() => undefined);
+    void apiRequest<{ meetings?: HospitalMeeting[] }>(endpoints.patientMeetings, {
+      token,
+      role: "patient",
+      cacheTTL: 60_000,
+    }).catch(() => undefined);
+  }, [token]);
+
   const refresh = useCallback(() => {
     void load(false);
   }, [load]);
@@ -1101,7 +1203,7 @@ function PatientPortal({
     try {
       const data = await apiRequest<{ staff?: PatientSchedulableStaffMember[] }>(
         `${endpoints.patientSchedulableStaff}?hospital_id=${encodeURIComponent(hospitalID)}`,
-        { token, role: "patient" },
+        { token, role: "patient", cacheTTL: 5 * 60_000 },
       );
       setSchedulableStaff(data.staff ?? []);
     } catch {
