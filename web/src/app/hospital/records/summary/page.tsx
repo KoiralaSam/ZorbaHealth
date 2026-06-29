@@ -45,7 +45,7 @@ import {
   HTTPHospitalStaffRegisterResponse,
   UpdateBridgedCallTranslationRequest,
 } from "../../../../contracts";
-import { apiFetch, logoutAuth } from "../../../../lib/auth-client";
+import { apiFetch, cachedApiJSON, clearApiCache, logoutAuth, preloadApiJSON } from "../../../../lib/auth-client";
 import { useAuth } from "../../../../hooks/useAuth";
 import {
   Activity,
@@ -286,12 +286,12 @@ function HospitalPatientSummaryPageContent() {
       if (!accessToken) return;
       if (isRefresh) setIsRefreshingBridges(true);
       try {
-        const response = await apiFetch(
+        const data = await cachedApiJSON<HTTPBridgedCallSessionListResponse>(
           "hospital",
           `${APIEndpoints.HOSPITAL_BRIDGED_CALL_SESSIONS}?status=transfer_requested`,
+          { ttlMs: 15_000, force: isRefresh },
         );
-        const data: HTTPBridgedCallSessionListResponse = await response.json();
-        if (response.ok) setPendingBridges(data.data?.sessions ?? []);
+        setPendingBridges(data.data?.sessions ?? []);
       } catch {
         // Best-effort side panel.
       } finally {
@@ -306,19 +306,18 @@ function HospitalPatientSummaryPageContent() {
   }, [loadPendingBridges]);
 
   const loadPatients = useCallback(
-    async (query: string) => {
+    async (query: string, force = false) => {
       if (!accessToken) return;
       setIsLoadingPatients(true);
       try {
         const suffix = query.trim()
           ? `?query=${encodeURIComponent(query.trim())}`
           : "";
-        const response = await apiFetch("hospital", `${APIEndpoints.HOSPITAL_PATIENTS}${suffix}`);
-        const data: HTTPHospitalPatientListResponse = await response.json();
-        if (!response.ok) {
-          setError(data.error?.message || "Unable to load consented patients.");
-          return;
-        }
+        const data = await cachedApiJSON<HTTPHospitalPatientListResponse>(
+          "hospital",
+          `${APIEndpoints.HOSPITAL_PATIENTS}${suffix}`,
+          { ttlMs: 60_000, force: force || Boolean(query.trim()) },
+        );
         setPatients(data.data?.patients ?? []);
       } catch {
         setError("Network error while loading consented patients.");
@@ -338,9 +337,12 @@ function HospitalPatientSummaryPageContent() {
       if (!accessToken) return;
       if (isRefresh) setIsRefreshingIncidents(true);
       try {
-        const response = await apiFetch("hospital", APIEndpoints.HOSPITAL_INCIDENTS);
-        const data: HTTPHospitalIncidentListResponse = await response.json();
-        if (response.ok) setIncidents(data.data?.incidents ?? []);
+        const data = await cachedApiJSON<HTTPHospitalIncidentListResponse>(
+          "hospital",
+          APIEndpoints.HOSPITAL_INCIDENTS,
+          { ttlMs: 30_000, force: isRefresh },
+        );
+        setIncidents(data.data?.incidents ?? []);
       } catch {
         // Best-effort side panel.
       } finally {
@@ -359,11 +361,12 @@ function HospitalPatientSummaryPageContent() {
       if (!accessToken) return;
       if (isRefresh) setIsRefreshingMeetings(true);
       try {
-        const response = await apiFetch("hospital", APIEndpoints.HOSPITAL_MEETINGS);
-        const data: HTTPHospitalMeetingListResponse = await response.json();
-        if (response.ok) {
-          setMeetings(data.data?.meetings ?? []);
-        }
+        const data = await cachedApiJSON<HTTPHospitalMeetingListResponse>(
+          "hospital",
+          APIEndpoints.HOSPITAL_MEETINGS,
+          { ttlMs: 45_000, force: isRefresh },
+        );
+        setMeetings(data.data?.meetings ?? []);
       } catch {
         // Best-effort dashboard panel.
       } finally {
@@ -382,11 +385,12 @@ function HospitalPatientSummaryPageContent() {
       if (!accessToken) return;
       if (isRefresh) setIsRefreshingConsentRequests(true);
       try {
-        const response = await apiFetch("hospital", APIEndpoints.HOSPITAL_CONSENT_REQUESTS);
-        const data: HTTPHospitalConsentRequestListResponse = await response.json();
-        if (response.ok) {
-          setConsentRequests(data.data?.requests ?? []);
-        }
+        const data = await cachedApiJSON<HTTPHospitalConsentRequestListResponse>(
+          "hospital",
+          APIEndpoints.HOSPITAL_CONSENT_REQUESTS,
+          { ttlMs: 45_000, force: isRefresh },
+        );
+        setConsentRequests(data.data?.requests ?? []);
       } catch {
         // Best-effort consent panel.
       } finally {
@@ -400,8 +404,21 @@ function HospitalPatientSummaryPageContent() {
     void loadConsentRequests();
   }, [loadConsentRequests]);
 
+  useEffect(() => {
+    if (!ready || !authenticated || !accessToken) return;
+    preloadApiJSON<HTTPHospitalIncidentListResponse>("hospital", APIEndpoints.HOSPITAL_INCIDENTS, { ttlMs: 30_000 });
+    preloadApiJSON<HTTPHospitalMeetingListResponse>("hospital", APIEndpoints.HOSPITAL_MEETINGS, { ttlMs: 45_000 });
+    preloadApiJSON<HTTPHospitalConsentRequestListResponse>("hospital", APIEndpoints.HOSPITAL_CONSENT_REQUESTS, { ttlMs: 45_000 });
+    preloadApiJSON<HTTPBridgedCallSessionListResponse>(
+      "hospital",
+      `${APIEndpoints.HOSPITAL_BRIDGED_CALL_SESSIONS}?status=transfer_requested`,
+      { ttlMs: 15_000 },
+    );
+  }, [accessToken, authenticated, ready]);
+
   const mergeMeeting = (meeting?: HospitalMeetingRecord) => {
     if (!meeting?.id) return;
+    clearApiCache("hospital");
     setMeetings((current) => {
       const exists = current.some((item) => item.id === meeting.id);
       if (!exists) return [meeting, ...current];
@@ -499,7 +516,8 @@ function HospitalPatientSummaryPageContent() {
       }
       setBridgedSession(data.data?.session ?? null);
       setBridgeCaptions([]);
-      void loadPendingBridges();
+      clearApiCache("hospital");
+      void loadPendingBridges(true);
       const token = data.data?.staff_room_token;
       const wsUrl = data.data?.livekit_ws_url;
       if (token && wsUrl) {
@@ -585,7 +603,8 @@ function HospitalPatientSummaryPageContent() {
       }
       setBridgedSession(data.data?.session ?? null);
       await disconnectBridgeRoom();
-      void loadPendingBridges();
+      clearApiCache("hospital");
+      void loadPendingBridges(true);
     } catch {
       setError("Network error while ending bridged call.");
     }
@@ -616,6 +635,7 @@ function HospitalPatientSummaryPageContent() {
       if (data.data?.meeting) {
         setMeetings((prev) => [data.data!.meeting!, ...prev]);
       }
+      clearApiCache("hospital");
       setShowScheduleForm(false);
       setScheduleForm((prev) => ({ ...prev, patient_id: "", starts_at: "", title: "", notes: "" }));
     } catch {
@@ -667,6 +687,7 @@ function HospitalPatientSummaryPageContent() {
       const request = data.data.request;
       setConsentRequests((current) => [request, ...current]);
       setConsentQRCode(await QRCode.toDataURL(request.qr_payload || request.token || ""));
+      clearApiCache("hospital");
       return true;
     } catch {
       setError("Network error while creating consent request.");
@@ -740,7 +761,7 @@ function HospitalPatientSummaryPageContent() {
               variant="outline"
               onClick={() => {
                 toast.message("Refreshing clinical workspace...");
-                void Promise.all([loadPatients(patientSearch), loadMeetings(), loadIncidents()]);
+                void Promise.all([loadPatients(patientSearch, true), loadMeetings(true), loadIncidents(true)]);
               }}
             >
               <RefreshCw className="h-4 w-4" />
@@ -789,7 +810,7 @@ function HospitalPatientSummaryPageContent() {
                 query={patientSearch}
                 onQueryChange={setPatientSearch}
                 onSearch={() => void loadPatients(patientSearch)}
-                onRefresh={() => void loadPatients("")}
+                onRefresh={() => void loadPatients("", true)}
                 onSelectSummary={(patient) => {
                   setPatientID(patient.patient_id || "");
                   setActiveSection("summary");
@@ -1140,14 +1161,14 @@ export default function HospitalPatientSummaryPage() {
   return (
     <Suspense
       fallback={
-        <main className="mesh-bg min-h-screen px-5 py-8">
+        <main className="min-h-screen bg-slate-100 px-5 py-8 dark:bg-slate-950">
           <div className="mx-auto max-w-7xl space-y-6">
-            <div className="h-28 rounded-[2rem] bg-white/80 dark:bg-slate-900/80" />
+            <div className="h-28 rounded-2xl bg-white shadow-sm dark:bg-slate-900" />
             <div className="grid gap-4 md:grid-cols-4">
-              <div className="h-28 rounded-3xl bg-white/80 dark:bg-slate-900/80" />
-              <div className="h-28 rounded-3xl bg-white/80 dark:bg-slate-900/80" />
-              <div className="h-28 rounded-3xl bg-white/80 dark:bg-slate-900/80" />
-              <div className="h-28 rounded-3xl bg-white/80 dark:bg-slate-900/80" />
+              <div className="h-28 rounded-2xl bg-white shadow-sm dark:bg-slate-900" />
+              <div className="h-28 rounded-2xl bg-white shadow-sm dark:bg-slate-900" />
+              <div className="h-28 rounded-2xl bg-white shadow-sm dark:bg-slate-900" />
+              <div className="h-28 rounded-2xl bg-white shadow-sm dark:bg-slate-900" />
             </div>
           </div>
         </main>
