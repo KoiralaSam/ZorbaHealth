@@ -3,7 +3,20 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "../../../components/ui/button";
+import { Input } from "../../../components/ui/input";
+import {
+  ArrowLeft,
+  Calendar,
+  HeartPulse,
+  KeyRound,
+  Mail,
+  Phone,
+  ShieldAlert,
+  User,
+} from "lucide-react";
 import { API_URL } from "../../../constants";
+import { DotPattern } from "../../../components/magicui/dot-pattern";
+import { MagicCard } from "../../../components/magicui/magic-card";
 import {
   APIEndpoints,
   HTTPPatientRegisterRequest,
@@ -29,30 +42,23 @@ export default function PatientRegister() {
     try {
       const saved = window.sessionStorage.getItem("patientRegistration");
       if (!saved) return;
-
       const parsed = JSON.parse(saved) as HTTPPatientRegisterRequest;
-
       setFormData((prev) => ({
         ...prev,
         phoneNumber: parsed.phone_number || prev.phoneNumber,
         email: parsed.email || prev.email,
         fullName: parsed.full_name || prev.fullName,
-        // date_of_birth is stored as RFC3339 string; convert back to YYYY-MM-DD if present
         dateOfBirth: parsed.date_of_birth
           ? parsed.date_of_birth.split("T")[0] ?? prev.dateOfBirth
           : prev.dateOfBirth,
-        // we deliberately do NOT restore password fields for security reasons
-        password: prev.password,
-        confirmPassword: prev.confirmPassword,
       }));
     } catch {
-      // If parsing fails, ignore and continue with empty form
+      // Ignore invalid saved registration data.
     }
   }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-
     setErrorMessage(null);
 
     if (formData.password !== formData.confirmPassword) {
@@ -62,50 +68,40 @@ export default function PatientRegister() {
 
     setIsLoading(true);
 
-    // Backend expects Go time.Time over JSON, which is an RFC3339 string.
-    // The browser date input gives YYYY-MM-DD, so convert it to RFC3339.
-    const dateOfBirthRFC3339 = formData.dateOfBirth
-      ? `${formData.dateOfBirth}T00:00:00Z`
-      : undefined;
-
     const patientRegisterRequest: HTTPPatientRegisterRequest = {
       phone_number: formData.phoneNumber,
       password: formData.password,
       full_name: formData.fullName,
       email: formData.email || undefined,
-      date_of_birth: dateOfBirthRFC3339,
+      date_of_birth: formData.dateOfBirth
+        ? `${formData.dateOfBirth}T00:00:00Z`
+        : undefined,
     };
 
     try {
-      // patient registration API call
       const response = await fetch(
         `${API_URL}${APIEndpoints.PATIENT_REGISTER}`,
         {
           method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
+          headers: { "Content-Type": "application/json" },
           body: JSON.stringify(patientRegisterRequest),
-        }
+        },
       );
 
       const data: HTTPPatientRegisterResponse = await response.json();
 
       if (response.ok) {
-        if (typeof window !== "undefined") {
-          window.sessionStorage.setItem(
-            "patientRegistration",
-            JSON.stringify(patientRegisterRequest)
-          );
-        }
-
+        window.sessionStorage.setItem(
+          "patientRegistration",
+          JSON.stringify(patientRegisterRequest),
+        );
         router.push(
-          `/register/patient/otp?phone=${encodeURIComponent(formData.phoneNumber)}`
+          `/register/patient/otp?phone=${encodeURIComponent(formData.phoneNumber)}`,
         );
       } else {
         setErrorMessage(
           data.error?.message ||
-            "Registration failed. Please check your details and try again."
+            "Registration failed. Please check your details and try again.",
         );
       }
     } catch {
@@ -116,213 +112,160 @@ export default function PatientRegister() {
   };
 
   return (
-    <main className="min-h-screen bg-gradient-to-b from-blue-50 to-white">
-      <div className="flex min-h-screen flex-col">
-        <header className="w-full border-b border-blue-100 bg-white/70 backdrop-blur">
-          <div className="mx-auto flex max-w-5xl items-center justify-between px-4 py-4">
-            <button
-              type="button"
-              onClick={() => router.push("/")}
-              className="flex items-center gap-2"
-            >
-              <div className="flex h-9 w-9 items-center justify-center rounded-full bg-blue-100">
-                <span className="text-base font-semibold text-blue-700">Z</span>
-              </div>
-              <span className="text-lg font-semibold text-gray-900">
-                Zorba Health
-              </span>
-            </button>
-
-            <nav className="flex items-center gap-3 text-sm">
-              <button
-                type="button"
-                onClick={() => router.push("/login/patient")}
-                className="text-gray-600 hover:text-gray-900"
-              >
-                Patient login
-              </button>
-              <button
-                type="button"
-                onClick={() => router.push("/login/hospital")}
-                className="text-gray-600 hover:text-gray-900"
-              >
-                Hospital login
-              </button>
-            </nav>
-          </div>
-        </header>
-
-        <div className="flex flex-1 items-center justify-center px-4 py-8">
-          <div className="bg-white p-8 rounded-2xl shadow-lg max-w-md w-full">
-            <div className="mb-6">
-              <button
-                onClick={() => router.push("/")}
-                className="text-gray-500 hover:text-gray-700 mb-4 text-sm"
-                type="button"
-              >
-                ← Back to home
-              </button>
-              <h2 className="text-2xl font-bold text-gray-900 mb-2">
-                Patient Registration
-              </h2>
-              <p className="text-gray-600 text-sm">
-                Create your account to access AI-powered health assistance.
-              </p>
+    <main className="relative min-h-screen overflow-hidden bg-slate-950 text-slate-950">
+      <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(99,102,241,0.28),transparent_24%),radial-gradient(circle_at_top_right,rgba(249,115,22,0.18),transparent_18%),linear-gradient(180deg,#020617_0%,#0f172a_55%,#111827_100%)]" />
+      <DotPattern
+        glow
+        className="text-indigo-300/30 [mask-image:radial-gradient(700px_circle_at_center,white,transparent)]"
+      />
+      <header className="relative border-b border-white/10 bg-slate-950/70 backdrop-blur-xl">
+        <div className="mx-auto flex max-w-6xl items-center justify-between px-5 py-4">
+          <button
+            type="button"
+            onClick={() => router.push("/")}
+            className="flex items-center gap-3"
+          >
+            <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-gradient-to-br from-indigo-600 to-orange-500 text-white shadow-glow">
+              <HeartPulse className="h-5 w-5" />
             </div>
+            <span className="text-lg font-black tracking-tight gradient-text">
+              Zorba Health
+            </span>
+          </button>
+          <button
+            type="button"
+            onClick={() => router.push("/login/patient")}
+            className="text-sm font-bold text-slate-600 hover:text-indigo-600"
+          >
+            Sign In
+          </button>
+        </div>
+      </header>
 
-            {errorMessage && (
-              <div className="mb-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
-                {errorMessage}
-              </div>
-            )}
+      <div className="relative mx-auto flex min-h-[calc(100vh-73px)] max-w-3xl items-center px-5 py-8">
+        <MagicCard
+          className="w-full overflow-hidden rounded-3xl p-0"
+          gradientFrom="#4f46e5"
+          gradientTo="#f97316"
+          gradientColor="rgba(79, 70, 229, 0.12)"
+        >
+          <section className="relative w-full rounded-3xl border border-white/60 bg-white/90 p-6 shadow-2xl shadow-slate-950/20 backdrop-blur-xl sm:p-8 dark:border-slate-800 dark:bg-slate-950/90">
+          <button
+            onClick={() => router.push("/")}
+            className="mb-6 inline-flex items-center gap-1.5 text-sm font-bold text-slate-500 hover:text-slate-900"
+            type="button"
+          >
+            <ArrowLeft className="h-4 w-4" /> Back to home
+          </button>
 
-            <form onSubmit={handleSubmit} className="space-y-4">
-            <div>
-              <label
-                htmlFor="fullName"
-                className="block text-sm font-medium text-gray-700 mb-2"
-              >
-                Full Name *
-              </label>
-              <input
-                id="fullName"
-                type="text"
+          <div className="mb-8">
+            <p className="text-xs font-black uppercase tracking-wide text-indigo-600">
+              Step 1 of 3
+            </p>
+            <h1 className="mt-2 text-3xl font-black tracking-tight">
+              Create your patient account
+            </h1>
+            <div className="mt-5 grid grid-cols-3 gap-2">
+              {["Info", "Verify Phone", "Verify Email"].map((step, index) => (
+                <div key={step}>
+                  <div
+                    className={`h-2 rounded-full ${
+                      index === 0 ? "bg-indigo-600" : "bg-slate-200"
+                    }`}
+                  />
+                  <p className="mt-2 text-xs font-bold text-slate-500">{step}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {errorMessage ? (
+            <div className="mb-6 flex items-start gap-2 rounded-xl border border-rose-200 bg-rose-50/70 p-4 text-sm text-rose-700">
+              <ShieldAlert className="mt-0.5 h-5 w-5 shrink-0 text-rose-600" />
+              <span>{errorMessage}</span>
+            </div>
+          ) : null}
+
+          <form onSubmit={handleSubmit} className="space-y-5">
+            <div className="grid gap-5 sm:grid-cols-2">
+              <Input
+                label="Full Name"
+                icon={<User className="h-5 w-5" />}
                 value={formData.fullName}
                 onChange={(e) =>
                   setFormData({ ...formData, fullName: e.target.value })
                 }
                 placeholder="John Doe"
-                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 required
               />
-            </div>
-
-            <div>
-              <label
-                htmlFor="phone"
-                className="block text-sm font-medium text-gray-700 mb-2"
-              >
-                Phone Number *
-              </label>
-              <input
-                id="phone"
+              <Input
+                label="Phone Number"
+                icon={<Phone className="h-5 w-5" />}
                 type="tel"
                 value={formData.phoneNumber}
                 onChange={(e) =>
                   setFormData({ ...formData, phoneNumber: e.target.value })
                 }
-                placeholder="+1 (555) 123-4567"
-                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                placeholder="+15551234567"
                 required
               />
-            </div>
-
-            <div>
-              <label
-                htmlFor="email"
-                className="block text-sm font-medium text-gray-700 mb-2"
-              >
-                Email Address (Optional)
-              </label>
-              <input
-                id="email"
+              <Input
+                label="Email Address"
+                icon={<Mail className="h-5 w-5" />}
                 type="email"
                 value={formData.email}
                 onChange={(e) =>
                   setFormData({ ...formData, email: e.target.value })
                 }
                 placeholder="john.doe@example.com"
-                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               />
-            </div>
-
-            <div>
-              <label
-                htmlFor="dateOfBirth"
-                className="block text-sm font-medium text-gray-700 mb-2"
-              >
-                Date of Birth *
-              </label>
-              <input
-                id="dateOfBirth"
+              <Input
+                label="Date of Birth"
+                icon={<Calendar className="h-5 w-5" />}
                 type="date"
                 value={formData.dateOfBirth}
                 onChange={(e) =>
                   setFormData({ ...formData, dateOfBirth: e.target.value })
                 }
-                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 required
               />
-            </div>
-
-            <div>
-              <label
-                htmlFor="password"
-                className="block text-sm font-medium text-gray-700 mb-2"
-              >
-                Password *
-              </label>
-              <input
-                id="password"
+              <Input
+                label="Password"
+                icon={<KeyRound className="h-5 w-5" />}
                 type="password"
                 value={formData.password}
                 onChange={(e) =>
                   setFormData({ ...formData, password: e.target.value })
                 }
-                placeholder="Create a strong password"
-                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                required
+                placeholder="Minimum 8 characters"
                 minLength={8}
+                required
               />
-            </div>
-
-            <div>
-              <label
-                htmlFor="confirmPassword"
-                className="block text-sm font-medium text-gray-700 mb-2"
-              >
-                Confirm Password *
-              </label>
-              <input
-                id="confirmPassword"
+              <Input
+                label="Confirm Password"
+                icon={<KeyRound className="h-5 w-5" />}
                 type="password"
                 value={formData.confirmPassword}
                 onChange={(e) =>
-                  setFormData({
-                    ...formData,
-                    confirmPassword: e.target.value,
-                  })
+                  setFormData({ ...formData, confirmPassword: e.target.value })
                 }
-                placeholder="Re-enter password"
-                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                required
+                placeholder="Repeat password"
                 minLength={8}
+                required
               />
             </div>
 
-              <Button
-                type="submit"
-                className="w-full text-lg py-6 bg-blue-600 hover:bg-blue-700 text-white"
-                disabled={isLoading}
-              >
-                {isLoading ? "Creating Account..." : "Register"}
-              </Button>
-            </form>
-
-            <div className="mt-6 text-center">
-              <p className="text-sm text-gray-500">
-                Already have an account?{" "}
-                <button
-                  onClick={() => router.push("/login/patient")}
-                  className="text-blue-600 hover:text-blue-700 font-medium"
-                  type="button"
-                >
-                  Login here
-                </button>
-              </p>
-            </div>
-          </div>
-        </div>
+            <Button
+              type="submit"
+              variant="healthcare"
+              className="h-12 w-full text-base"
+              disabled={isLoading}
+            >
+              {isLoading ? "Creating Account..." : "Continue to Phone Verification"}
+            </Button>
+          </form>
+        </section>
+        </MagicCard>
       </div>
     </main>
   );

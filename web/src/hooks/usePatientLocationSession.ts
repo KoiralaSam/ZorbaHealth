@@ -28,6 +28,8 @@ const WATCH_OPTIONS: PositionOptions = {
 export type PatientLocationSessionControls = {
   locationPermissionBlocked: boolean;
   retryBrowserLocation: () => void;
+  /** LiveKit room SID for the current verified voice call (from location WS). */
+  activeVoiceSessionId: string | null;
 };
 
 function sessionIDFromCommand(msg: WSCommand): string {
@@ -86,6 +88,9 @@ export function usePatientLocationSession(
   const onLocationNoticeRef = useRef(onLocationNotice);
   const [locationPermissionBlocked, setLocationPermissionBlocked] =
     useState(false);
+  const [activeVoiceSessionId, setActiveVoiceSessionId] = useState<
+    string | null
+  >(null);
 
   accessTokenRef.current = accessToken;
   consentsRef.current = consents;
@@ -129,6 +134,7 @@ export function usePatientLocationSession(
 
   const promptBrowserLocation = useCallback((sessionID: string, token: string) => {
     activeVoiceSessionRef.current = sessionID;
+    setActiveVoiceSessionId(sessionID);
 
     const ws = wsRef.current;
     if (!ws || ws.readyState !== WebSocket.OPEN) {
@@ -257,6 +263,7 @@ export function usePatientLocationSession(
       if (cmd === "start_location" && sessionID) {
         console.info("[location] received start_location", sessionID);
         activeVoiceSessionRef.current = sessionID;
+        setActiveVoiceSessionId(sessionID);
         const token = accessTokenRef.current;
         if (token) {
           promptBrowserLocationRef.current(sessionID, token);
@@ -266,6 +273,7 @@ export function usePatientLocationSession(
       }
       if (cmd === "stop_location") {
         activeVoiceSessionRef.current = null;
+        setActiveVoiceSessionId(null);
         setLocationPermissionBlocked(false);
         onLocationNoticeRef.current?.("");
         stopWatch();
@@ -291,5 +299,6 @@ export function usePatientLocationSession(
   return {
     locationPermissionBlocked,
     retryBrowserLocation,
+    activeVoiceSessionId,
   };
 }

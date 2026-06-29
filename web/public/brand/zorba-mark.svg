@@ -1,0 +1,32 @@
+<svg width="512" height="512" viewBox="0 0 512 512" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="zorbaBg" x1="84" y1="72" x2="430" y2="440" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#EEF2FF" />
+      <stop offset="0.5" stop-color="#F8FAFC" />
+      <stop offset="1" stop-color="#FFF7ED" />
+    </linearGradient>
+    <linearGradient id="zorbaPulse" x1="132" y1="156" x2="388" y2="356" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#4F46E5" />
+      <stop offset="0.58" stop-color="#2563EB" />
+      <stop offset="1" stop-color="#F97316" />
+    </linearGradient>
+    <filter id="zorbaShadow" x="48" y="48" width="416" height="416" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB">
+      <feFlood flood-opacity="0" result="BackgroundImageFix"/>
+      <feColorMatrix in="SourceAlpha" type="matrix" values="0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 127 0" result="hardAlpha"/>
+      <feOffset dy="18"/>
+      <feGaussianBlur stdDeviation="22"/>
+      <feColorMatrix type="matrix" values="0 0 0 0 0.184314 0 0 0 0 0.227451 0 0 0 0 0.560784 0 0 0 0.22 0"/>
+      <feBlend mode="normal" in2="BackgroundImageFix" result="effect1_dropShadow_0_1"/>
+      <feBlend mode="normal" in="SourceGraphic" in2="effect1_dropShadow_0_1" result="shape"/>
+    </filter>
+  </defs>
+  <rect width="512" height="512" rx="128" fill="url(#zorbaBg)"/>
+  <rect x="40" y="40" width="432" height="432" rx="112" fill="white" fill-opacity="0.86"/>
+  <g filter="url(#zorbaShadow)">
+    <path d="M256 392C189.069 344.523 145 305.88 145 241.422C145 193.779 179.814 160 225.113 160C246.626 160 267.142 170.442 280.5 187.929C293.858 170.442 314.374 160 335.887 160C381.186 160 416 193.779 416 241.422C416 305.88 371.931 344.523 305 392L280.5 409L256 392Z" fill="url(#zorbaPulse)"/>
+    <path d="M126 276H194L226 231L257 307L289 260L321 276H386" stroke="white" stroke-width="24" stroke-linecap="round" stroke-linejoin="round"/>
+    <circle cx="386" cy="276" r="14" fill="white"/>
+  </g>
+  <path d="M125 138C153 105.167 194.167 84 248.5 84" stroke="#C7D2FE" stroke-width="16" stroke-linecap="round" opacity="0.8"/>
+  <circle cx="311" cy="97" r="10" fill="#FDBA74"/>
+</svg>

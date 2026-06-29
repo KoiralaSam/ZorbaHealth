@@ -1,0 +1,17 @@
+{
+  "name": "Zorba Health",
+  "short_name": "Zorba",
+  "description": "Secure voice-centered healthcare workflows for patients and clinical teams.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0F172A",
+  "theme_color": "#4F46E5",
+  "icons": [
+    {
+      "src": "/brand/zorba-mark.png",
+      "sizes": "1024x1024",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}

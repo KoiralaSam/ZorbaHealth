@@ -3,11 +3,31 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "../../../components/ui/button";
+import { Input } from "../../../components/ui/input";
+import {
+  ArrowLeft,
+  Building2,
+  FileText,
+  KeyRound,
+  Mail,
+  MapPin,
+  Phone,
+  ShieldCheck,
+} from "lucide-react";
+import { DotPattern } from "../../../components/magicui/dot-pattern";
+import { MagicCard } from "../../../components/magicui/magic-card";
+import {
+  APIEndpoints,
+  HTTPHospitalRegisterRequest,
+  HTTPHospitalRegisterResponse,
+} from "../../../contracts";
+import { API_URL } from "../../../constants";
 
 export default function HospitalRegister() {
   const router = useRouter();
   const [formData, setFormData] = useState({
     hospitalName: "",
+    staffName: "",
     email: "",
     password: "",
     confirmPassword: "",
@@ -16,247 +36,235 @@ export default function HospitalRegister() {
     registrationNumber: "",
   });
   const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState("");
+  const [notice, setNotice] = useState("");
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setError("");
+    setNotice("");
 
     if (formData.password !== formData.confirmPassword) {
-      alert("Passwords do not match!");
+      setError("Passwords do not match.");
       return;
     }
 
     setIsLoading(true);
+    const payload: HTTPHospitalRegisterRequest = {
+      hospital_name: formData.hospitalName.trim(),
+      license_no: formData.registrationNumber.trim(),
+      email: formData.email.trim(),
+      phone_number: formData.contactNumber.trim(),
+      password: formData.password,
+      staff_name: formData.staffName.trim(),
+      staff_role: "admin",
+      address: formData.address.trim(),
+    };
 
-    // TODO: Implement hospital registration API call
-    setTimeout(() => {
-      setIsLoading(false);
-      alert("Registration request submitted! Awaiting approval.");
+    try {
+      const response = await fetch(`${API_URL}${APIEndpoints.HOSPITAL_REGISTER}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      const data: HTTPHospitalRegisterResponse = await response.json();
+      if (!response.ok) {
+        setError(data.error?.message || "Hospital registration failed.");
+        return;
+      }
+      setNotice("Hospital registered. Your admin staff login is ready.");
       router.push("/login/hospital");
-    }, 1000);
+    } catch {
+      setError("Network error. Please try again.");
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
-    <main className="min-h-screen bg-gradient-to-b from-blue-50 to-white">
-      <div className="flex flex-col items-center justify-center min-h-screen gap-6 px-4 py-8">
-        <div className="bg-white p-8 rounded-2xl shadow-lg max-w-2xl w-full">
-          <div className="mb-4 flex items-center justify-between">
-            <button
-              onClick={() => router.push("/")}
-              className="text-gray-500 hover:text-gray-700 text-sm"
-              type="button"
-            >
-              ← Back to home
-            </button>
-            <nav className="flex items-center gap-3 text-xs sm:text-sm">
-              <button
-                type="button"
-                onClick={() => router.push("/login/hospital")}
-                className="text-gray-600 hover:text-gray-900"
-              >
-                Hospital login
-              </button>
-              <button
-                type="button"
-                onClick={() => router.push("/login/patient")}
-                className="text-gray-600 hover:text-gray-900"
-              >
-                Patient login
-              </button>
-            </nav>
-          </div>
-
-          <div className="mb-6">
-            <h2 className="text-2xl font-bold text-gray-900 mb-2">
-              Hospital Registration
-            </h2>
-            <p className="text-gray-600 text-sm">
-              Register your healthcare facility to manage patient records and
-              analytics.
-            </p>
-          </div>
-
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <label
-                  htmlFor="hospitalName"
-                  className="block text-sm font-medium text-gray-700 mb-2"
-                >
-                  Hospital Name *
-                </label>
-                <input
-                  id="hospitalName"
-                  type="text"
-                  value={formData.hospitalName}
-                  onChange={(e) =>
-                    setFormData({ ...formData, hospitalName: e.target.value })
-                  }
-                  placeholder="General Hospital"
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  required
-                />
-              </div>
-
-              <div>
-                <label
-                  htmlFor="registrationNumber"
-                  className="block text-sm font-medium text-gray-700 mb-2"
-                >
-                  Registration Number *
-                </label>
-                <input
-                  id="registrationNumber"
-                  type="text"
-                  value={formData.registrationNumber}
-                  onChange={(e) =>
-                    setFormData({
-                      ...formData,
-                      registrationNumber: e.target.value,
-                    })
-                  }
-                  placeholder="REG123456"
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  required
-                />
-              </div>
-            </div>
-
+    <main className="relative min-h-screen overflow-hidden bg-slate-950 text-slate-950">
+      <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(99,102,241,0.28),transparent_24%),radial-gradient(circle_at_top_right,rgba(249,115,22,0.18),transparent_18%),linear-gradient(180deg,#020617_0%,#0f172a_55%,#111827_100%)]" />
+      <DotPattern
+        glow
+        className="text-indigo-300/30 [mask-image:radial-gradient(700px_circle_at_center,white,transparent)]"
+      />
+      <div className="relative mx-auto flex min-h-screen max-w-4xl items-center px-5 py-8">
+        <MagicCard
+          className="w-full overflow-hidden rounded-3xl p-0"
+          gradientFrom="#4f46e5"
+          gradientTo="#f97316"
+          gradientColor="rgba(79, 70, 229, 0.12)"
+        >
+        <section className="relative w-full rounded-3xl border border-white/60 bg-white/90 p-6 shadow-2xl shadow-slate-950/20 backdrop-blur-xl sm:p-8 dark:border-slate-800 dark:bg-slate-950/90">
+          <div className="mb-8 flex flex-col gap-5 sm:flex-row sm:items-start sm:justify-between">
             <div>
-              <label
-                htmlFor="email"
-                className="block text-sm font-medium text-gray-700 mb-2"
+              <button
+                onClick={() => router.push("/")}
+                className="mb-6 inline-flex items-center gap-1.5 text-sm font-bold text-slate-500 hover:text-slate-900"
+                type="button"
               >
-                Official Email Address *
-              </label>
-              <input
-                id="email"
+                <ArrowLeft className="h-4 w-4" /> Back to home
+              </button>
+              <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-slate-950 text-white">
+                <Building2 className="h-6 w-6" />
+              </div>
+              <p className="text-xs font-black uppercase tracking-wide text-indigo-600">
+                Healthcare partner onboarding
+              </p>
+              <h1 className="mt-2 text-3xl font-black tracking-tight">
+                Hospital Registration
+              </h1>
+              <p className="mt-2 max-w-2xl text-sm leading-7 text-slate-600">
+                Submit your facility details for compliance review and access to
+                clinical summaries, audit search, and incident workflows.
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={() => router.push("/login/hospital")}
+              className="text-sm font-bold text-indigo-600 hover:text-indigo-700"
+            >
+              Hospital Login
+            </button>
+          </div>
+
+          {error ? (
+            <div className="mb-6 rounded-xl border border-rose-200 bg-rose-50/70 p-4 text-sm font-semibold text-rose-700">
+              {error}
+            </div>
+          ) : null}
+          {notice ? (
+            <div className="mb-6 rounded-xl border border-emerald-200 bg-emerald-50/70 p-4 text-sm font-semibold text-emerald-700">
+              {notice}
+            </div>
+          ) : null}
+
+          <form onSubmit={handleSubmit} className="space-y-5">
+            <div className="grid gap-5 md:grid-cols-2">
+              <Input
+                label="Hospital Name"
+                icon={<Building2 className="h-5 w-5" />}
+                value={formData.hospitalName}
+                onChange={(e) =>
+                  setFormData({ ...formData, hospitalName: e.target.value })
+                }
+                placeholder="General Hospital"
+                required
+              />
+              <Input
+                label="Registration Number"
+                icon={<FileText className="h-5 w-5" />}
+                value={formData.registrationNumber}
+                onChange={(e) =>
+                  setFormData({
+                    ...formData,
+                    registrationNumber: e.target.value,
+                  })
+                }
+                placeholder="REG123456"
+                required
+              />
+              <Input
+                label="Official Email"
+                icon={<Mail className="h-5 w-5" />}
                 type="email"
                 value={formData.email}
                 onChange={(e) =>
                   setFormData({ ...formData, email: e.target.value })
                 }
                 placeholder="admin@hospital.com"
-                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 required
               />
-            </div>
-
-            <div>
-              <label
-                htmlFor="contactNumber"
-                className="block text-sm font-medium text-gray-700 mb-2"
-              >
-                Contact Number *
-              </label>
-              <input
-                id="contactNumber"
+              <Input
+                label="Admin Staff Name"
+                icon={<ShieldCheck className="h-5 w-5" />}
+                value={formData.staffName}
+                onChange={(e) =>
+                  setFormData({ ...formData, staffName: e.target.value })
+                }
+                placeholder="Dr. Jane Admin"
+                required
+              />
+              <Input
+                label="Contact Number"
+                icon={<Phone className="h-5 w-5" />}
                 type="tel"
                 value={formData.contactNumber}
                 onChange={(e) =>
                   setFormData({ ...formData, contactNumber: e.target.value })
                 }
-                placeholder="+1 (555) 000-0000"
-                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                placeholder="+15550000000"
+                required
+              />
+              <Input
+                label="Password"
+                icon={<KeyRound className="h-5 w-5" />}
+                type="password"
+                value={formData.password}
+                onChange={(e) =>
+                  setFormData({ ...formData, password: e.target.value })
+                }
+                placeholder="Create password"
+                minLength={8}
+                required
+              />
+              <Input
+                label="Confirm Password"
+                icon={<KeyRound className="h-5 w-5" />}
+                type="password"
+                value={formData.confirmPassword}
+                onChange={(e) =>
+                  setFormData({ ...formData, confirmPassword: e.target.value })
+                }
+                placeholder="Repeat password"
+                minLength={8}
                 required
               />
             </div>
 
-            <div>
+            <div className="space-y-2">
               <label
                 htmlFor="address"
-                className="block text-sm font-medium text-gray-700 mb-2"
+                className="text-xs font-bold uppercase tracking-wide text-slate-600"
               >
-                Address *
+                Address
               </label>
-              <textarea
-                id="address"
-                value={formData.address}
-                onChange={(e) =>
-                  setFormData({ ...formData, address: e.target.value })
-                }
-                placeholder="123 Medical Center Dr, City, State, ZIP"
-                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                rows={2}
-                required
-              />
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <label
-                  htmlFor="password"
-                  className="block text-sm font-medium text-gray-700 mb-2"
-                >
-                  Password *
-                </label>
-                <input
-                  id="password"
-                  type="password"
-                  value={formData.password}
+              <div className="relative">
+                <MapPin className="absolute left-3 top-3.5 h-5 w-5 text-slate-400" />
+                <textarea
+                  id="address"
+                  value={formData.address}
                   onChange={(e) =>
-                    setFormData({ ...formData, password: e.target.value })
+                    setFormData({ ...formData, address: e.target.value })
                   }
-                  placeholder="Create a strong password"
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  placeholder="123 Medical Center Dr, City, State, ZIP"
+                  className="min-h-24 w-full rounded-xl border border-slate-200 bg-white px-4 py-3 pl-10 text-sm outline-none transition-all placeholder:text-slate-400 focus:border-indigo-400 focus:ring-4 focus:ring-indigo-100"
                   required
-                  minLength={8}
-                />
-              </div>
-
-              <div>
-                <label
-                  htmlFor="confirmPassword"
-                  className="block text-sm font-medium text-gray-700 mb-2"
-                >
-                  Confirm Password *
-                </label>
-                <input
-                  id="confirmPassword"
-                  type="password"
-                  value={formData.confirmPassword}
-                  onChange={(e) =>
-                    setFormData({
-                      ...formData,
-                      confirmPassword: e.target.value,
-                    })
-                  }
-                  placeholder="Re-enter password"
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus-border-transparent"
-                  required
-                  minLength={8}
                 />
               </div>
             </div>
 
-            <div className="bg-blue-50 p-4 rounded-lg">
-              <p className="text-xs text-gray-600">
-                <strong>Note:</strong> Registration requests are subject to
-                verification. You will receive confirmation once approved by our
-                team.
-              </p>
+            <div className="rounded-2xl border border-indigo-100 bg-indigo-50/70 p-4">
+              <div className="flex items-start gap-3">
+                <ShieldCheck className="mt-0.5 h-5 w-5 shrink-0 text-indigo-600" />
+                <p className="text-sm font-semibold leading-6 text-indigo-950">
+                  Healthcare partner registrations are subject to compliance
+                  verification before staff access is enabled.
+                </p>
+              </div>
             </div>
 
             <Button
               type="submit"
-              className="w-full text-lg py-6 bg-blue-600 hover:bg-blue-700 text-white"
+              variant="healthcare"
+              className="h-12 w-full text-base"
               disabled={isLoading}
             >
               {isLoading ? "Submitting..." : "Submit Registration"}
             </Button>
           </form>
-
-          <div className="mt-6 text-center">
-            <p className="text-sm text-gray-500">
-              Already registered?{" "}
-              <button
-                onClick={() => router.push("/login/hospital")}
-                className="text-blue-600 hover:text-blue-700 font-medium"
-              >
-                Login here
-              </button>
-            </p>
-          </div>
-        </div>
+        </section>
+        </MagicCard>
       </div>
     </main>
   );
