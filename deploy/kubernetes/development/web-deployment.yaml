@@ -16,7 +16,7 @@ spec:
     spec:
       containers:
         - name: web
-          image: zorba-health/web
+          image: web
           imagePullPolicy: IfNotPresent
           ports:
             - containerPort: 3000

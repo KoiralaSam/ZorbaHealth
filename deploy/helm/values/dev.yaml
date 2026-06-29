@@ -1,0 +1,200 @@
+global:
+  environment: development
+
+ingress:
+  enabled: true
+  rules:
+    - host: api.zorbahealth.dev
+      paths:
+        - path: /
+          pathType: Prefix
+          serviceName: api-gateway
+          servicePort: 8081
+    - host: zorbahealth.dev
+      paths:
+        - path: /
+          pathType: Prefix
+          serviceName: web
+          servicePort: 3000
+    - host: mobile.zorbahealth.dev
+      paths:
+        - path: /
+          pathType: Prefix
+          serviceName: mobile
+          servicePort: 8084
+
+postgres:
+  enabled: true
+redis:
+  enabled: true
+rabbitmq:
+  enabled: true
+jaeger:
+  enabled: true
+
+infra:
+  postgres:
+    resources:
+      requests:
+        memory: 256Mi
+        cpu: 100m
+      limits:
+        memory: 512Mi
+        cpu: 500m
+  redis:
+    resources:
+      requests:
+        memory: 64Mi
+        cpu: 25m
+      limits:
+        memory: 128Mi
+        cpu: 200m
+  rabbitmq:
+    resources:
+      requests:
+        memory: 200Mi
+        cpu: 50m
+      limits:
+        memory: 512Mi
+        cpu: 250m
+  jaeger:
+    resources:
+      requests:
+        memory: 128Mi
+        cpu: 50m
+      limits:
+        memory: 256Mi
+        cpu: 250m
+
+patient-service:
+  image:
+    tag: latest
+  resources:
+    requests:
+      memory: 64Mi
+      cpu: 10m
+    limits:
+      memory: 128Mi
+      cpu: 100m
+
+auth-service:
+  image:
+    tag: latest
+  resources:
+    requests:
+      memory: 32Mi
+      cpu: 10m
+    limits:
+      memory: 64Mi
+      cpu: 100m
+
+api-gateway:
+  image:
+    tag: latest
+  resources:
+    requests:
+      memory: 64Mi
+      cpu: 10m
+    limits:
+      memory: 128Mi
+      cpu: 100m
+
+notification-service:
+  image:
+    tag: latest
+  resources:
+    requests:
+      memory: 64Mi
+      cpu: 10m
+    limits:
+      memory: 128Mi
+      cpu: 100m
+
+health-records-service:
+  image:
+    tag: latest
+  resources:
+    requests:
+      memory: 64Mi
+      cpu: 10m
+    limits:
+      memory: 128Mi
+      cpu: 100m
+
+analytics-service:
+  image:
+    tag: latest
+  resources:
+    requests:
+      memory: 64Mi
+      cpu: 10m
+    limits:
+      memory: 128Mi
+      cpu: 100m
+
+audit-service:
+  image:
+    tag: latest
+  resources:
+    requests:
+      memory: 64Mi
+      cpu: 10m
+    limits:
+      memory: 128Mi
+      cpu: 100m
+
+location-service:
+  image:
+    tag: latest
+  resources:
+    requests:
+      memory: 64Mi
+      cpu: 10m
+    limits:
+      memory: 128Mi
+      cpu: 100m
+
+mcp-server:
+  image:
+    tag: latest
+  resources:
+    requests:
+      memory: 64Mi
+      cpu: 10m
+    limits:
+      memory: 128Mi
+      cpu: 100m
+
+voice-agent-service:
+  image:
+    tag: latest
+  replicaCount: 1
+  resources:
+    requests:
+      memory: 2Gi
+      cpu: 1000m
+    limits:
+      memory: 4Gi
+      cpu: 2000m
+
+web:
+  image:
+    tag: latest
+  resources:
+    requests:
+      memory: 64Mi
+      cpu: 10m
+    limits:
+      memory: 256Mi
+      cpu: 200m
+
+mobile:
+  image:
+    tag: latest
+  resources:
+    requests:
+      memory: 64Mi
+      cpu: 10m
+    limits:
+      memory: 256Mi
+      cpu: 200m

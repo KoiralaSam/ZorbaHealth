@@ -14,7 +14,7 @@ spec:
     spec:
       containers:
         - name: mcp-server
-          image: docker.io/zorba-health/mcp-server:latest
+          image: mcp-server
           imagePullPolicy: IfNotPresent
           ports:
             - containerPort: 8092

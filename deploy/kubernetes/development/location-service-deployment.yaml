@@ -14,7 +14,7 @@ spec:
     spec:
       containers:
         - name: location-service
-          image: zorba-health/location-service
+          image: location-service
           imagePullPolicy: IfNotPresent
           ports:
             - containerPort: 50051

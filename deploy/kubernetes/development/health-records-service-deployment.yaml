@@ -14,7 +14,7 @@ spec:
     spec:
       containers:
         - name: health-records-service
-          image: zorba-health/health-records-service
+          image: health-records-service
           ports:
             - containerPort: 50054
               name: grpc
@@ -60,6 +60,11 @@ spec:
               valueFrom:
                 secretKeyRef:
                   key: PATIENT_SERVICE_JWT_SECRET
+                  name: app-secrets
+            - name: AUTH_SERVICE_JWT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  key: AUTH_SERVICE_JWT_SECRET
                   name: app-secrets
 ---
 apiVersion: v1

@@ -14,8 +14,10 @@ data:
   # Auth Service
   AUTH_SERVICE_HTTP_ADDR: ":8082"
   AUTH_SERVICE_GRPC_ADDR: "auth-service:9092"
+  # patient-service Room API (in-cluster / direct); join links use LIVEKIT_PUBLIC_WS_URL
   LIVEKIT_WS_URL: "ws://34.198.147.82:7880"
   LIVEKIT_URL: "ws://34.198.147.82:7880"
+  LIVEKIT_PUBLIC_WS_URL: "ws://34.198.147.82:7880"
   MCP_HTTP_ADDR: ":8092"
   # RAG Service
   RAG_SERVICE_GRPC_ADDR: "rag-service:50053"
@@ -30,7 +32,9 @@ data:
   NOTIFICATION_SERVICE_GRPC_ADDR: "notification-service:50056"
   # Translation Service
   TRANSLATION_SERVICE_GRPC_ADDR: "translation-service:50057"
+  TRANSLATION_PROVIDER: "amazon_translate"
   TRANSLATION_MODEL_BASE_URL: "http://translation-model:8080"
+  AWS_REGION: "us-east-1"
   # Location Service
   LOCATION_SERVICE_HTTP_ADDR: ":8090"
   LOCATION_SERVICE_GRPC_ADDR: "location-service:50051"
@@ -38,11 +42,12 @@ data:
   LOCATION_REDIS_KEY_PREFIX: "location:session:"
   LOCATION_REDIS_SESSION_TTL_SEC: "0"
   IP_GEOLOCATION_TIMEOUT_SEC: "5"
+  INTERPRETATION_SERVICE_HTTP_ADDR: ":8095"
   # OTP HTTP server (SMS via VoIP.ms) — credentials in voipms-credentials secret
   HTTP_ADDR: ":3000"
   VOIPMS_DID: "3185162690"
   # Public web base URL used to generate verification links in emails
-  PUBLIC_WEB_BASE_URL: "http://localhost:3000"
+  PUBLIC_WEB_BASE_URL: "https://zorbahealth.dev"
 
   # PostgreSQL (host/port/db name only; credentials in app-secrets)
   POSTGRES_HOST: "postgres"

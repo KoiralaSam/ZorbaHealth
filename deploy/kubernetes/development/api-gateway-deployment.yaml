@@ -14,7 +14,8 @@ spec:
     spec:
       containers:
         - name: api-gateway
-          image: zorba-health/api-gateway
+          image: api-gateway
+          imagePullPolicy: IfNotPresent
           ports:
             - containerPort: 8081
               name: http
@@ -40,6 +41,16 @@ spec:
               valueFrom:
                 configMapKeyRef:
                   key: API_GATEWAY_HTTP_ADDR
+                  name: app-config
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  key: DATABASE_URL
+                  name: app-secrets
+            - name: REDIS_ADDR
+              valueFrom:
+                configMapKeyRef:
+                  key: REDIS_ADDR
                   name: app-config
             - name: PATIENT_SERVICE_GRPC_ADDR
               valueFrom:
@@ -95,6 +106,16 @@ spec:
               valueFrom:
                 configMapKeyRef:
                   key: NOTIFICATION_SERVICE_GRPC_ADDR
+                  name: app-config
+            - name: PUBLIC_WEB_BASE_URL
+              valueFrom:
+                configMapKeyRef:
+                  key: PUBLIC_WEB_BASE_URL
+                  name: app-config
+            - name: LIVEKIT_PUBLIC_WS_URL
+              valueFrom:
+                configMapKeyRef:
+                  key: LIVEKIT_PUBLIC_WS_URL
                   name: app-config
 ---
 apiVersion: v1

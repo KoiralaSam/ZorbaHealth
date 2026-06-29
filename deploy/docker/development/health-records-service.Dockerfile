@@ -18,7 +18,7 @@ COPY shared ./shared
 WORKDIR /app/services/health-records-service
 RUN --mount=type=cache,target=/root/.cache/go-build \
     --mount=type=cache,target=/go/pkg/mod \
-    CGO_ENABLED=0 GOOS=linux go build -o /app/build/health-records-service ./cmd/health-records-service
+    CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o /app/build/health-records-service ./cmd/health-records-service
 
 # Final stage
 FROM alpine:latest

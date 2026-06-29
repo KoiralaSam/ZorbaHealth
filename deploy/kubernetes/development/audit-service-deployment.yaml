@@ -14,7 +14,7 @@ spec:
     spec:
       containers:
         - name: audit-service
-          image: zorba-health/audit-service
+          image: audit-service
           imagePullPolicy: IfNotPresent
           ports:
             - containerPort: 50058

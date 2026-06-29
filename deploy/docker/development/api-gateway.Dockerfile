@@ -18,7 +18,7 @@ COPY shared ./shared
 WORKDIR /app/services/api-gateway
 RUN --mount=type=cache,target=/root/.cache/go-build \
     --mount=type=cache,target=/go/pkg/mod \
-    CGO_ENABLED=0 GOOS=linux go build -o /app/build/api-gateway ./cmd/api-gateway
+    CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o /app/build/api-gateway ./cmd/api-gateway
 
 # Final stage
 FROM alpine:latest

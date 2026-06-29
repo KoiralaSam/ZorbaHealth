@@ -14,7 +14,7 @@ spec:
     spec:
       containers:
         - name: patient-service
-          image: zorba-health/patient-service
+          image: patient-service
           imagePullPolicy: IfNotPresent
           ports:
             - containerPort: 9093
@@ -52,6 +52,16 @@ spec:
                 configMapKeyRef:
                   key: AUTH_SERVICE_GRPC_ADDR
                   name: app-config
+            - name: AUDIT_SERVICE_GRPC_ADDR
+              valueFrom:
+                configMapKeyRef:
+                  key: AUDIT_SERVICE_GRPC_ADDR
+                  name: app-config
+            - name: INTERNAL_SERVICE_SECRET
+              valueFrom:
+                secretKeyRef:
+                  key: INTERNAL_SERVICE_SECRET
+                  name: app-secrets
             - name: DATABASE_URL
               valueFrom:
                 secretKeyRef:
@@ -61,6 +71,11 @@ spec:
               valueFrom:
                 secretKeyRef:
                   key: PATIENT_SERVICE_JWT_SECRET
+                  name: app-secrets
+            - name: AUTH_SERVICE_JWT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  key: AUTH_SERVICE_JWT_SECRET
                   name: app-secrets
             - name: REDIS_ADDR
               valueFrom:
@@ -72,6 +87,31 @@ spec:
                 secretKeyRef:
                   key: uri
                   name: rabbitmq-credentials
+            - name: LIVEKIT_URL
+              valueFrom:
+                configMapKeyRef:
+                  key: LIVEKIT_URL
+                  name: app-config
+            - name: LIVEKIT_WS_URL
+              valueFrom:
+                configMapKeyRef:
+                  key: LIVEKIT_WS_URL
+                  name: app-config
+            - name: LIVEKIT_PUBLIC_WS_URL
+              valueFrom:
+                configMapKeyRef:
+                  key: LIVEKIT_PUBLIC_WS_URL
+                  name: app-config
+            - name: LIVEKIT_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  key: apiKey
+                  name: livekit-credentials
+            - name: LIVEKIT_API_SECRET
+              valueFrom:
+                secretKeyRef:
+                  key: apiSecret
+                  name: livekit-credentials
 
 ---
 apiVersion: v1

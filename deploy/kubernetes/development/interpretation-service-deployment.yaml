@@ -1,0 +1,81 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: interpretation-service
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: interpretation-service
+  template:
+    metadata:
+      labels:
+        app: interpretation-service
+    spec:
+      containers:
+        - name: interpretation-service
+          image: interpretation-service
+          ports:
+            - containerPort: 8095
+              name: http
+          resources:
+            requests:
+              memory: "128Mi"
+              cpu: "50m"
+            limits:
+              memory: "256Mi"
+              cpu: "250m"
+          env:
+            - name: ENVIRONMENT
+              valueFrom:
+                configMapKeyRef:
+                  key: ENVIRONMENT
+                  name: app-config
+            - name: JAEGER_ENDPOINT
+              valueFrom:
+                configMapKeyRef:
+                  key: JAEGER_ENDPOINT
+                  name: app-config
+            - name: INTERPRETATION_SERVICE_HTTP_ADDR
+              valueFrom:
+                configMapKeyRef:
+                  key: INTERPRETATION_SERVICE_HTTP_ADDR
+                  name: app-config
+            - name: TRANSLATION_SERVICE_GRPC_ADDR
+              valueFrom:
+                configMapKeyRef:
+                  key: TRANSLATION_SERVICE_GRPC_ADDR
+                  name: app-config
+            - name: AUDIT_SERVICE_GRPC_ADDR
+              valueFrom:
+                configMapKeyRef:
+                  key: AUDIT_SERVICE_GRPC_ADDR
+                  name: app-config
+            - name: REDIS_ADDR
+              valueFrom:
+                configMapKeyRef:
+                  key: REDIS_ADDR
+                  name: app-config
+            - name: INTERNAL_SERVICE_SECRET
+              valueFrom:
+                secretKeyRef:
+                  key: INTERNAL_SERVICE_SECRET
+                  name: app-secrets
+            - name: REDIS_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  key: REDIS_PASSWORD
+                  name: app-secrets
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: interpretation-service
+spec:
+  type: ClusterIP
+  ports:
+    - port: 8095
+      targetPort: 8095
+      name: http
+  selector:
+    app: interpretation-service

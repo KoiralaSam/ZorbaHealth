@@ -1,0 +1,6 @@
+apiVersion: v2
+name: patient-service
+description: Patient service — HTTP gateway + gRPC scheduling
+type: application
+version: 0.1.0
+appVersion: "1.0"

@@ -1,0 +1,6 @@
+apiVersion: v2
+name: voice-agent-service
+description: Voice agent service — LiveKit-based AI voice agent (Python)
+type: application
+version: 0.1.0
+appVersion: "1.0"

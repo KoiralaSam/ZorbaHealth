@@ -21,7 +21,7 @@ There is also an existing helper at `tools/create_service.go` that reflects the 
 
 ## Add a new provider integration
 
-The long-term architecture expects provider interfaces for:
+The shared provider port package now lives at `shared/ports/providers` and defines provider-facing contracts for:
 
 - LLM
 - embeddings
@@ -34,12 +34,13 @@ The long-term architecture expects provider interfaces for:
 - vector search
 - FHIR
 
-The current codebase still has direct provider coupling in several services, so contributions in this area should:
+The current codebase still has some concrete adapters, but the expected contribution path is:
 
-1. Introduce a clear outbound interface in the relevant service or shared package.
-2. Move provider-specific code into an adapter package.
-3. Keep provider-specific configuration out of core domain logic.
-4. Update security and setup docs with any new environment variables.
+1. Implement the shared provider contract or add a new one under `shared/ports/providers`.
+2. Keep provider-specific code in an adapter package (`internal/adapters/secondary/...`).
+3. Select the adapter in wiring via config (`LLM_PROVIDER`, `EMBEDDING_PROVIDER`, `EMAIL_PROVIDER`, `SMS_PROVIDER`, etc.).
+4. Keep provider-specific configuration out of core domain logic.
+5. Update security and setup docs with any new environment variables.
 
 ## Add a new MCP tool
 
@@ -48,6 +49,18 @@ The current codebase still has direct provider coupling in several services, so 
 3. Document its purpose, expected permissions, and service dependencies.
 4. Prefer returning minimal, safe context rather than raw records.
 5. Update `docs/service-map.md` or `docs/architecture.md` if the new tool changes service boundaries.
+
+## Add a patient notification workflow
+
+Use this checklist when adding email/SMS tied to a product workflow (not generic send):
+
+1. **Voice / HTTP entry:** `@function_tool` in `services/voice-agent-service` and/or routes in `services/api-gateway` with structured JSON only (no message body from the LLM).
+2. **gRPC + optional MCP:** define RPCs under `proto/`, implement orchestration in the owning service (`internal/core/services`), expose via gRPC primary adapter; add a thin MCP tool in `services/mcp-server/tools` for voice if needed.
+3. **Orchestration:** consent and validation in core; publish a typed event via `shared/events` and `shared/contracts` routing keys (prefer patient-service as publisher).
+4. **Notification-service:** RabbitMQ consumer in `internal/adapters/primary/events/rabbitmq`, templated method on `internal/core/ports/inbound/notification_service.go`, provider adapters for email/SMS, `NOTIFICATION_SENT` audit via audit-service.
+5. **Observability:** propagate `correlation_id`, OTel spans, audit events (`MEETING_SCHEDULED`, denials, per-channel `NOTIFICATION_SENT`).
+
+Reference implementation: health-staff meeting scheduling (`SchedulingService`, `schedule_health_staff_meeting`, `patient.event.meeting_scheduled`).
 
 ## Add a database migration
 
