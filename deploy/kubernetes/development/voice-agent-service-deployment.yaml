@@ -43,7 +43,7 @@ spec:
             timeoutSeconds: 5
             failureThreshold: 3
           resources:
-            # Low requests so the full dev stack fits smaller dev nodes (EKS / local).
+            # Low requests so the full dev stack fits smaller local nodes.
             # Limits keep headroom for LiveKit/STT/LLM bursts.
             requests:
               memory: "768Mi"

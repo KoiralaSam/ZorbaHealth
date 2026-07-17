@@ -11,58 +11,35 @@ Rules:
 - Read graphify-out/GRAPH_REPORT.md only for broad architecture review or when query/path/explain do not surface enough context.
 - After modifying code, run `graphify update .` to keep the graph current (AST-only, no API cost).
 
-## EKS + Helm Deployment
+## Local development
 
-This project uses Helm charts in `deploy/helm/` for **AWS EKS** deployment. The umbrella chart at `deploy/helm/Chart.yaml` deploys all services, infra (Postgres, Redis, RabbitMQ, Jaeger), and nginx-ingress via one command.
-
-Full setup: [deploy/aws/README.md](deploy/aws/README.md).
-
-### First-time EKS setup
+**Primary path: Docker Compose** (also used by GitHub Codespaces). See [docs/local-setup.md](docs/local-setup.md).
 
 ```bash
-cp deploy/aws/eks.env.example deploy/aws/eks.env
-chmod +x deploy/aws/create-ecr-repos.sh deploy/aws/helm-install.sh
-./deploy/aws/create-ecr-repos.sh
+# Local
+docker compose \
+  -f deploy/docker/docker-compose.yml \
+  -f deploy/docker/docker-compose.override.local.yml \
+  up --build
 
-aws eks update-kubeconfig --region us-east-1 --name floral-bluegrass-sheepdog
-kubectl apply -f deploy/kubernetes/development/secrets.yaml -n dev
-
-helm repo add ingress-nginx https://kubernetes.github.io/ingress-nginx
-helm dependency build deploy/helm/
-
-helm upgrade --install zorbahealth deploy/helm/ \
-  --namespace dev \
-  -f deploy/helm/values/eks-dev.yaml \
-  --create-namespace
+# Codespaces
+./scripts/codespaces/prepare-env.sh
+docker compose \
+  -f deploy/docker/docker-compose.yml \
+  -f deploy/docker/docker-compose.override.codespaces.yml \
+  up --build
 ```
 
-### Day-to-day dev (Tilt on EKS)
-
-**Tilt owns namespace `dev`:** infra (Postgres, Redis, RabbitMQ, Jaeger), all services, web/mobile, **DB migrations** (`deploy/tilt/migrate-up.sh`), builds to **ECR**, port-forwards (5432, 8081, 3000, …). Manifests: `deploy/kubernetes/development/`.
-
-One-time if Helm was installed on `dev`:
+**Optional: Tilt on local Kubernetes** (Docker Desktop / Minikube / kind) — not a cloud cluster.
 
 ```bash
-./deploy/tilt/switch-from-helm.sh
-kubectl apply -f deploy/aws/eks-gp3-storageclass.yaml   # once per cluster (Auto Mode EBS)
-```
-
-Every session:
-
-```bash
+cp deploy/kubernetes/development/secrets.example.yaml deploy/kubernetes/development/secrets.yaml
+# fill placeholders, then:
 ./deploy/tilt/preflight.sh
 tilt up
 ```
 
-Requires: `tilt`, `docker`, `kubectl`, `aws` CLI, `golang-migrate` (`brew install golang-migrate`). Optional override: `export DATABASE_URL=...` before `tilt up` (otherwise migrate reads `postgres-secret` from the cluster).
-
-Do **not** run `helm install` on `dev` while using Tilt. CI still uses Helm on `develop`/`main`.
-
-### CI/CD
-GitHub Action at `.github/workflows/deploy.yml` builds changed services on push to `develop`/`main`, pushes to **ECR**, then runs `helm upgrade --install` on EKS. Set secret `AWS_DEPLOY_ROLE_ARN` (OIDC).
-
-### Legacy Azure (AKS)
-Scripts under `deploy/azure/` are retained for reference only.
+Optional packaging: Helm charts under `deploy/helm/` with [deploy/helm/values/dev.yaml](deploy/helm/values/dev.yaml). Do not run Helm and Tilt against the same `dev` namespace at once.
 
 ### Services disabled in Helm
 - `translation-model` (large LLM model, needs separate PVC provisioning)

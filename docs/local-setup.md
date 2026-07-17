@@ -60,7 +60,7 @@ make migrate-up
 
 ### Option B: GitHub Codespaces
 
-Codespaces is supported via Docker Compose (not Tilt/EKS). The repo includes a [`.devcontainer/`](../.devcontainer/) config with Docker-in-Docker, Go, and Node.
+Codespaces is supported via Docker Compose (not Tilt). The repo includes a [`.devcontainer/`](../.devcontainer/) config with Docker-in-Docker, Go, and Node.
 
 1. On GitHub: **Code → Codespaces → Create codespace on …**. Prefer **8-core / 16GB+** (full image builds are heavy).
 2. Wait for the post-create step (installs `migrate`, verifies Docker).
@@ -90,14 +90,16 @@ VS Code tasks under **Terminal → Run Task…**:
 - `Codespaces: compose up`
 - `Codespaces: migrate-up`
 
-**Do not** use `tilt up` against EKS from Codespaces for day-to-day contributor work. Voice/LiveKit and other provider features still need real API keys (see Troubleshooting).
+**Prefer Docker Compose in Codespaces** (this Option B). Voice/LiveKit and other provider features still need real API keys (see Troubleshooting).
 
-### Option C: Tilt on Kubernetes
+### Option C: Tilt on local Kubernetes
+
+Requires a local cluster (Docker Desktop Kubernetes, Minikube, or kind), plus `kubectl`, `tilt`, and `migrate`.
 
 ```bash
-aws eks update-kubeconfig --region us-east-1 --name floral-bluegrass-sheepdog
-aws ecr get-login-password --region us-east-1 | \
-  docker login --username AWS --password-stdin 954976298234.dkr.ecr.us-east-1.amazonaws.com
+cp deploy/kubernetes/development/secrets.example.yaml deploy/kubernetes/development/secrets.yaml
+# fill every placeholder, then:
+./deploy/tilt/preflight.sh
 tilt up
 ```
 

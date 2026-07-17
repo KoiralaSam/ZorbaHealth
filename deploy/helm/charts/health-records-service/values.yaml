@@ -1,5 +1,5 @@
 image:
-  repository: 954976298234.dkr.ecr.us-east-1.amazonaws.com/health-records-service
+  repository: health-records-service
   tag: latest
   pullPolicy: IfNotPresent
 replicaCount: 1

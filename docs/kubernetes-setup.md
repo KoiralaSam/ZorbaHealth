@@ -9,10 +9,10 @@ Zorba Health currently ships Kubernetes manifests under `deploy/kubernetes/`.
 
 ## Local Kubernetes workflow
 
-1. Enable a local Kubernetes cluster.
+1. Enable a local Kubernetes cluster (Docker Desktop, Minikube, or kind).
 2. Copy `deploy/kubernetes/development/secrets.example.yaml` to `deploy/kubernetes/development/secrets.yaml`.
 3. Fill real values for database, JWT, email, SMS, and AI provider secrets.
-4. Run `tilt up`.
+4. Run `./deploy/tilt/preflight.sh && tilt up`.
 
 Tilt applies development manifests for:
 

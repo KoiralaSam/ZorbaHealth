@@ -11,5 +11,4 @@ else
   echo "No zorbahealth/zorba-infra Helm release in $NS"
 fi
 
-echo "Done. Start dev stack with: tilt up"
-echo "Optional: kubectl apply -f deploy/aws/eks-gp3-storageclass.yaml  (once per cluster, Auto Mode EBS)"
+echo "Done. Start the local stack with: ./deploy/tilt/preflight.sh && tilt up"

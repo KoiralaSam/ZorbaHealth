@@ -1,32 +1,27 @@
 # Load the restart_process extension
 load('ext://restart_process', 'docker_build_with_restart')
 
-# Tilt owns the full dev stack on EKS (namespace dev):
+# Tilt owns the full local Kubernetes stack (namespace dev):
 #   deploy/kubernetes/development/  — infra + all services
 #   deploy/tilt/migrate-up.sh         — DB migrations via localhost:5432 port-forward
 #
-# One-time if you used Helm on dev before:
-#   ./deploy/tilt/switch-from-helm.sh
+# Primary OSS path (no cluster): Docker Compose / Codespaces — see docs/local-setup.md
 #
-# Day-to-day:
+# Local k8s day-to-day:
 #   ./deploy/tilt/preflight.sh && tilt up
 #
-# CI / shared deploys without Tilt: deploy/helm/ + deploy/helm/values/eks-dev.yaml
+# Optional cluster packaging: deploy/helm/ + deploy/helm/values/dev.yaml
 #
-_ecr_registry = os.getenv('ECR_REGISTRY', '954976298234.dkr.ecr.us-east-1.amazonaws.com')
 # Tilt docker_build accepts one platform string (not comma-separated multi-arch).
-# EKS Auto Mode: general-purpose is amd64; set TILT_DOCKER_PLATFORM=linux/arm64 to test on arm nodes only.
+# Default amd64; on Apple Silicon local clusters you may need TILT_DOCKER_PLATFORM=linux/arm64.
 _docker_platform = os.getenv('TILT_DOCKER_PLATFORM', 'linux/amd64')
-# Image refs must match ECR repo names (create-ecr-repos.sh). Slashes become underscores on push
-# (e.g. zorba-health/foo -> zorba-health_foo), so use bare names like patient-service, web, mobile.
-default_registry(_ecr_registry)
+# Bare image names (api-gateway, web, …) — local Docker / cluster, no remote registry.
 
 # Deploy into the dev namespace (same as Helm / Postgres / Redis)
 k8s_namespace('dev')
 
-# EKS dev cluster (kubeconfig context name varies; allow ARN and short name)
-allow_k8s_contexts('floral-bluegrass-sheepdog')
-allow_k8s_contexts('arn:aws:eks:us-east-1:954976298234:cluster/floral-bluegrass-sheepdog')
+# Allow the currently selected kube context (Docker Desktop, Minikube, kind, etc.)
+allow_k8s_contexts(k8s_context())
 
 ### K8s Config ###
 
@@ -110,6 +105,7 @@ docker_build(
 )
 
 k8s_resource('patient-service', port_forwards=8083, resource_deps=app_deps, labels="services")
+k8s_resource('welfare-check-dispatcher', resource_deps=app_deps, labels="services")
 ### End of Patient Service ###
 
 

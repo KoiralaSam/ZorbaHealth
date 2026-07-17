@@ -1,5 +1,5 @@
 image:
-  repository: 954976298234.dkr.ecr.us-east-1.amazonaws.com/mobile
+  repository: mobile
   tag: latest
   pullPolicy: IfNotPresent
 replicaCount: 1

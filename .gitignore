@@ -14,10 +14,6 @@ credentials
 config.local.*
 *-secret.*
 
-# Local AWS/EKS env (copy from eks.env.example)
-deploy/aws/eks.env
-deploy/aws/static-egress/egress.env
-
 # Plans and internal docs (do not expose)
 plans/
 Plans/

@@ -17,29 +17,27 @@ This repo also includes contributor-facing assets under `docs/`, `examples/`, an
 
 ## Quick start
 
-### Local (Tilt + Kubernetes)
-
-1. Clone the repository.
-2. Copy the development Kubernetes secrets template:
+### Docker Compose (recommended)
 
 ```bash
-cp deploy/kubernetes/development/secrets.example.yaml deploy/kubernetes/development/secrets.yaml
+docker compose \
+  -f deploy/docker/docker-compose.yml \
+  -f deploy/docker/docker-compose.override.local.yml \
+  up --build
 ```
 
-3. Replace every placeholder in `deploy/kubernetes/development/secrets.yaml`.
-4. Start the local stack:
+Then migrate:
 
 ```bash
-tilt up
+export DATABASE_URL='postgres://healthai:healthai@localhost:5432/healthai?sslmode=disable'
+make migrate-up
 ```
 
-5. Open:
-   - Web app: `http://localhost:3000`
-   - API gateway: `http://localhost:8081`
-   - Location WebSocket base: `ws://localhost:8091` (patient app uses `/ws/location`)
-   - Tilt UI: `http://localhost:10350`
+Open:
+- Web app: `http://localhost:3000`
+- API gateway: `http://localhost:8081`
 
-### GitHub Codespaces (Docker Compose)
+### GitHub Codespaces
 
 Create a Codespace from this repo (8-core / 16GB+ recommended). Then:
 
@@ -53,11 +51,16 @@ docker compose \
 
 Set Ports panel visibility to **Public** for `3000` / `8081` / `8091` when using `*.app.github.dev` URLs. Full steps: [`docs/local-setup.md`](docs/local-setup.md#option-b-github-codespaces).
 
-Detailed setup instructions live in:
+### Optional: Tilt + local Kubernetes
 
-- [`docs/local-setup.md`](docs/local-setup.md)
-- [`docs/kubernetes-setup.md`](docs/kubernetes-setup.md)
-- [`docs/deployment.md`](docs/deployment.md)
+```bash
+cp deploy/kubernetes/development/secrets.example.yaml deploy/kubernetes/development/secrets.yaml
+# fill placeholders, then:
+./deploy/tilt/preflight.sh
+tilt up
+```
+
+Detailed setup: [`docs/local-setup.md`](docs/local-setup.md), [`docs/kubernetes-setup.md`](docs/kubernetes-setup.md), [`docs/deployment.md`](docs/deployment.md).
 
 ## Documentation
 
@@ -116,7 +119,8 @@ Those components are typically operated on separate infrastructure and integrate
 ## Current local development expectations
 
 - Go module root: repository root
-- Local orchestration: Tilt + Kubernetes
+- Primary local orchestration: Docker Compose (`deploy/docker/`)
+- Optional local Kubernetes: Tilt (`Tiltfile`) + `deploy/kubernetes/development/`
 - Secrets template: `deploy/kubernetes/development/secrets.example.yaml`
 - Database migrations: `migrations/`
 - Proto generation and SQLC generation: `Makefile`
