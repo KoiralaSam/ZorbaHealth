@@ -60,7 +60,7 @@ make migrate-up
 
 ### Option B: GitHub Codespaces
 
-Codespaces supports **Docker Compose** (lighter) and optional **kind + Tilt** (full local Kubernetes). The [`.devcontainer/`](../.devcontainer/) config installs Docker-in-Docker, Go, Node, kubectl, kind, Tilt, and `migrate`.
+Codespaces supports **Docker Compose** (lighter) and optional **kind + Tilt** (full local Kubernetes). The [`.devcontainer/`](../.devcontainer/) config uses the prebuilt image `ghcr.io/koiralasam/zorbahealth-devcontainer` (built by [`.github/workflows/devcontainer-ghcr.yml`](../.github/workflows/devcontainer-ghcr.yml)), plus Docker-in-Docker, Go, Node, and kubectl features.
 
 Prefer **8-core / 16GB+ RAM / 64GB storage** for Compose; for kind+Tilt prefer **8-core / 32GB+ storage**.
 
