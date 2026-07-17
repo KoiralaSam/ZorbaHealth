@@ -39,6 +39,14 @@ cp deploy/kubernetes/development/secrets.example.yaml deploy/kubernetes/developm
 tilt up
 ```
 
+On **GitHub Codespaces**, create a kind cluster first:
+
+```bash
+./scripts/codespaces/kind-up.sh
+./deploy/tilt/preflight.sh
+tilt up
+```
+
 Optional packaging: Helm charts under `deploy/helm/` with [deploy/helm/values/dev.yaml](deploy/helm/values/dev.yaml). Do not run Helm and Tilt against the same `dev` namespace at once.
 
 ### Services disabled in Helm

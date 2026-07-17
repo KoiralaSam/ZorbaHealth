@@ -60,11 +60,15 @@ make migrate-up
 
 ### Option B: GitHub Codespaces
 
-Codespaces is supported via Docker Compose (not Tilt). The repo includes a [`.devcontainer/`](../.devcontainer/) config with Docker-in-Docker, Go, and Node.
+Codespaces supports **Docker Compose** (lighter) and optional **kind + Tilt** (full local Kubernetes). The [`.devcontainer/`](../.devcontainer/) config installs Docker-in-Docker, Go, Node, kubectl, kind, Tilt, and `migrate`.
 
-1. On GitHub: **Code → Codespaces → Create codespace on …**. Prefer **8-core / 16GB+** (full image builds are heavy).
-2. Wait for the post-create step (installs `migrate`, verifies Docker).
-3. Prepare browser-facing URLs and start the stack:
+Prefer **8-core / 16GB+ RAM / 64GB storage** for Compose; for kind+Tilt prefer **8-core / 32GB+ storage**.
+
+#### B1. Docker Compose (recommended)
+
+1. On GitHub: **Code → Codespaces → Create codespace on …**.
+2. Wait for the post-create step.
+3. Start the stack:
 
 ```bash
 ./scripts/codespaces/prepare-env.sh
@@ -81,16 +85,34 @@ export DATABASE_URL='postgres://healthai:healthai@localhost:5432/healthai?sslmod
 make migrate-up
 ```
 
-5. In the **Ports** panel, set **visibility to Public** for `3000`, `8081`, and `8091` when opening `*.app.github.dev` URLs from a browser outside the tunnel.
-6. Open the forwarded web URL (`https://<codespace-name>-3000.app.github.dev`). The prepare script sets `NEXT_PUBLIC_API_URL`, `API_GATEWAY_ALLOWED_ORIGINS`, and related values so the web app can call the forwarded API without `localhost`/CORS breakage.
+5. In the **Ports** panel, set **visibility to Public** for `3000`, `8081`, and `8091` when opening `*.app.github.dev` URLs.
+6. Open the forwarded web URL (`https://<codespace-name>-3000.app.github.dev`).
+
+#### B2. kind + Tilt (Kubernetes in Docker)
+
+Runs a local Kubernetes cluster inside the Codespace (kind), then starts the same Tilt stack used on a laptop.
+
+```bash
+./scripts/codespaces/kind-up.sh
+# edit deploy/kubernetes/development/secrets.yaml — replace REPLACE_* values
+./deploy/tilt/preflight.sh
+tilt up
+```
+
+Open Tilt UI on forwarded port `10350`, and app ports as Tilt forwards them (`3000`, `8081`, …). Tear down with:
+
+```bash
+./scripts/codespaces/kind-down.sh
+```
+
+Do **not** run Compose and kind+Tilt at the same time (port and resource conflicts).
 
 VS Code tasks under **Terminal → Run Task…**:
 
-- `Codespaces: prepare env`
-- `Codespaces: compose up`
-- `Codespaces: migrate-up`
+- `Codespaces: prepare env` / `compose up` / `migrate-up`
+- `Codespaces: kind up` / `tilt up` / `kind down`
 
-**Prefer Docker Compose in Codespaces** (this Option B). Voice/LiveKit and other provider features still need real API keys (see Troubleshooting).
+Voice/LiveKit and other provider features still need real API keys (see Troubleshooting).
 
 ### Option C: Tilt on local Kubernetes
 

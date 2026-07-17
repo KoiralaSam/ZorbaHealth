@@ -6,6 +6,11 @@
       "moby": true,
       "dockerDashComposeVersion": "v2"
     },
+    "ghcr.io/devcontainers/features/kubectl-helm-minikube:1": {
+      "version": "latest",
+      "helm": "latest",
+      "minikube": "none"
+    },
     "ghcr.io/devcontainers/features/go:1": {
       "version": "1.25"
     },
@@ -22,7 +27,7 @@
     "memory": "16gb",
     "storage": "64gb"
   },
-  "forwardPorts": [3000, 8081, 8091, 5432, 15672, 16686, 3001, 9090],
+  "forwardPorts": [3000, 8081, 8091, 5432, 15672, 16686, 3001, 9090, 10350],
   "portsAttributes": {
     "3000": {
       "label": "Web app",
@@ -55,6 +60,10 @@
     "9090": {
       "label": "Prometheus",
       "onAutoForward": "silent"
+    },
+    "10350": {
+      "label": "Tilt UI",
+      "onAutoForward": "notify"
     }
   },
   "postCreateCommand": "bash .devcontainer/post-create.sh",
@@ -64,6 +73,7 @@
       "extensions": [
         "golang.go",
         "ms-azuretools.vscode-docker",
+        "ms-kubernetes-tools.vscode-kubernetes-tools",
         "esbenp.prettier-vscode"
       ],
       "settings": {

@@ -14,7 +14,9 @@ if ! docker info >/dev/null 2>&1; then
 fi
 
 if ! kubectl cluster-info >/dev/null 2>&1; then
-  echo "kubectl cannot reach a cluster. Start Docker Desktop Kubernetes, Minikube, or kind." >&2
+  echo "kubectl cannot reach a cluster." >&2
+  echo "  Local: start Docker Desktop Kubernetes, Minikube, or kind." >&2
+  echo "  Codespaces: ./scripts/codespaces/kind-up.sh" >&2
   exit 1
 fi
 

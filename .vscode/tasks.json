@@ -1,0 +1,65 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "Codespaces: prepare env",
+      "type": "shell",
+      "command": "./scripts/codespaces/prepare-env.sh",
+      "problemMatcher": [],
+      "presentation": {
+        "reveal": "always",
+        "panel": "shared"
+      }
+    },
+    {
+      "label": "Codespaces: compose up",
+      "type": "shell",
+      "command": "docker compose -f deploy/docker/docker-compose.yml -f deploy/docker/docker-compose.override.codespaces.yml up --build",
+      "problemMatcher": [],
+      "presentation": {
+        "reveal": "always",
+        "panel": "dedicated"
+      }
+    },
+    {
+      "label": "Codespaces: migrate-up",
+      "type": "shell",
+      "command": "export DATABASE_URL='postgres://healthai:healthai@localhost:5432/healthai?sslmode=disable' && make migrate-up",
+      "problemMatcher": [],
+      "presentation": {
+        "reveal": "always",
+        "panel": "shared"
+      }
+    },
+    {
+      "label": "Codespaces: kind up",
+      "type": "shell",
+      "command": "./scripts/codespaces/kind-up.sh",
+      "problemMatcher": [],
+      "presentation": {
+        "reveal": "always",
+        "panel": "shared"
+      }
+    },
+    {
+      "label": "Codespaces: tilt up",
+      "type": "shell",
+      "command": "./deploy/tilt/preflight.sh && tilt up",
+      "problemMatcher": [],
+      "presentation": {
+        "reveal": "always",
+        "panel": "dedicated"
+      }
+    },
+    {
+      "label": "Codespaces: kind down",
+      "type": "shell",
+      "command": "./scripts/codespaces/kind-down.sh",
+      "problemMatcher": [],
+      "presentation": {
+        "reveal": "always",
+        "panel": "shared"
+      }
+    }
+  ]
+}
