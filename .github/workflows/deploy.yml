@@ -239,7 +239,7 @@ jobs:
           path: /tmp/helm-values
 
       - name: Setup Helm
-        uses: azure/setup-helm@v4
+        uses: azure/setup-helm@v5
 
       - name: Add Helm repos
         run: helm repo add ingress-nginx https://kubernetes.github.io/ingress-nginx
