@@ -1,10 +1,9 @@
 image:
-  repository: 954976298234.dkr.ecr.us-east-1.amazonaws.com/notification-service
+  repository: notification-service
   tag: latest
   pullPolicy: IfNotPresent
 replicaCount: 1
 scheduling:
-  # Pin to deploy/aws/static-egress managed node group (NAT EIP for VoIP.ms).
   staticEgress: false
 ports:
   - containerPort: 50056

@@ -1,31 +1,41 @@
 # Deployment
 
-This document describes the current deployment posture and the expected future open-source packaging direction.
+This document describes the current deployment posture.
 
 ## Current state
 
-The repository currently supports:
+The repository supports:
 
-- local development with Tilt and Kubernetes
-- development Dockerfiles under `deploy/docker/development`
-- production-oriented Dockerfiles under `deploy/docker/production`
-- production-oriented Kubernetes manifests under `deploy/kubernetes/production`
+- **Docker Compose** for local and Codespaces full-stack startup (`deploy/docker/`)
+- **Tilt + local Kubernetes** for cluster-shaped development (`Tiltfile`, `deploy/kubernetes/development/`)
+- Optional **Helm** packaging under `deploy/helm/` with `deploy/helm/values/dev.yaml`
+- Development and production-oriented Dockerfiles under `deploy/docker/`
+- Production-oriented Kubernetes manifests under `deploy/kubernetes/production`
 
-The repository does not yet provide:
+AWS EKS / ECR deploy scripts and the former EKS GitHub Actions workflow have been removed.
 
-- Docker Compose for local full-stack startup
-- Helm charts
-- a fully standardized production deployment story
-
-## Local deployment path
-
-Use:
+## Local deployment path (recommended)
 
 ```bash
-tilt up
+docker compose \
+  -f deploy/docker/docker-compose.yml \
+  -f deploy/docker/docker-compose.override.local.yml \
+  up --build
 ```
 
-This is the primary supported developer workflow today.
+See [`docs/local-setup.md`](local-setup.md) for Codespaces and optional Tilt.
+
+## Optional Helm
+
+```bash
+helm dependency build deploy/helm/
+helm upgrade --install zorbahealth deploy/helm/ \
+  --namespace dev \
+  -f deploy/helm/values/dev.yaml \
+  --create-namespace
+```
+
+Do not run Helm and Tilt against the same `dev` namespace at once.
 
 ## Production-oriented path
 
@@ -38,19 +48,9 @@ These should be treated as a base for environment-specific adaptation.
 
 ## External infrastructure
 
-The following components are expected to run outside the repository-managed local Kubernetes stack:
+The following components are expected to run outside the repository-managed local stack:
 
 - FreePBX
 - LiveKit
 - LiveKit SIP
 - cloud or self-hosted AI providers
-
-## Planned deployment maturity improvements
-
-- Docker Compose for open-source onboarding
-- Helm chart packaging
-- resource requests and limits
-- autoscaling policies
-- ingress management
-- stronger secrets integration
-- CI-driven image builds and validation

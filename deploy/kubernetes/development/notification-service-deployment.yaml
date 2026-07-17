@@ -12,14 +12,6 @@ spec:
       labels:
         app: notification-service
     spec:
-      # VoIP.ms REST allowlist: run deploy/aws/static-egress/ (NAT EIP), then verify checkip.
-      nodeSelector:
-        zorbahealth.io/egress: static
-      tolerations:
-        - key: zorbahealth.io/egress
-          operator: Equal
-          value: static
-          effect: NoSchedule
       containers:
         - name: notification-service
           image: notification-service

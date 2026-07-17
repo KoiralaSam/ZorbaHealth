@@ -2,7 +2,7 @@ postgres:
   image: pgvector/pgvector:pg15
   port: 5432
   storageSize: 10Gi
-  storageClass: gp3
+  storageClass: ""
   resources:
     requests:
       memory: 256Mi
@@ -30,7 +30,7 @@ rabbitmq:
     - containerPort: 15672
       name: management
   storageSize: 1Gi
-  storageClass: gp3
+  storageClass: ""
   resources:
     requests:
       memory: 256Mi

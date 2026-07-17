@@ -1,5 +1,5 @@
 image:
-  repository: 954976298234.dkr.ecr.us-east-1.amazonaws.com/patient-service
+  repository: patient-service
   tag: latest
   pullPolicy: IfNotPresent
 replicaCount: 1
@@ -92,6 +92,12 @@ env:
       secretKeyRef:
         key: apiSecret
         name: livekit-credentials
+  - name: LIVEKIT_SIP_TRUNK_ID
+    valueFrom:
+      secretKeyRef:
+        key: sipTrunkId
+        name: livekit-credentials
+        optional: true
 resources:
   requests:
     memory: 128Mi
@@ -105,3 +111,19 @@ service:
     - port: 9093
       targetPort: 9093
       name: grpc
+welfareCheckDispatcher:
+  enabled: true
+  schedule: "* * * * *"
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 2
+  failedJobsHistoryLimit: 4
+  backoffLimit: 1
+  command:
+    - ./build/welfare-check-dispatcher
+  resources:
+    requests:
+      memory: 64Mi
+      cpu: 50m
+    limits:
+      memory: 128Mi
+      cpu: 150m
