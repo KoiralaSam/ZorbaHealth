@@ -30,4 +30,17 @@ var (
 
 	ErrInvalidPhoneNumberNoDigits = errors.New("invalid phone number: no digits")
 	ErrEmailRequired              = errors.New("email is required")
+
+	ErrWelfareCheckNotFound            = errors.New("welfare check not found")
+	ErrWelfareCheckStartsAtInvalid     = errors.New("welfare check time must be in the future")
+	ErrWelfareCheckTimezoneInvalid     = errors.New("welfare check timezone must be a valid IANA timezone")
+	ErrWelfareCheckReasonInvalid       = errors.New("unsupported welfare check reason")
+	ErrWelfareCheckReasonRequired      = errors.New("welfare check reason is required")
+	ErrWelfareCheckReasonTooLong       = errors.New("welfare check details must be 1000 characters or less")
+	ErrWelfareCheckPhoneRequired       = errors.New("patient phone number is required for welfare checks")
+	ErrWelfareCheckConsentRequired     = errors.New("voice assistant and health record access consents are required")
+	ErrWelfareCheckConsentUnavailable  = errors.New("consent verification is unavailable")
+	ErrWelfareCheckDispatchUnavailable = errors.New("welfare check call provider is unavailable")
+	ErrWelfareCheckRunNotFound         = errors.New("welfare check run not found")
+	ErrWelfareCheckRunTransition       = errors.New("invalid welfare check run status transition")
 )

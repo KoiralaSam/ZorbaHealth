@@ -94,6 +94,31 @@ services:
       rabbitmq:
         condition: service_healthy
 
+  welfare-check-dispatcher:
+    build:
+      context: ../..
+      dockerfile: deploy/docker/development/patient-service.Dockerfile
+    command: ["./build/welfare-check-dispatcher"]
+    env_file:
+      - ../../examples/sample-env/.env.example
+    environment:
+      WELFARE_CHECK_DISPATCH_LOOP_SECONDS: "60"
+      WELFARE_CHECK_DISPATCH_LIMIT: "25"
+      # Explicit local bypasses only — never rely on silent fail-open.
+      LIVEKIT_USE_STUB: "${LIVEKIT_USE_STUB:-false}"
+      WELFARE_CHECK_ALLOW_CONSENT_BYPASS: "${WELFARE_CHECK_ALLOW_CONSENT_BYPASS:-false}"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      patient-service:
+        condition: service_started
+      audit-service:
+        condition: service_started
+      auth-service:
+        condition: service_started
+
   audit-service:
     build:
       context: ../..

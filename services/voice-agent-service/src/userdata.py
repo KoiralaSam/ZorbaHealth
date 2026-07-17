@@ -39,6 +39,9 @@ class SessionUserData:
     # Health context loaded after verification; summarised by Go.
     health_context: str = ""
 
+    # Scheduled welfare-check context, set only from signed LiveKit job metadata.
+    welfare_check_context: dict[str, str] | None = None
+
     # Safety / escalation state for the current voice session.
     escalation_triggered: bool = False
     escalation_reason: str = ""

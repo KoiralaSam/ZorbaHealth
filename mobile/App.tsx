@@ -29,6 +29,7 @@ const endpoints = {
   patientConsents: "/api/v1/patient/consents",
   patientRecordsAnswer: "/api/v1/patient/records/answer",
   patientCalls: "/api/v1/patient/calls",
+  patientWelfareChecks: "/api/v1/patient/welfare-checks",
   patientAudit: "/api/v1/patient/audit",
   hospitalLogin: "/api/v1/auth/hospital/login",
   hospitalSummary: "/api/v1/hospital/records/summary",
@@ -37,7 +38,7 @@ const endpoints = {
 };
 
 type Role = "patient" | "hospital";
-type PatientTab = "home" | "consents" | "records" | "calls" | "audit" | "location";
+type PatientTab = "home" | "consents" | "records" | "calls" | "welfare" | "audit" | "location";
 type HospitalTab = "summary" | "incidents" | "audit";
 
 type APIError = { code: string; message: string };
@@ -74,6 +75,32 @@ type CallSummary = {
   summary?: string;
   recording_url?: string;
   livekit_room_id?: string;
+};
+type WelfareCheckReason =
+  | "medication_reminder"
+  | "mental_wellbeing"
+  | "daily_checkup"
+  | "symptom_follow_up"
+  | "care_plan_reminder"
+  | "other";
+type WelfareCheck = {
+  id?: string;
+  patient_id?: string;
+  scheduled_at?: string;
+  timezone?: string;
+  reason_code?: WelfareCheckReason | string;
+  reason_detail?: string;
+  status?: string;
+  attempt_count?: number;
+  latest_run_id?: string;
+  latest_run_status?: string;
+  latest_run_attempts?: number;
+  latest_run_failure_reason?: string;
+  livekit_room_id?: string;
+  sip_participant_id?: string;
+  created_at?: string;
+  updated_at?: string;
+  cancelled_at?: string;
 };
 type AuditEvent = {
   event_id?: string;
@@ -135,6 +162,15 @@ const consentCopy: Record<string, { label: string; description: string }> = {
 
 const consentTypes = Object.keys(consentCopy);
 const focusOptions = ["full", "medications", "allergies", "diagnoses"];
+const welfareReasonCopy: Record<WelfareCheckReason, string> = {
+  medication_reminder: "Medication",
+  mental_wellbeing: "Mental wellbeing",
+  daily_checkup: "Daily checkup",
+  symptom_follow_up: "Symptom follow-up",
+  care_plan_reminder: "Care plan",
+  other: "Other"
+};
+const welfareReasons = Object.keys(welfareReasonCopy) as WelfareCheckReason[];
 
 async function saveSecure(key: string, value: string) {
   await SecureStore.setItemAsync(key, value);
@@ -148,10 +184,41 @@ async function deleteSecure(key: string) {
   await SecureStore.deleteItemAsync(key);
 }
 
+type MobileCacheEntry = {
+  expiresAt: number;
+  value?: unknown;
+  promise?: Promise<unknown>;
+};
+
+const mobileResponseCache = new Map<string, MobileCacheEntry>();
+
+function mobileCacheKey(endpoint: string, token?: string) {
+  return `${token ? token.slice(-16) : "anon"}:${endpoint}`;
+}
+
+function clearAPIResponseCache() {
+  mobileResponseCache.clear();
+}
+
 async function apiRequest<T>(
   endpoint: string,
-  options: { method?: string; token?: string; body?: unknown } = {}
+  options: { method?: string; token?: string; body?: unknown; ttlMs?: number; force?: boolean } = {}
 ): Promise<T> {
+  const method = options.method ?? "GET";
+  const canCache = method === "GET" && options.body === undefined;
+  const cacheKey = mobileCacheKey(endpoint, options.token);
+  const now = Date.now();
+
+  if (canCache && !options.force) {
+    const cached = mobileResponseCache.get(cacheKey);
+    if (cached?.value !== undefined && cached.expiresAt > now) {
+      return cached.value as T;
+    }
+    if (cached?.promise) {
+      return cached.promise as Promise<T>;
+    }
+  }
+
   const headers: Record<string, string> = {
     Accept: "application/json"
   };
@@ -162,16 +229,44 @@ async function apiRequest<T>(
     headers.Authorization = `Bearer ${options.token}`;
   }
 
-  const response = await fetch(`${API_URL}${endpoint}`, {
-    method: options.method ?? "GET",
+  const request = fetch(`${API_URL}${endpoint}`, {
+    method,
     headers,
     body: options.body === undefined ? undefined : JSON.stringify(options.body)
+  }).then(async (response) => {
+    const payload = (await response.json()) as APIResponse<T>;
+    if (!response.ok) {
+      throw new Error(payload.error?.message ?? "Request failed.");
+    }
+    const value = payload.data ?? ({} as T);
+    if (canCache) {
+      mobileResponseCache.set(cacheKey, {
+        expiresAt: Date.now() + (options.ttlMs ?? 30_000),
+        value
+      });
+    }
+    return value;
   });
-  const payload = (await response.json()) as APIResponse<T>;
-  if (!response.ok) {
-    throw new Error(payload.error?.message ?? "Request failed.");
+
+  if (canCache) {
+    mobileResponseCache.set(cacheKey, {
+      expiresAt: now + (options.ttlMs ?? 30_000),
+      promise: request
+    });
   }
-  return (payload.data ?? ({} as T));
+
+  try {
+    return await request;
+  } catch (error) {
+    if (canCache) mobileResponseCache.delete(cacheKey);
+    throw error;
+  }
+}
+
+function preloadAPI<T>(endpoint: string, token: string, ttlMs = 30_000) {
+  void apiRequest<T>(endpoint, { token, ttlMs }).catch(() => {
+    // Preloading is opportunistic.
+  });
 }
 
 function formatTime(value?: string) {
@@ -183,6 +278,13 @@ function formatTime(value?: string) {
 
 function titleFromCode(value?: string) {
   return value ? value.replaceAll("_", " ").toLowerCase() : "Unknown";
+}
+
+function defaultWelfareDateTime() {
+  const date = new Date(Date.now() + 60 * 60 * 1000);
+  date.setMinutes(Math.ceil(date.getMinutes() / 5) * 5, 0, 0);
+  const local = new Date(date.getTime() - date.getTimezoneOffset() * 60_000);
+  return local.toISOString().slice(0, 16);
 }
 
 export default function App() {
@@ -213,6 +315,7 @@ export default function App() {
       deleteSecure("patient_id"),
       deleteSecure("hospital_access_token")
     ]);
+    clearAPIResponseCache();
     setPatientToken("");
     setHospitalToken("");
   };
@@ -262,9 +365,14 @@ function Header({
 }) {
   return (
     <View style={styles.header}>
-      <View>
-        <Text style={styles.brand}>Zorba Health</Text>
-        <Text style={styles.headerSub}>{role === "patient" ? "Patient mobile care" : "Hospital staff console"}</Text>
+      <View style={styles.headerBrand}>
+        <View style={styles.brandMark}>
+          <Ionicons name="pulse-outline" size={21} color="#ffffff" />
+        </View>
+        <View>
+          <Text style={styles.brand}>Zorba Health</Text>
+          <Text style={styles.headerSub}>{role === "patient" ? "Patient mobile care" : "Hospital staff console"}</Text>
+        </View>
       </View>
       <View style={styles.headerActions}>
         {!signedIn ? (
@@ -460,6 +568,7 @@ function PatientPortal({ token, onSignOut }: { token: string; onSignOut: () => v
   const [profile, setProfile] = useState<PatientProfile | null>(null);
   const [consents, setConsents] = useState<ConsentRecord[]>([]);
   const [calls, setCalls] = useState<CallSummary[]>([]);
+  const [welfareChecks, setWelfareChecks] = useState<WelfareCheck[]>([]);
   const [audit, setAudit] = useState<AuditEvent[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -468,15 +577,17 @@ function PatientPortal({ token, onSignOut }: { token: string; onSignOut: () => v
     setLoading(true);
     setError("");
     try {
-      const [profileData, consentData, callData, auditData] = await Promise.all([
+      const [profileData, consentData, callData, welfareData, auditData] = await Promise.all([
         apiRequest<PatientProfile>(endpoints.patientProfile, { token }),
         apiRequest<{ consents?: ConsentRecord[] }>(endpoints.patientConsents, { token }),
         apiRequest<{ calls?: CallSummary[] }>(endpoints.patientCalls, { token }),
+        apiRequest<{ welfare_checks?: WelfareCheck[] }>(endpoints.patientWelfareChecks, { token }),
         apiRequest<{ events?: AuditEvent[] }>(endpoints.patientAudit, { token })
       ]);
       setProfile(profileData);
       setConsents(consentData.consents ?? []);
       setCalls(callData.calls ?? []);
+      setWelfareChecks(welfareData.welfare_checks ?? []);
       setAudit(auditData.events ?? []);
     } catch (err) {
       const message = err instanceof Error ? err.message : "Unable to load patient data.";
@@ -488,8 +599,13 @@ function PatientPortal({ token, onSignOut }: { token: string; onSignOut: () => v
   }, [onSignOut, token]);
 
   useEffect(() => {
+    preloadAPI<PatientProfile>(endpoints.patientProfile, token);
+    preloadAPI<{ consents?: ConsentRecord[] }>(endpoints.patientConsents, token);
+    preloadAPI<{ calls?: CallSummary[] }>(endpoints.patientCalls, token);
+    preloadAPI<{ welfare_checks?: WelfareCheck[] }>(endpoints.patientWelfareChecks, token);
+    preloadAPI<{ events?: AuditEvent[] }>(endpoints.patientAudit, token);
     void load();
-  }, [load]);
+  }, [load, token]);
 
   const activeConsents = useMemo(() => {
     const map = new Map<string, ConsentRecord>();
@@ -511,6 +627,7 @@ function PatientPortal({ token, onSignOut }: { token: string; onSignOut: () => v
           { value: "consents", label: "Consent", icon: "options-outline" },
           { value: "records", label: "Ask", icon: "chatbubbles-outline" },
           { value: "calls", label: "Calls", icon: "call-outline" },
+          { value: "welfare", label: "Checks", icon: "calendar-outline" },
           { value: "audit", label: "Audit", icon: "reader-outline" },
           { value: "location", label: "GPS", icon: "navigate-outline" }
         ]}
@@ -522,6 +639,7 @@ function PatientPortal({ token, onSignOut }: { token: string; onSignOut: () => v
         {!loading && tab === "consents" ? <ConsentCenter token={token} consents={consents} setConsents={setConsents} /> : null}
         {!loading && tab === "records" ? <HealthQuestion token={token} /> : null}
         {!loading && tab === "calls" ? <CallList calls={calls} voicePhone={profile?.voice_phone} /> : null}
+        {!loading && tab === "welfare" ? <WelfareChecks token={token} checks={welfareChecks} setChecks={setWelfareChecks} /> : null}
         {!loading && tab === "audit" ? <AuditList events={audit} /> : null}
         {!loading && tab === "location" ? <LocationSharing token={token} enabled={activeConsents.has("LOCATION_ACCESS")} /> : null}
       </ScrollView>
@@ -599,6 +717,7 @@ function ConsentCenter({
       if (data.consent) {
         setConsents([data.consent, ...consents.filter((item) => item.consent_type !== type)]);
       }
+      clearAPIResponseCache();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Consent update failed.");
     } finally {
@@ -700,6 +819,127 @@ function CallList({ calls, voicePhone }: { calls: CallSummary[]; voicePhone?: st
           <CallRow key={String(call.id)} call={call} />
         ))}
         {calls.length === 0 ? <EmptyText text="No call summaries have been returned by the backend." /> : null}
+      </Section>
+    </View>
+  );
+}
+
+function WelfareChecks({
+  token,
+  checks,
+  setChecks
+}: {
+  token: string;
+  checks: WelfareCheck[];
+  setChecks: (items: WelfareCheck[]) => void;
+}) {
+  const [scheduledAt, setScheduledAt] = useState(defaultWelfareDateTime);
+  const [reason, setReason] = useState<WelfareCheckReason>("daily_checkup");
+  const [detail, setDetail] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [cancelling, setCancelling] = useState("");
+  const [error, setError] = useState("");
+
+  const create = async () => {
+    const scheduled = new Date(scheduledAt);
+    if (Number.isNaN(scheduled.getTime())) {
+      setError("Enter a valid date and time.");
+      return;
+    }
+    if (detail.length > 1000) {
+      setError("Detail must be 1000 characters or less.");
+      return;
+    }
+    setLoading(true);
+    setError("");
+    try {
+      const data = await apiRequest<{ welfare_check?: WelfareCheck }>(endpoints.patientWelfareChecks, {
+        method: "POST",
+        token,
+        body: {
+          scheduled_at: scheduled.toISOString(),
+          timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC",
+          reason_code: reason,
+          reason_detail: detail.trim()
+        }
+      });
+      if (data.welfare_check) {
+        setChecks([data.welfare_check, ...checks]);
+      }
+      clearAPIResponseCache();
+      setDetail("");
+      setScheduledAt(defaultWelfareDateTime());
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Unable to schedule welfare check.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const cancel = async (id?: string) => {
+    if (!id) return;
+    setCancelling(id);
+    setError("");
+    try {
+      const data = await apiRequest<{ welfare_check?: WelfareCheck }>(`${endpoints.patientWelfareChecks}/${encodeURIComponent(id)}`, {
+        method: "DELETE",
+        token
+      });
+      if (data.welfare_check) {
+        setChecks(checks.map((item) => (item.id === id ? data.welfare_check! : item)));
+      }
+      clearAPIResponseCache();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Unable to cancel welfare check.");
+    } finally {
+      setCancelling("");
+    }
+  };
+
+  return (
+    <View style={styles.stack}>
+      <ScreenHeading title="Welfare checks" subtitle="Schedule outbound phone check-ins using your saved patient number." />
+      <Feedback error={error} />
+      <Section title="New check">
+        <Field label="Date and time" value={scheduledAt} onChangeText={setScheduledAt} placeholder="YYYY-MM-DDTHH:mm" />
+        <Segmented
+          value={reason}
+          onChange={(value) => setReason(value as WelfareCheckReason)}
+          options={welfareReasons.map((item) => ({ value: item, label: welfareReasonCopy[item] }))}
+        />
+        <Field label="Detail" value={detail} onChangeText={setDetail} multiline placeholder="Anything Zorba should know before calling?" />
+        <Text style={styles.meta}>{detail.length}/1000</Text>
+        <PrimaryButton icon="calendar-outline" label={loading ? "Scheduling..." : "Schedule check"} disabled={loading} onPress={create} />
+      </Section>
+      <Section title="Scheduled and recent">
+        {checks.map((check) => {
+          const cancellable = ["scheduled", "pending"].includes((check.status || "").toLowerCase());
+          return (
+            <View key={check.id ?? `${check.scheduled_at}-${check.reason_code}`} style={styles.card}>
+              <View style={styles.rowBetween}>
+                <View style={styles.flex}>
+                  <Text style={styles.cardTitle}>{welfareReasonCopy[check.reason_code as WelfareCheckReason] ?? titleFromCode(check.reason_code)}</Text>
+                  <Text style={styles.meta}>{formatTime(check.scheduled_at)}</Text>
+                </View>
+                <Text style={styles.badge}>{check.latest_run_status || check.status || "scheduled"}</Text>
+              </View>
+              {check.reason_detail ? <Text style={styles.cardBody}>{check.reason_detail}</Text> : null}
+              {check.latest_run_failure_reason ? <Text style={styles.errorText}>{check.latest_run_failure_reason}</Text> : null}
+              {typeof check.latest_run_attempts === "number" && check.latest_run_attempts > 0 ? (
+                <Text style={styles.meta}>Attempts: {check.latest_run_attempts}</Text>
+              ) : null}
+              {cancellable ? (
+                <IconButton
+                  icon="close-circle-outline"
+                  label={cancelling === check.id ? "Cancelling" : "Cancel"}
+                  onPress={() => cancel(check.id)}
+                  tone="neutral"
+                />
+              ) : null}
+            </View>
+          );
+        })}
+        {checks.length === 0 ? <EmptyText text="No welfare checks scheduled yet." /> : null}
       </Section>
     </View>
   );
@@ -824,8 +1064,9 @@ function HospitalPortal({ token, onSignOut }: { token: string; onSignOut: () => 
   }, [onSignOut, token]);
 
   useEffect(() => {
+    preloadAPI<{ incidents?: Incident[] }>(endpoints.hospitalIncidents, token);
     void loadIncidents();
-  }, [loadIncidents]);
+  }, [loadIncidents, token]);
 
   return (
     <View style={styles.portal}>
@@ -870,7 +1111,7 @@ function HospitalSummary({ token }: { token: string }) {
       setSummary(data.summary ?? "No summary returned.");
       const auditData = await apiRequest<{ events?: AuditEvent[] }>(
         `${endpoints.hospitalPatientAudit}?patient_id=${encodeURIComponent(patientID.trim())}`,
-        { token }
+        { token, force: true }
       );
       setAudit(auditData.events ?? []);
     } catch (err) {
@@ -1176,11 +1417,11 @@ function parseLocationCommand(payload: unknown): { command: string; sessionID?: 
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: "#f8fafc"
+    backgroundColor: "#f5faf8"
   },
   shell: {
     flex: 1,
-    backgroundColor: "#f8fafc"
+    backgroundColor: "#f5faf8"
   },
   center: {
     flex: 1,
@@ -1190,17 +1431,31 @@ const styles = StyleSheet.create({
   },
   header: {
     paddingHorizontal: 18,
-    paddingVertical: 14,
+    paddingVertical: 13,
     borderBottomWidth: 1,
-    borderBottomColor: "#e2e8f0",
+    borderBottomColor: "#d8e6e2",
     backgroundColor: "#ffffff",
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
     gap: 12
   },
+  headerBrand: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    flexShrink: 1
+  },
+  brandMark: {
+    width: 38,
+    height: 38,
+    borderRadius: 8,
+    backgroundColor: "#0f766e",
+    alignItems: "center",
+    justifyContent: "center"
+  },
   brand: {
-    fontSize: 20,
+    fontSize: 19,
     fontWeight: "800",
     color: "#0f172a"
   },
@@ -1221,21 +1476,21 @@ const styles = StyleSheet.create({
   authPanel: {
     borderRadius: 8,
     borderWidth: 1,
-    borderColor: "#e2e8f0",
+    borderColor: "#d8e6e2",
     backgroundColor: "#ffffff",
     padding: 18,
     gap: 16,
-    shadowColor: "#0f172a",
-    shadowOpacity: 0.08,
-    shadowRadius: 18,
-    shadowOffset: { width: 0, height: 10 },
+    shadowColor: "#0f766e",
+    shadowOpacity: 0.06,
+    shadowRadius: 16,
+    shadowOffset: { width: 0, height: 8 },
     elevation: 2
   },
   portal: {
     flex: 1
   },
   content: {
-    padding: 16,
+    padding: 18,
     paddingBottom: 28
   },
   stack: {
@@ -1255,13 +1510,15 @@ const styles = StyleSheet.create({
   screenCopy: {
     marginTop: 6,
     color: "#475569",
-    lineHeight: 20
+    lineHeight: 21
   },
   heroPanel: {
     borderRadius: 8,
     padding: 20,
     backgroundColor: "#0f766e",
-    gap: 12
+    gap: 12,
+    borderWidth: 1,
+    borderColor: "#0d9488"
   },
   eyebrow: {
     color: "#ccfbf1",
@@ -1284,7 +1541,7 @@ const styles = StyleSheet.create({
   infoCard: {
     borderRadius: 8,
     borderWidth: 1,
-    borderColor: "#e2e8f0",
+    borderColor: "#d8e6e2",
     backgroundColor: "#ffffff",
     padding: 16,
     gap: 8
@@ -1292,16 +1549,16 @@ const styles = StyleSheet.create({
   card: {
     borderRadius: 8,
     borderWidth: 1,
-    borderColor: "#e2e8f0",
+    borderColor: "#d8e6e2",
     backgroundColor: "#ffffff",
     padding: 14,
     gap: 8
   },
   subCard: {
     borderRadius: 8,
-    backgroundColor: "#f8fafc",
+    backgroundColor: "#f5faf8",
     borderWidth: 1,
-    borderColor: "#e2e8f0",
+    borderColor: "#d8e6e2",
     padding: 12,
     gap: 6
   },
@@ -1360,7 +1617,7 @@ const styles = StyleSheet.create({
     minHeight: 46,
     borderRadius: 8,
     borderWidth: 1,
-    borderColor: "#cbd5e1",
+    borderColor: "#b8c9c5",
     backgroundColor: "#ffffff",
     paddingHorizontal: 12,
     color: "#0f172a",
@@ -1393,7 +1650,7 @@ const styles = StyleSheet.create({
     minHeight: 38,
     borderRadius: 8,
     borderWidth: 1,
-    borderColor: "#cbd5e1",
+    borderColor: "#b8c9c5",
     backgroundColor: "#ffffff",
     paddingHorizontal: 11,
     flexDirection: "row",
@@ -1429,7 +1686,9 @@ const styles = StyleSheet.create({
     flexWrap: "wrap",
     gap: 6,
     borderRadius: 8,
-    backgroundColor: "#f1f5f9",
+    borderWidth: 1,
+    borderColor: "#d8e6e2",
+    backgroundColor: "#f5faf8",
     padding: 4
   },
   segment: {
@@ -1440,12 +1699,7 @@ const styles = StyleSheet.create({
     justifyContent: "center"
   },
   segmentActive: {
-    backgroundColor: "#ffffff",
-    shadowColor: "#0f172a",
-    shadowOpacity: 0.08,
-    shadowRadius: 4,
-    shadowOffset: { width: 0, height: 2 },
-    elevation: 1
+    backgroundColor: "#0f766e"
   },
   segmentText: {
     color: "#475569",
@@ -1453,14 +1707,14 @@ const styles = StyleSheet.create({
     textTransform: "capitalize"
   },
   segmentTextActive: {
-    color: "#0f172a"
+    color: "#ffffff"
   },
   tabBar: {
     paddingHorizontal: 12,
     paddingVertical: 10,
     gap: 8,
     borderBottomWidth: 1,
-    borderBottomColor: "#e2e8f0",
+    borderBottomColor: "#d8e6e2",
     backgroundColor: "#ffffff"
   },
   tab: {
@@ -1468,7 +1722,7 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     paddingHorizontal: 12,
     borderWidth: 1,
-    borderColor: "#e2e8f0",
+    borderColor: "#d8e6e2",
     backgroundColor: "#ffffff",
     flexDirection: "row",
     alignItems: "center",

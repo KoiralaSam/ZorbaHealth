@@ -390,6 +390,702 @@ func (x *ListPatientCallSummariesResponse) GetCalls() []*PatientCallSummary {
 	return nil
 }
 
+type CreateWelfareCheckRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	PatientId     string                 `protobuf:"bytes,1,opt,name=patient_id,json=patientId,proto3" json:"patient_id,omitempty"`
+	ScheduledAt   *timestamppb.Timestamp `protobuf:"bytes,2,opt,name=scheduled_at,json=scheduledAt,proto3" json:"scheduled_at,omitempty"`
+	Timezone      string                 `protobuf:"bytes,3,opt,name=timezone,proto3" json:"timezone,omitempty"`
+	ReasonCode    string                 `protobuf:"bytes,4,opt,name=reason_code,json=reasonCode,proto3" json:"reason_code,omitempty"`
+	ReasonDetail  string                 `protobuf:"bytes,5,opt,name=reason_detail,json=reasonDetail,proto3" json:"reason_detail,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *CreateWelfareCheckRequest) Reset() {
+	*x = CreateWelfareCheckRequest{}
+	mi := &file_patient_portal_proto_msgTypes[6]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *CreateWelfareCheckRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*CreateWelfareCheckRequest) ProtoMessage() {}
+
+func (x *CreateWelfareCheckRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_patient_portal_proto_msgTypes[6]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use CreateWelfareCheckRequest.ProtoReflect.Descriptor instead.
+func (*CreateWelfareCheckRequest) Descriptor() ([]byte, []int) {
+	return file_patient_portal_proto_rawDescGZIP(), []int{6}
+}
+
+func (x *CreateWelfareCheckRequest) GetPatientId() string {
+	if x != nil {
+		return x.PatientId
+	}
+	return ""
+}
+
+func (x *CreateWelfareCheckRequest) GetScheduledAt() *timestamppb.Timestamp {
+	if x != nil {
+		return x.ScheduledAt
+	}
+	return nil
+}
+
+func (x *CreateWelfareCheckRequest) GetTimezone() string {
+	if x != nil {
+		return x.Timezone
+	}
+	return ""
+}
+
+func (x *CreateWelfareCheckRequest) GetReasonCode() string {
+	if x != nil {
+		return x.ReasonCode
+	}
+	return ""
+}
+
+func (x *CreateWelfareCheckRequest) GetReasonDetail() string {
+	if x != nil {
+		return x.ReasonDetail
+	}
+	return ""
+}
+
+type WelfareCheck struct {
+	state                  protoimpl.MessageState `protogen:"open.v1"`
+	Id                     string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	PatientId              string                 `protobuf:"bytes,2,opt,name=patient_id,json=patientId,proto3" json:"patient_id,omitempty"`
+	ScheduledAt            *timestamppb.Timestamp `protobuf:"bytes,3,opt,name=scheduled_at,json=scheduledAt,proto3" json:"scheduled_at,omitempty"`
+	Timezone               string                 `protobuf:"bytes,4,opt,name=timezone,proto3" json:"timezone,omitempty"`
+	ReasonCode             string                 `protobuf:"bytes,5,opt,name=reason_code,json=reasonCode,proto3" json:"reason_code,omitempty"`
+	ReasonDetail           string                 `protobuf:"bytes,6,opt,name=reason_detail,json=reasonDetail,proto3" json:"reason_detail,omitempty"`
+	Status                 string                 `protobuf:"bytes,7,opt,name=status,proto3" json:"status,omitempty"`
+	RecurrenceRule         string                 `protobuf:"bytes,8,opt,name=recurrence_rule,json=recurrenceRule,proto3" json:"recurrence_rule,omitempty"`
+	CreatedAt              *timestamppb.Timestamp `protobuf:"bytes,9,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
+	UpdatedAt              *timestamppb.Timestamp `protobuf:"bytes,10,opt,name=updated_at,json=updatedAt,proto3" json:"updated_at,omitempty"`
+	CancelledAt            *timestamppb.Timestamp `protobuf:"bytes,11,opt,name=cancelled_at,json=cancelledAt,proto3" json:"cancelled_at,omitempty"`
+	LatestRunId            string                 `protobuf:"bytes,12,opt,name=latest_run_id,json=latestRunId,proto3" json:"latest_run_id,omitempty"`
+	LatestRunStatus        string                 `protobuf:"bytes,13,opt,name=latest_run_status,json=latestRunStatus,proto3" json:"latest_run_status,omitempty"`
+	LatestRunAttempts      int32                  `protobuf:"varint,14,opt,name=latest_run_attempts,json=latestRunAttempts,proto3" json:"latest_run_attempts,omitempty"`
+	LatestRunFailureReason string                 `protobuf:"bytes,15,opt,name=latest_run_failure_reason,json=latestRunFailureReason,proto3" json:"latest_run_failure_reason,omitempty"`
+	unknownFields          protoimpl.UnknownFields
+	sizeCache              protoimpl.SizeCache
+}
+
+func (x *WelfareCheck) Reset() {
+	*x = WelfareCheck{}
+	mi := &file_patient_portal_proto_msgTypes[7]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *WelfareCheck) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*WelfareCheck) ProtoMessage() {}
+
+func (x *WelfareCheck) ProtoReflect() protoreflect.Message {
+	mi := &file_patient_portal_proto_msgTypes[7]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use WelfareCheck.ProtoReflect.Descriptor instead.
+func (*WelfareCheck) Descriptor() ([]byte, []int) {
+	return file_patient_portal_proto_rawDescGZIP(), []int{7}
+}
+
+func (x *WelfareCheck) GetId() string {
+	if x != nil {
+		return x.Id
+	}
+	return ""
+}
+
+func (x *WelfareCheck) GetPatientId() string {
+	if x != nil {
+		return x.PatientId
+	}
+	return ""
+}
+
+func (x *WelfareCheck) GetScheduledAt() *timestamppb.Timestamp {
+	if x != nil {
+		return x.ScheduledAt
+	}
+	return nil
+}
+
+func (x *WelfareCheck) GetTimezone() string {
+	if x != nil {
+		return x.Timezone
+	}
+	return ""
+}
+
+func (x *WelfareCheck) GetReasonCode() string {
+	if x != nil {
+		return x.ReasonCode
+	}
+	return ""
+}
+
+func (x *WelfareCheck) GetReasonDetail() string {
+	if x != nil {
+		return x.ReasonDetail
+	}
+	return ""
+}
+
+func (x *WelfareCheck) GetStatus() string {
+	if x != nil {
+		return x.Status
+	}
+	return ""
+}
+
+func (x *WelfareCheck) GetRecurrenceRule() string {
+	if x != nil {
+		return x.RecurrenceRule
+	}
+	return ""
+}
+
+func (x *WelfareCheck) GetCreatedAt() *timestamppb.Timestamp {
+	if x != nil {
+		return x.CreatedAt
+	}
+	return nil
+}
+
+func (x *WelfareCheck) GetUpdatedAt() *timestamppb.Timestamp {
+	if x != nil {
+		return x.UpdatedAt
+	}
+	return nil
+}
+
+func (x *WelfareCheck) GetCancelledAt() *timestamppb.Timestamp {
+	if x != nil {
+		return x.CancelledAt
+	}
+	return nil
+}
+
+func (x *WelfareCheck) GetLatestRunId() string {
+	if x != nil {
+		return x.LatestRunId
+	}
+	return ""
+}
+
+func (x *WelfareCheck) GetLatestRunStatus() string {
+	if x != nil {
+		return x.LatestRunStatus
+	}
+	return ""
+}
+
+func (x *WelfareCheck) GetLatestRunAttempts() int32 {
+	if x != nil {
+		return x.LatestRunAttempts
+	}
+	return 0
+}
+
+func (x *WelfareCheck) GetLatestRunFailureReason() string {
+	if x != nil {
+		return x.LatestRunFailureReason
+	}
+	return ""
+}
+
+type CreateWelfareCheckResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	WelfareCheck  *WelfareCheck          `protobuf:"bytes,1,opt,name=welfare_check,json=welfareCheck,proto3" json:"welfare_check,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *CreateWelfareCheckResponse) Reset() {
+	*x = CreateWelfareCheckResponse{}
+	mi := &file_patient_portal_proto_msgTypes[8]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *CreateWelfareCheckResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*CreateWelfareCheckResponse) ProtoMessage() {}
+
+func (x *CreateWelfareCheckResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_patient_portal_proto_msgTypes[8]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use CreateWelfareCheckResponse.ProtoReflect.Descriptor instead.
+func (*CreateWelfareCheckResponse) Descriptor() ([]byte, []int) {
+	return file_patient_portal_proto_rawDescGZIP(), []int{8}
+}
+
+func (x *CreateWelfareCheckResponse) GetWelfareCheck() *WelfareCheck {
+	if x != nil {
+		return x.WelfareCheck
+	}
+	return nil
+}
+
+type ListWelfareChecksRequest struct {
+	state            protoimpl.MessageState `protogen:"open.v1"`
+	PatientId        string                 `protobuf:"bytes,1,opt,name=patient_id,json=patientId,proto3" json:"patient_id,omitempty"`
+	IncludeCancelled bool                   `protobuf:"varint,2,opt,name=include_cancelled,json=includeCancelled,proto3" json:"include_cancelled,omitempty"`
+	Limit            int32                  `protobuf:"varint,3,opt,name=limit,proto3" json:"limit,omitempty"`
+	unknownFields    protoimpl.UnknownFields
+	sizeCache        protoimpl.SizeCache
+}
+
+func (x *ListWelfareChecksRequest) Reset() {
+	*x = ListWelfareChecksRequest{}
+	mi := &file_patient_portal_proto_msgTypes[9]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ListWelfareChecksRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ListWelfareChecksRequest) ProtoMessage() {}
+
+func (x *ListWelfareChecksRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_patient_portal_proto_msgTypes[9]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ListWelfareChecksRequest.ProtoReflect.Descriptor instead.
+func (*ListWelfareChecksRequest) Descriptor() ([]byte, []int) {
+	return file_patient_portal_proto_rawDescGZIP(), []int{9}
+}
+
+func (x *ListWelfareChecksRequest) GetPatientId() string {
+	if x != nil {
+		return x.PatientId
+	}
+	return ""
+}
+
+func (x *ListWelfareChecksRequest) GetIncludeCancelled() bool {
+	if x != nil {
+		return x.IncludeCancelled
+	}
+	return false
+}
+
+func (x *ListWelfareChecksRequest) GetLimit() int32 {
+	if x != nil {
+		return x.Limit
+	}
+	return 0
+}
+
+type ListWelfareChecksResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	WelfareChecks []*WelfareCheck        `protobuf:"bytes,1,rep,name=welfare_checks,json=welfareChecks,proto3" json:"welfare_checks,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ListWelfareChecksResponse) Reset() {
+	*x = ListWelfareChecksResponse{}
+	mi := &file_patient_portal_proto_msgTypes[10]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ListWelfareChecksResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ListWelfareChecksResponse) ProtoMessage() {}
+
+func (x *ListWelfareChecksResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_patient_portal_proto_msgTypes[10]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ListWelfareChecksResponse.ProtoReflect.Descriptor instead.
+func (*ListWelfareChecksResponse) Descriptor() ([]byte, []int) {
+	return file_patient_portal_proto_rawDescGZIP(), []int{10}
+}
+
+func (x *ListWelfareChecksResponse) GetWelfareChecks() []*WelfareCheck {
+	if x != nil {
+		return x.WelfareChecks
+	}
+	return nil
+}
+
+type CancelWelfareCheckRequest struct {
+	state          protoimpl.MessageState `protogen:"open.v1"`
+	PatientId      string                 `protobuf:"bytes,1,opt,name=patient_id,json=patientId,proto3" json:"patient_id,omitempty"`
+	WelfareCheckId string                 `protobuf:"bytes,2,opt,name=welfare_check_id,json=welfareCheckId,proto3" json:"welfare_check_id,omitempty"`
+	unknownFields  protoimpl.UnknownFields
+	sizeCache      protoimpl.SizeCache
+}
+
+func (x *CancelWelfareCheckRequest) Reset() {
+	*x = CancelWelfareCheckRequest{}
+	mi := &file_patient_portal_proto_msgTypes[11]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *CancelWelfareCheckRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*CancelWelfareCheckRequest) ProtoMessage() {}
+
+func (x *CancelWelfareCheckRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_patient_portal_proto_msgTypes[11]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use CancelWelfareCheckRequest.ProtoReflect.Descriptor instead.
+func (*CancelWelfareCheckRequest) Descriptor() ([]byte, []int) {
+	return file_patient_portal_proto_rawDescGZIP(), []int{11}
+}
+
+func (x *CancelWelfareCheckRequest) GetPatientId() string {
+	if x != nil {
+		return x.PatientId
+	}
+	return ""
+}
+
+func (x *CancelWelfareCheckRequest) GetWelfareCheckId() string {
+	if x != nil {
+		return x.WelfareCheckId
+	}
+	return ""
+}
+
+type CancelWelfareCheckResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	WelfareCheck  *WelfareCheck          `protobuf:"bytes,1,opt,name=welfare_check,json=welfareCheck,proto3" json:"welfare_check,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *CancelWelfareCheckResponse) Reset() {
+	*x = CancelWelfareCheckResponse{}
+	mi := &file_patient_portal_proto_msgTypes[12]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *CancelWelfareCheckResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*CancelWelfareCheckResponse) ProtoMessage() {}
+
+func (x *CancelWelfareCheckResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_patient_portal_proto_msgTypes[12]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use CancelWelfareCheckResponse.ProtoReflect.Descriptor instead.
+func (*CancelWelfareCheckResponse) Descriptor() ([]byte, []int) {
+	return file_patient_portal_proto_rawDescGZIP(), []int{12}
+}
+
+func (x *CancelWelfareCheckResponse) GetWelfareCheck() *WelfareCheck {
+	if x != nil {
+		return x.WelfareCheck
+	}
+	return nil
+}
+
+type UpdateWelfareRunLifecycleRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	PatientId     string                 `protobuf:"bytes,1,opt,name=patient_id,json=patientId,proto3" json:"patient_id,omitempty"`
+	RunId         string                 `protobuf:"bytes,2,opt,name=run_id,json=runId,proto3" json:"run_id,omitempty"`
+	Status        string                 `protobuf:"bytes,3,opt,name=status,proto3" json:"status,omitempty"` // answered | completed | missed | failed
+	Reason        string                 `protobuf:"bytes,4,opt,name=reason,proto3" json:"reason,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *UpdateWelfareRunLifecycleRequest) Reset() {
+	*x = UpdateWelfareRunLifecycleRequest{}
+	mi := &file_patient_portal_proto_msgTypes[13]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *UpdateWelfareRunLifecycleRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*UpdateWelfareRunLifecycleRequest) ProtoMessage() {}
+
+func (x *UpdateWelfareRunLifecycleRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_patient_portal_proto_msgTypes[13]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use UpdateWelfareRunLifecycleRequest.ProtoReflect.Descriptor instead.
+func (*UpdateWelfareRunLifecycleRequest) Descriptor() ([]byte, []int) {
+	return file_patient_portal_proto_rawDescGZIP(), []int{13}
+}
+
+func (x *UpdateWelfareRunLifecycleRequest) GetPatientId() string {
+	if x != nil {
+		return x.PatientId
+	}
+	return ""
+}
+
+func (x *UpdateWelfareRunLifecycleRequest) GetRunId() string {
+	if x != nil {
+		return x.RunId
+	}
+	return ""
+}
+
+func (x *UpdateWelfareRunLifecycleRequest) GetStatus() string {
+	if x != nil {
+		return x.Status
+	}
+	return ""
+}
+
+func (x *UpdateWelfareRunLifecycleRequest) GetReason() string {
+	if x != nil {
+		return x.Reason
+	}
+	return ""
+}
+
+type WelfareCheckRun struct {
+	state           protoimpl.MessageState `protogen:"open.v1"`
+	Id              string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	RequestId       string                 `protobuf:"bytes,2,opt,name=request_id,json=requestId,proto3" json:"request_id,omitempty"`
+	PatientId       string                 `protobuf:"bytes,3,opt,name=patient_id,json=patientId,proto3" json:"patient_id,omitempty"`
+	Status          string                 `protobuf:"bytes,4,opt,name=status,proto3" json:"status,omitempty"`
+	Attempts        int32                  `protobuf:"varint,5,opt,name=attempts,proto3" json:"attempts,omitempty"`
+	FailureReason   string                 `protobuf:"bytes,6,opt,name=failure_reason,json=failureReason,proto3" json:"failure_reason,omitempty"`
+	LivekitRoomName string                 `protobuf:"bytes,7,opt,name=livekit_room_name,json=livekitRoomName,proto3" json:"livekit_room_name,omitempty"`
+	ScheduledAt     *timestamppb.Timestamp `protobuf:"bytes,8,opt,name=scheduled_at,json=scheduledAt,proto3" json:"scheduled_at,omitempty"`
+	UpdatedAt       *timestamppb.Timestamp `protobuf:"bytes,9,opt,name=updated_at,json=updatedAt,proto3" json:"updated_at,omitempty"`
+	unknownFields   protoimpl.UnknownFields
+	sizeCache       protoimpl.SizeCache
+}
+
+func (x *WelfareCheckRun) Reset() {
+	*x = WelfareCheckRun{}
+	mi := &file_patient_portal_proto_msgTypes[14]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *WelfareCheckRun) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*WelfareCheckRun) ProtoMessage() {}
+
+func (x *WelfareCheckRun) ProtoReflect() protoreflect.Message {
+	mi := &file_patient_portal_proto_msgTypes[14]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use WelfareCheckRun.ProtoReflect.Descriptor instead.
+func (*WelfareCheckRun) Descriptor() ([]byte, []int) {
+	return file_patient_portal_proto_rawDescGZIP(), []int{14}
+}
+
+func (x *WelfareCheckRun) GetId() string {
+	if x != nil {
+		return x.Id
+	}
+	return ""
+}
+
+func (x *WelfareCheckRun) GetRequestId() string {
+	if x != nil {
+		return x.RequestId
+	}
+	return ""
+}
+
+func (x *WelfareCheckRun) GetPatientId() string {
+	if x != nil {
+		return x.PatientId
+	}
+	return ""
+}
+
+func (x *WelfareCheckRun) GetStatus() string {
+	if x != nil {
+		return x.Status
+	}
+	return ""
+}
+
+func (x *WelfareCheckRun) GetAttempts() int32 {
+	if x != nil {
+		return x.Attempts
+	}
+	return 0
+}
+
+func (x *WelfareCheckRun) GetFailureReason() string {
+	if x != nil {
+		return x.FailureReason
+	}
+	return ""
+}
+
+func (x *WelfareCheckRun) GetLivekitRoomName() string {
+	if x != nil {
+		return x.LivekitRoomName
+	}
+	return ""
+}
+
+func (x *WelfareCheckRun) GetScheduledAt() *timestamppb.Timestamp {
+	if x != nil {
+		return x.ScheduledAt
+	}
+	return nil
+}
+
+func (x *WelfareCheckRun) GetUpdatedAt() *timestamppb.Timestamp {
+	if x != nil {
+		return x.UpdatedAt
+	}
+	return nil
+}
+
+type UpdateWelfareRunLifecycleResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Run           *WelfareCheckRun       `protobuf:"bytes,1,opt,name=run,proto3" json:"run,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *UpdateWelfareRunLifecycleResponse) Reset() {
+	*x = UpdateWelfareRunLifecycleResponse{}
+	mi := &file_patient_portal_proto_msgTypes[15]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *UpdateWelfareRunLifecycleResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*UpdateWelfareRunLifecycleResponse) ProtoMessage() {}
+
+func (x *UpdateWelfareRunLifecycleResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_patient_portal_proto_msgTypes[15]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use UpdateWelfareRunLifecycleResponse.ProtoReflect.Descriptor instead.
+func (*UpdateWelfareRunLifecycleResponse) Descriptor() ([]byte, []int) {
+	return file_patient_portal_proto_rawDescGZIP(), []int{15}
+}
+
+func (x *UpdateWelfareRunLifecycleResponse) GetRun() *WelfareCheckRun {
+	if x != nil {
+		return x.Run
+	}
+	return nil
+}
+
 var File_patient_portal_proto protoreflect.FileDescriptor
 
 const file_patient_portal_proto_rawDesc = "" +
@@ -423,11 +1119,80 @@ const file_patient_portal_proto_rawDesc = "" +
 	"\asummary\x18\x06 \x01(\tR\asummary\x12&\n" +
 	"\x0flivekit_room_id\x18\a \x01(\tR\rlivekitRoomId\"[\n" +
 	" ListPatientCallSummariesResponse\x127\n" +
-	"\x05calls\x18\x01 \x03(\v2!.patientportal.PatientCallSummaryR\x05calls2\xed\x01\n" +
+	"\x05calls\x18\x01 \x03(\v2!.patientportal.PatientCallSummaryR\x05calls\"\xdb\x01\n" +
+	"\x19CreateWelfareCheckRequest\x12\x1d\n" +
+	"\n" +
+	"patient_id\x18\x01 \x01(\tR\tpatientId\x12=\n" +
+	"\fscheduled_at\x18\x02 \x01(\v2\x1a.google.protobuf.TimestampR\vscheduledAt\x12\x1a\n" +
+	"\btimezone\x18\x03 \x01(\tR\btimezone\x12\x1f\n" +
+	"\vreason_code\x18\x04 \x01(\tR\n" +
+	"reasonCode\x12#\n" +
+	"\rreason_detail\x18\x05 \x01(\tR\freasonDetail\"\x8f\x05\n" +
+	"\fWelfareCheck\x12\x0e\n" +
+	"\x02id\x18\x01 \x01(\tR\x02id\x12\x1d\n" +
+	"\n" +
+	"patient_id\x18\x02 \x01(\tR\tpatientId\x12=\n" +
+	"\fscheduled_at\x18\x03 \x01(\v2\x1a.google.protobuf.TimestampR\vscheduledAt\x12\x1a\n" +
+	"\btimezone\x18\x04 \x01(\tR\btimezone\x12\x1f\n" +
+	"\vreason_code\x18\x05 \x01(\tR\n" +
+	"reasonCode\x12#\n" +
+	"\rreason_detail\x18\x06 \x01(\tR\freasonDetail\x12\x16\n" +
+	"\x06status\x18\a \x01(\tR\x06status\x12'\n" +
+	"\x0frecurrence_rule\x18\b \x01(\tR\x0erecurrenceRule\x129\n" +
+	"\n" +
+	"created_at\x18\t \x01(\v2\x1a.google.protobuf.TimestampR\tcreatedAt\x129\n" +
+	"\n" +
+	"updated_at\x18\n" +
+	" \x01(\v2\x1a.google.protobuf.TimestampR\tupdatedAt\x12=\n" +
+	"\fcancelled_at\x18\v \x01(\v2\x1a.google.protobuf.TimestampR\vcancelledAt\x12\"\n" +
+	"\rlatest_run_id\x18\f \x01(\tR\vlatestRunId\x12*\n" +
+	"\x11latest_run_status\x18\r \x01(\tR\x0flatestRunStatus\x12.\n" +
+	"\x13latest_run_attempts\x18\x0e \x01(\x05R\x11latestRunAttempts\x129\n" +
+	"\x19latest_run_failure_reason\x18\x0f \x01(\tR\x16latestRunFailureReason\"^\n" +
+	"\x1aCreateWelfareCheckResponse\x12@\n" +
+	"\rwelfare_check\x18\x01 \x01(\v2\x1b.patientportal.WelfareCheckR\fwelfareCheck\"|\n" +
+	"\x18ListWelfareChecksRequest\x12\x1d\n" +
+	"\n" +
+	"patient_id\x18\x01 \x01(\tR\tpatientId\x12+\n" +
+	"\x11include_cancelled\x18\x02 \x01(\bR\x10includeCancelled\x12\x14\n" +
+	"\x05limit\x18\x03 \x01(\x05R\x05limit\"_\n" +
+	"\x19ListWelfareChecksResponse\x12B\n" +
+	"\x0ewelfare_checks\x18\x01 \x03(\v2\x1b.patientportal.WelfareCheckR\rwelfareChecks\"d\n" +
+	"\x19CancelWelfareCheckRequest\x12\x1d\n" +
+	"\n" +
+	"patient_id\x18\x01 \x01(\tR\tpatientId\x12(\n" +
+	"\x10welfare_check_id\x18\x02 \x01(\tR\x0ewelfareCheckId\"^\n" +
+	"\x1aCancelWelfareCheckResponse\x12@\n" +
+	"\rwelfare_check\x18\x01 \x01(\v2\x1b.patientportal.WelfareCheckR\fwelfareCheck\"\x88\x01\n" +
+	" UpdateWelfareRunLifecycleRequest\x12\x1d\n" +
+	"\n" +
+	"patient_id\x18\x01 \x01(\tR\tpatientId\x12\x15\n" +
+	"\x06run_id\x18\x02 \x01(\tR\x05runId\x12\x16\n" +
+	"\x06status\x18\x03 \x01(\tR\x06status\x12\x16\n" +
+	"\x06reason\x18\x04 \x01(\tR\x06reason\"\xe0\x02\n" +
+	"\x0fWelfareCheckRun\x12\x0e\n" +
+	"\x02id\x18\x01 \x01(\tR\x02id\x12\x1d\n" +
+	"\n" +
+	"request_id\x18\x02 \x01(\tR\trequestId\x12\x1d\n" +
+	"\n" +
+	"patient_id\x18\x03 \x01(\tR\tpatientId\x12\x16\n" +
+	"\x06status\x18\x04 \x01(\tR\x06status\x12\x1a\n" +
+	"\battempts\x18\x05 \x01(\x05R\battempts\x12%\n" +
+	"\x0efailure_reason\x18\x06 \x01(\tR\rfailureReason\x12*\n" +
+	"\x11livekit_room_name\x18\a \x01(\tR\x0flivekitRoomName\x12=\n" +
+	"\fscheduled_at\x18\b \x01(\v2\x1a.google.protobuf.TimestampR\vscheduledAt\x129\n" +
+	"\n" +
+	"updated_at\x18\t \x01(\v2\x1a.google.protobuf.TimestampR\tupdatedAt\"U\n" +
+	"!UpdateWelfareRunLifecycleResponse\x120\n" +
+	"\x03run\x18\x01 \x01(\v2\x1e.patientportal.WelfareCheckRunR\x03run2\xab\x05\n" +
 	"\x14PatientPortalService\x12_\n" +
 	"\n" +
 	"GetProfile\x12'.patientportal.GetPatientProfileRequest\x1a(.patientportal.GetPatientProfileResponse\x12t\n" +
-	"\x11ListCallSummaries\x12..patientportal.ListPatientCallSummariesRequest\x1a/.patientportal.ListPatientCallSummariesResponseB*Z(shared/proto/patientportal;patientportalb\x06proto3"
+	"\x11ListCallSummaries\x12..patientportal.ListPatientCallSummariesRequest\x1a/.patientportal.ListPatientCallSummariesResponse\x12i\n" +
+	"\x12CreateWelfareCheck\x12(.patientportal.CreateWelfareCheckRequest\x1a).patientportal.CreateWelfareCheckResponse\x12f\n" +
+	"\x11ListWelfareChecks\x12'.patientportal.ListWelfareChecksRequest\x1a(.patientportal.ListWelfareChecksResponse\x12i\n" +
+	"\x12CancelWelfareCheck\x12(.patientportal.CancelWelfareCheckRequest\x1a).patientportal.CancelWelfareCheckResponse\x12~\n" +
+	"\x19UpdateWelfareRunLifecycle\x12/.patientportal.UpdateWelfareRunLifecycleRequest\x1a0.patientportal.UpdateWelfareRunLifecycleResponseB*Z(shared/proto/patientportal;patientportalb\x06proto3"
 
 var (
 	file_patient_portal_proto_rawDescOnce sync.Once
@@ -441,30 +1206,59 @@ func file_patient_portal_proto_rawDescGZIP() []byte {
 	return file_patient_portal_proto_rawDescData
 }
 
-var file_patient_portal_proto_msgTypes = make([]protoimpl.MessageInfo, 6)
+var file_patient_portal_proto_msgTypes = make([]protoimpl.MessageInfo, 16)
 var file_patient_portal_proto_goTypes = []any{
-	(*GetPatientProfileRequest)(nil),         // 0: patientportal.GetPatientProfileRequest
-	(*PatientProfile)(nil),                   // 1: patientportal.PatientProfile
-	(*GetPatientProfileResponse)(nil),        // 2: patientportal.GetPatientProfileResponse
-	(*ListPatientCallSummariesRequest)(nil),  // 3: patientportal.ListPatientCallSummariesRequest
-	(*PatientCallSummary)(nil),               // 4: patientportal.PatientCallSummary
-	(*ListPatientCallSummariesResponse)(nil), // 5: patientportal.ListPatientCallSummariesResponse
-	(*timestamppb.Timestamp)(nil),            // 6: google.protobuf.Timestamp
+	(*GetPatientProfileRequest)(nil),          // 0: patientportal.GetPatientProfileRequest
+	(*PatientProfile)(nil),                    // 1: patientportal.PatientProfile
+	(*GetPatientProfileResponse)(nil),         // 2: patientportal.GetPatientProfileResponse
+	(*ListPatientCallSummariesRequest)(nil),   // 3: patientportal.ListPatientCallSummariesRequest
+	(*PatientCallSummary)(nil),                // 4: patientportal.PatientCallSummary
+	(*ListPatientCallSummariesResponse)(nil),  // 5: patientportal.ListPatientCallSummariesResponse
+	(*CreateWelfareCheckRequest)(nil),         // 6: patientportal.CreateWelfareCheckRequest
+	(*WelfareCheck)(nil),                      // 7: patientportal.WelfareCheck
+	(*CreateWelfareCheckResponse)(nil),        // 8: patientportal.CreateWelfareCheckResponse
+	(*ListWelfareChecksRequest)(nil),          // 9: patientportal.ListWelfareChecksRequest
+	(*ListWelfareChecksResponse)(nil),         // 10: patientportal.ListWelfareChecksResponse
+	(*CancelWelfareCheckRequest)(nil),         // 11: patientportal.CancelWelfareCheckRequest
+	(*CancelWelfareCheckResponse)(nil),        // 12: patientportal.CancelWelfareCheckResponse
+	(*UpdateWelfareRunLifecycleRequest)(nil),  // 13: patientportal.UpdateWelfareRunLifecycleRequest
+	(*WelfareCheckRun)(nil),                   // 14: patientportal.WelfareCheckRun
+	(*UpdateWelfareRunLifecycleResponse)(nil), // 15: patientportal.UpdateWelfareRunLifecycleResponse
+	(*timestamppb.Timestamp)(nil),             // 16: google.protobuf.Timestamp
 }
 var file_patient_portal_proto_depIdxs = []int32{
-	1, // 0: patientportal.GetPatientProfileResponse.profile:type_name -> patientportal.PatientProfile
-	6, // 1: patientportal.PatientCallSummary.started_at:type_name -> google.protobuf.Timestamp
-	6, // 2: patientportal.PatientCallSummary.ended_at:type_name -> google.protobuf.Timestamp
-	4, // 3: patientportal.ListPatientCallSummariesResponse.calls:type_name -> patientportal.PatientCallSummary
-	0, // 4: patientportal.PatientPortalService.GetProfile:input_type -> patientportal.GetPatientProfileRequest
-	3, // 5: patientportal.PatientPortalService.ListCallSummaries:input_type -> patientportal.ListPatientCallSummariesRequest
-	2, // 6: patientportal.PatientPortalService.GetProfile:output_type -> patientportal.GetPatientProfileResponse
-	5, // 7: patientportal.PatientPortalService.ListCallSummaries:output_type -> patientportal.ListPatientCallSummariesResponse
-	6, // [6:8] is the sub-list for method output_type
-	4, // [4:6] is the sub-list for method input_type
-	4, // [4:4] is the sub-list for extension type_name
-	4, // [4:4] is the sub-list for extension extendee
-	0, // [0:4] is the sub-list for field type_name
+	1,  // 0: patientportal.GetPatientProfileResponse.profile:type_name -> patientportal.PatientProfile
+	16, // 1: patientportal.PatientCallSummary.started_at:type_name -> google.protobuf.Timestamp
+	16, // 2: patientportal.PatientCallSummary.ended_at:type_name -> google.protobuf.Timestamp
+	4,  // 3: patientportal.ListPatientCallSummariesResponse.calls:type_name -> patientportal.PatientCallSummary
+	16, // 4: patientportal.CreateWelfareCheckRequest.scheduled_at:type_name -> google.protobuf.Timestamp
+	16, // 5: patientportal.WelfareCheck.scheduled_at:type_name -> google.protobuf.Timestamp
+	16, // 6: patientportal.WelfareCheck.created_at:type_name -> google.protobuf.Timestamp
+	16, // 7: patientportal.WelfareCheck.updated_at:type_name -> google.protobuf.Timestamp
+	16, // 8: patientportal.WelfareCheck.cancelled_at:type_name -> google.protobuf.Timestamp
+	7,  // 9: patientportal.CreateWelfareCheckResponse.welfare_check:type_name -> patientportal.WelfareCheck
+	7,  // 10: patientportal.ListWelfareChecksResponse.welfare_checks:type_name -> patientportal.WelfareCheck
+	7,  // 11: patientportal.CancelWelfareCheckResponse.welfare_check:type_name -> patientportal.WelfareCheck
+	16, // 12: patientportal.WelfareCheckRun.scheduled_at:type_name -> google.protobuf.Timestamp
+	16, // 13: patientportal.WelfareCheckRun.updated_at:type_name -> google.protobuf.Timestamp
+	14, // 14: patientportal.UpdateWelfareRunLifecycleResponse.run:type_name -> patientportal.WelfareCheckRun
+	0,  // 15: patientportal.PatientPortalService.GetProfile:input_type -> patientportal.GetPatientProfileRequest
+	3,  // 16: patientportal.PatientPortalService.ListCallSummaries:input_type -> patientportal.ListPatientCallSummariesRequest
+	6,  // 17: patientportal.PatientPortalService.CreateWelfareCheck:input_type -> patientportal.CreateWelfareCheckRequest
+	9,  // 18: patientportal.PatientPortalService.ListWelfareChecks:input_type -> patientportal.ListWelfareChecksRequest
+	11, // 19: patientportal.PatientPortalService.CancelWelfareCheck:input_type -> patientportal.CancelWelfareCheckRequest
+	13, // 20: patientportal.PatientPortalService.UpdateWelfareRunLifecycle:input_type -> patientportal.UpdateWelfareRunLifecycleRequest
+	2,  // 21: patientportal.PatientPortalService.GetProfile:output_type -> patientportal.GetPatientProfileResponse
+	5,  // 22: patientportal.PatientPortalService.ListCallSummaries:output_type -> patientportal.ListPatientCallSummariesResponse
+	8,  // 23: patientportal.PatientPortalService.CreateWelfareCheck:output_type -> patientportal.CreateWelfareCheckResponse
+	10, // 24: patientportal.PatientPortalService.ListWelfareChecks:output_type -> patientportal.ListWelfareChecksResponse
+	12, // 25: patientportal.PatientPortalService.CancelWelfareCheck:output_type -> patientportal.CancelWelfareCheckResponse
+	15, // 26: patientportal.PatientPortalService.UpdateWelfareRunLifecycle:output_type -> patientportal.UpdateWelfareRunLifecycleResponse
+	21, // [21:27] is the sub-list for method output_type
+	15, // [15:21] is the sub-list for method input_type
+	15, // [15:15] is the sub-list for extension type_name
+	15, // [15:15] is the sub-list for extension extendee
+	0,  // [0:15] is the sub-list for field type_name
 }
 
 func init() { file_patient_portal_proto_init() }
@@ -478,7 +1272,7 @@ func file_patient_portal_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_patient_portal_proto_rawDesc), len(file_patient_portal_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   6,
+			NumMessages:   16,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

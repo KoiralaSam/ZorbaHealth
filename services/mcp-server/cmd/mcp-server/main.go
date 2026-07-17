@@ -19,6 +19,7 @@ import (
 	healthpb "github.com/KoiralaSam/ZorbaHealth/shared/proto/health_records"
 	locpb "github.com/KoiralaSam/ZorbaHealth/shared/proto/location"
 	regpb "github.com/KoiralaSam/ZorbaHealth/shared/proto/patient/registration_verification"
+	patientportalpb "github.com/KoiralaSam/ZorbaHealth/shared/proto/patientportal"
 	transpb "github.com/KoiralaSam/ZorbaHealth/shared/proto/translation"
 	"github.com/KoiralaSam/ZorbaHealth/shared/tracing"
 	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
@@ -91,6 +92,7 @@ func main() {
 	locClient := locpb.NewLocationServiceClient(locConn)
 	analyticsClient := analyticspb.NewAnalyticsServiceClient(analyticsConn)
 	patientClient := regpb.NewRegistrationVerificationServiceClient(patientConn)
+	patientPortalClient := patientportalpb.NewPatientPortalServiceClient(patientConn)
 	auditClient := auditpb.NewAuditServiceClient(auditConn)
 	tools.ConfigureAuditClient(auditClient)
 
@@ -111,6 +113,7 @@ func main() {
 	tools.RegisterStartExistingPhoneVerification(server, db, patientClient)
 	tools.RegisterVerifyExistingPhoneOTP(server, db, patientClient)
 	tools.RegisterNotifyCallLifecycle(server, db, callsRabbitMQ)
+	tools.RegisterUpdateWelfareRunStatus(server, db, patientPortalClient)
 
 	if strings.EqualFold(sharedenv.GetString("MCP_TRANSPORT", "stdio"), "http") {
 		addr := sharedenv.GetString("MCP_HTTP_ADDR", ":8092")

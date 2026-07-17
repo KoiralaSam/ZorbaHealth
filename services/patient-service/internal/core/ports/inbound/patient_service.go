@@ -21,6 +21,11 @@ type PatientService interface {
 	GetPatientByEmail(ctx context.Context, email string) (*models.Patient, error)
 	GetPatientProfile(ctx context.Context, patientID string) (*models.PatientProfile, error)
 	ListPatientCallSummaries(ctx context.Context, patientID string, limit, offset int32) ([]models.CallSummary, error)
+	CreateWelfareCheck(ctx context.Context, cmd *models.CreateWelfareCheckCommand) (*models.WelfareCheck, error)
+	ListWelfareChecks(ctx context.Context, filter models.ListWelfareChecksFilter) ([]models.WelfareCheck, error)
+	CancelWelfareCheck(ctx context.Context, patientID string, welfareCheckID string) (*models.WelfareCheck, error)
+	DispatchDueWelfareChecks(ctx context.Context, limit int32) ([]models.WelfareCheckDispatchResult, error)
+	UpdateWelfareRunLifecycle(ctx context.Context, cmd *models.UpdateWelfareRunLifecycleCommand) (*models.WelfareCheckRun, error)
 	UpdatePatient(ctx context.Context, patient *models.Patient) error
 	DeletePatient(ctx context.Context, id string) error
 }

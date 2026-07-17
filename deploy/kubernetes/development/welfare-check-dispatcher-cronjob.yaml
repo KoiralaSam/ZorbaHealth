@@ -1,0 +1,113 @@
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: welfare-check-dispatcher
+spec:
+  schedule: "* * * * *"
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 2
+  failedJobsHistoryLimit: 4
+  startingDeadlineSeconds: 50
+  jobTemplate:
+    spec:
+      backoffLimit: 1
+      activeDeadlineSeconds: 90
+      template:
+        metadata:
+          labels:
+            app: welfare-check-dispatcher
+        spec:
+          restartPolicy: OnFailure
+          containers:
+            - name: welfare-check-dispatcher
+              image: patient-service
+              imagePullPolicy: IfNotPresent
+              command: ["./build/welfare-check-dispatcher"]
+              resources:
+                requests:
+                  memory: "64Mi"
+                  cpu: "50m"
+                limits:
+                  memory: "128Mi"
+                  cpu: "150m"
+              env:
+                - name: ENVIRONMENT
+                  valueFrom:
+                    configMapKeyRef:
+                      key: ENVIRONMENT
+                      name: app-config
+                - name: JAEGER_ENDPOINT
+                  valueFrom:
+                    configMapKeyRef:
+                      key: JAEGER_ENDPOINT
+                      name: app-config
+                - name: AUTH_SERVICE_GRPC_ADDR
+                  valueFrom:
+                    configMapKeyRef:
+                      key: AUTH_SERVICE_GRPC_ADDR
+                      name: app-config
+                - name: AUDIT_SERVICE_GRPC_ADDR
+                  valueFrom:
+                    configMapKeyRef:
+                      key: AUDIT_SERVICE_GRPC_ADDR
+                      name: app-config
+                - name: WELFARE_CHECK_DISPATCH_LIMIT
+                  value: "25"
+                - name: DATABASE_URL
+                  valueFrom:
+                    secretKeyRef:
+                      key: DATABASE_URL
+                      name: app-secrets
+                - name: PATIENT_SERVICE_JWT_SECRET
+                  valueFrom:
+                    secretKeyRef:
+                      key: PATIENT_SERVICE_JWT_SECRET
+                      name: app-secrets
+                - name: AUTH_SERVICE_JWT_SECRET
+                  valueFrom:
+                    secretKeyRef:
+                      key: AUTH_SERVICE_JWT_SECRET
+                      name: app-secrets
+                - name: REDIS_ADDR
+                  valueFrom:
+                    configMapKeyRef:
+                      key: REDIS_ADDR
+                      name: app-config
+                - name: LIVEKIT_URL
+                  valueFrom:
+                    configMapKeyRef:
+                      key: LIVEKIT_URL
+                      name: app-config
+                - name: LIVEKIT_WS_URL
+                  valueFrom:
+                    configMapKeyRef:
+                      key: LIVEKIT_WS_URL
+                      name: app-config
+                - name: LIVEKIT_API_KEY
+                  valueFrom:
+                    secretKeyRef:
+                      key: apiKey
+                      name: livekit-credentials
+                - name: LIVEKIT_API_SECRET
+                  valueFrom:
+                    secretKeyRef:
+                      key: apiSecret
+                      name: livekit-credentials
+                - name: LIVEKIT_SIP_TRUNK_ID
+                  valueFrom:
+                    secretKeyRef:
+                      key: sipTrunkId
+                      name: livekit-credentials
+                      optional: true
+                - name: LIVEKIT_USE_STUB
+                  valueFrom:
+                    configMapKeyRef:
+                      key: LIVEKIT_USE_STUB
+                      name: app-config
+                      optional: true
+                - name: WELFARE_CHECK_ALLOW_CONSENT_BYPASS
+                  valueFrom:
+                    configMapKeyRef:
+                      key: WELFARE_CHECK_ALLOW_CONSENT_BYPASS
+                      name: app-config
+                      optional: true

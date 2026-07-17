@@ -19,8 +19,12 @@ import (
 const _ = grpc.SupportPackageIsVersion9
 
 const (
-	PatientPortalService_GetProfile_FullMethodName        = "/patientportal.PatientPortalService/GetProfile"
-	PatientPortalService_ListCallSummaries_FullMethodName = "/patientportal.PatientPortalService/ListCallSummaries"
+	PatientPortalService_GetProfile_FullMethodName                = "/patientportal.PatientPortalService/GetProfile"
+	PatientPortalService_ListCallSummaries_FullMethodName         = "/patientportal.PatientPortalService/ListCallSummaries"
+	PatientPortalService_CreateWelfareCheck_FullMethodName        = "/patientportal.PatientPortalService/CreateWelfareCheck"
+	PatientPortalService_ListWelfareChecks_FullMethodName         = "/patientportal.PatientPortalService/ListWelfareChecks"
+	PatientPortalService_CancelWelfareCheck_FullMethodName        = "/patientportal.PatientPortalService/CancelWelfareCheck"
+	PatientPortalService_UpdateWelfareRunLifecycle_FullMethodName = "/patientportal.PatientPortalService/UpdateWelfareRunLifecycle"
 )
 
 // PatientPortalServiceClient is the client API for PatientPortalService service.
@@ -29,6 +33,11 @@ const (
 type PatientPortalServiceClient interface {
 	GetProfile(ctx context.Context, in *GetPatientProfileRequest, opts ...grpc.CallOption) (*GetPatientProfileResponse, error)
 	ListCallSummaries(ctx context.Context, in *ListPatientCallSummariesRequest, opts ...grpc.CallOption) (*ListPatientCallSummariesResponse, error)
+	CreateWelfareCheck(ctx context.Context, in *CreateWelfareCheckRequest, opts ...grpc.CallOption) (*CreateWelfareCheckResponse, error)
+	ListWelfareChecks(ctx context.Context, in *ListWelfareChecksRequest, opts ...grpc.CallOption) (*ListWelfareChecksResponse, error)
+	CancelWelfareCheck(ctx context.Context, in *CancelWelfareCheckRequest, opts ...grpc.CallOption) (*CancelWelfareCheckResponse, error)
+	// Internal lifecycle updates from voice-agent/MCP after outbound welfare calls.
+	UpdateWelfareRunLifecycle(ctx context.Context, in *UpdateWelfareRunLifecycleRequest, opts ...grpc.CallOption) (*UpdateWelfareRunLifecycleResponse, error)
 }
 
 type patientPortalServiceClient struct {
@@ -59,12 +68,57 @@ func (c *patientPortalServiceClient) ListCallSummaries(ctx context.Context, in *
 	return out, nil
 }
 
+func (c *patientPortalServiceClient) CreateWelfareCheck(ctx context.Context, in *CreateWelfareCheckRequest, opts ...grpc.CallOption) (*CreateWelfareCheckResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(CreateWelfareCheckResponse)
+	err := c.cc.Invoke(ctx, PatientPortalService_CreateWelfareCheck_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *patientPortalServiceClient) ListWelfareChecks(ctx context.Context, in *ListWelfareChecksRequest, opts ...grpc.CallOption) (*ListWelfareChecksResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ListWelfareChecksResponse)
+	err := c.cc.Invoke(ctx, PatientPortalService_ListWelfareChecks_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *patientPortalServiceClient) CancelWelfareCheck(ctx context.Context, in *CancelWelfareCheckRequest, opts ...grpc.CallOption) (*CancelWelfareCheckResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(CancelWelfareCheckResponse)
+	err := c.cc.Invoke(ctx, PatientPortalService_CancelWelfareCheck_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *patientPortalServiceClient) UpdateWelfareRunLifecycle(ctx context.Context, in *UpdateWelfareRunLifecycleRequest, opts ...grpc.CallOption) (*UpdateWelfareRunLifecycleResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(UpdateWelfareRunLifecycleResponse)
+	err := c.cc.Invoke(ctx, PatientPortalService_UpdateWelfareRunLifecycle_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // PatientPortalServiceServer is the server API for PatientPortalService service.
 // All implementations must embed UnimplementedPatientPortalServiceServer
 // for forward compatibility.
 type PatientPortalServiceServer interface {
 	GetProfile(context.Context, *GetPatientProfileRequest) (*GetPatientProfileResponse, error)
 	ListCallSummaries(context.Context, *ListPatientCallSummariesRequest) (*ListPatientCallSummariesResponse, error)
+	CreateWelfareCheck(context.Context, *CreateWelfareCheckRequest) (*CreateWelfareCheckResponse, error)
+	ListWelfareChecks(context.Context, *ListWelfareChecksRequest) (*ListWelfareChecksResponse, error)
+	CancelWelfareCheck(context.Context, *CancelWelfareCheckRequest) (*CancelWelfareCheckResponse, error)
+	// Internal lifecycle updates from voice-agent/MCP after outbound welfare calls.
+	UpdateWelfareRunLifecycle(context.Context, *UpdateWelfareRunLifecycleRequest) (*UpdateWelfareRunLifecycleResponse, error)
 	mustEmbedUnimplementedPatientPortalServiceServer()
 }
 
@@ -80,6 +134,18 @@ func (UnimplementedPatientPortalServiceServer) GetProfile(context.Context, *GetP
 }
 func (UnimplementedPatientPortalServiceServer) ListCallSummaries(context.Context, *ListPatientCallSummariesRequest) (*ListPatientCallSummariesResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method ListCallSummaries not implemented")
+}
+func (UnimplementedPatientPortalServiceServer) CreateWelfareCheck(context.Context, *CreateWelfareCheckRequest) (*CreateWelfareCheckResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method CreateWelfareCheck not implemented")
+}
+func (UnimplementedPatientPortalServiceServer) ListWelfareChecks(context.Context, *ListWelfareChecksRequest) (*ListWelfareChecksResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method ListWelfareChecks not implemented")
+}
+func (UnimplementedPatientPortalServiceServer) CancelWelfareCheck(context.Context, *CancelWelfareCheckRequest) (*CancelWelfareCheckResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method CancelWelfareCheck not implemented")
+}
+func (UnimplementedPatientPortalServiceServer) UpdateWelfareRunLifecycle(context.Context, *UpdateWelfareRunLifecycleRequest) (*UpdateWelfareRunLifecycleResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method UpdateWelfareRunLifecycle not implemented")
 }
 func (UnimplementedPatientPortalServiceServer) mustEmbedUnimplementedPatientPortalServiceServer() {}
 func (UnimplementedPatientPortalServiceServer) testEmbeddedByValue()                              {}
@@ -138,6 +204,78 @@ func _PatientPortalService_ListCallSummaries_Handler(srv interface{}, ctx contex
 	return interceptor(ctx, in, info, handler)
 }
 
+func _PatientPortalService_CreateWelfareCheck_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(CreateWelfareCheckRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(PatientPortalServiceServer).CreateWelfareCheck(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: PatientPortalService_CreateWelfareCheck_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(PatientPortalServiceServer).CreateWelfareCheck(ctx, req.(*CreateWelfareCheckRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _PatientPortalService_ListWelfareChecks_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ListWelfareChecksRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(PatientPortalServiceServer).ListWelfareChecks(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: PatientPortalService_ListWelfareChecks_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(PatientPortalServiceServer).ListWelfareChecks(ctx, req.(*ListWelfareChecksRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _PatientPortalService_CancelWelfareCheck_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(CancelWelfareCheckRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(PatientPortalServiceServer).CancelWelfareCheck(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: PatientPortalService_CancelWelfareCheck_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(PatientPortalServiceServer).CancelWelfareCheck(ctx, req.(*CancelWelfareCheckRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _PatientPortalService_UpdateWelfareRunLifecycle_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(UpdateWelfareRunLifecycleRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(PatientPortalServiceServer).UpdateWelfareRunLifecycle(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: PatientPortalService_UpdateWelfareRunLifecycle_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(PatientPortalServiceServer).UpdateWelfareRunLifecycle(ctx, req.(*UpdateWelfareRunLifecycleRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // PatientPortalService_ServiceDesc is the grpc.ServiceDesc for PatientPortalService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -152,6 +290,22 @@ var PatientPortalService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "ListCallSummaries",
 			Handler:    _PatientPortalService_ListCallSummaries_Handler,
+		},
+		{
+			MethodName: "CreateWelfareCheck",
+			Handler:    _PatientPortalService_CreateWelfareCheck_Handler,
+		},
+		{
+			MethodName: "ListWelfareChecks",
+			Handler:    _PatientPortalService_ListWelfareChecks_Handler,
+		},
+		{
+			MethodName: "CancelWelfareCheck",
+			Handler:    _PatientPortalService_CancelWelfareCheck_Handler,
+		},
+		{
+			MethodName: "UpdateWelfareRunLifecycle",
+			Handler:    _PatientPortalService_UpdateWelfareRunLifecycle_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},
