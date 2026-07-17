@@ -1,0 +1,170 @@
+global:
+  environment: staging
+
+ingress:
+  enabled: true
+  rules:
+    - host: api.staging.zorbahealth.com
+      paths:
+        - path: /
+          pathType: Prefix
+          serviceName: api-gateway
+          servicePort: 8081
+    - host: staging.zorbahealth.com
+      paths:
+        - path: /
+          pathType: Prefix
+          serviceName: web
+          servicePort: 3000
+    - host: mobile.staging.zorbahealth.com
+      paths:
+        - path: /
+          pathType: Prefix
+          serviceName: mobile
+          servicePort: 8084
+
+infra:
+  postgres:
+    resources:
+      requests:
+        memory: 512Mi
+        cpu: 500m
+      limits:
+        memory: 1Gi
+        cpu: 1000m
+  redis:
+    resources:
+      requests:
+        memory: 128Mi
+        cpu: 100m
+      limits:
+        memory: 256Mi
+        cpu: 500m
+  rabbitmq:
+    resources:
+      requests:
+        memory: 1Gi
+        cpu: 500m
+      limits:
+        memory: 2Gi
+        cpu: 1000m
+
+patient-service:
+  replicas: 2
+  resources:
+    requests:
+      memory: 256Mi
+      cpu: 250m
+    limits:
+      memory: 512Mi
+      cpu: 500m
+
+auth-service:
+  replicas: 2
+  resources:
+    requests:
+      memory: 128Mi
+      cpu: 100m
+    limits:
+      memory: 256Mi
+      cpu: 200m
+
+api-gateway:
+  replicas: 2
+  resources:
+    requests:
+      memory: 256Mi
+      cpu: 250m
+    limits:
+      memory: 512Mi
+      cpu: 500m
+
+notification-service:
+  replicas: 2
+  resources:
+    requests:
+      memory: 256Mi
+      cpu: 250m
+    limits:
+      memory: 512Mi
+      cpu: 500m
+
+health-records-service:
+  replicas: 2
+  resources:
+    requests:
+      memory: 256Mi
+      cpu: 250m
+    limits:
+      memory: 512Mi
+      cpu: 500m
+
+analytics-service:
+  replicas: 2
+  resources:
+    requests:
+      memory: 256Mi
+      cpu: 250m
+    limits:
+      memory: 512Mi
+      cpu: 500m
+
+audit-service:
+  replicas: 2
+  resources:
+    requests:
+      memory: 256Mi
+      cpu: 250m
+    limits:
+      memory: 512Mi
+      cpu: 500m
+
+location-service:
+  replicas: 2
+  resources:
+    requests:
+      memory: 256Mi
+      cpu: 250m
+    limits:
+      memory: 512Mi
+      cpu: 500m
+
+mcp-server:
+  replicas: 2
+  resources:
+    requests:
+      memory: 256Mi
+      cpu: 200m
+    limits:
+      memory: 512Mi
+      cpu: 500m
+
+voice-agent-service:
+  replicaCount: 1
+  resources:
+    requests:
+      memory: 2Gi
+      cpu: 2000m
+    limits:
+      memory: 4Gi
+      cpu: 4000m
+
+web:
+  replicas: 2
+  resources:
+    requests:
+      memory: 256Mi
+      cpu: 200m
+    limits:
+      memory: 512Mi
+      cpu: 500m
+
+mobile:
+  replicas: 1
+  resources:
+    requests:
+      memory: 256Mi
+      cpu: 200m
+    limits:
+      memory: 1Gi
+      cpu: 1000m

@@ -1,0 +1,106 @@
+image:
+  repository: 954976298234.dkr.ecr.us-east-1.amazonaws.com/notification-service
+  tag: latest
+  pullPolicy: IfNotPresent
+replicaCount: 1
+scheduling:
+  # Pin to deploy/aws/static-egress managed node group (NAT EIP for VoIP.ms).
+  staticEgress: false
+ports:
+  - containerPort: 50056
+    name: grpc
+  - containerPort: 3001
+    name: http
+env:
+  - name: ENVIRONMENT
+    valueFrom:
+      configMapKeyRef:
+        key: ENVIRONMENT
+        name: app-config
+  - name: JAEGER_ENDPOINT
+    valueFrom:
+      configMapKeyRef:
+        key: JAEGER_ENDPOINT
+        name: app-config
+  - name: NOTIFICATION_SERVICE_GRPC_ADDR
+    valueFrom:
+      configMapKeyRef:
+        key: NOTIFICATION_SERVICE_GRPC_ADDR
+        name: app-config
+  - name: RABBITMQ_URI
+    valueFrom:
+      secretKeyRef:
+        key: uri
+        name: rabbitmq-credentials
+  - name: MAILTRAP_API_TOKEN
+    valueFrom:
+      secretKeyRef:
+        key: MAILTRAP_API_TOKEN
+        name: mailtrap-secrets
+  - name: MAILTRAP_FROM_EMAIL
+    valueFrom:
+      secretKeyRef:
+        key: MAILTRAP_FROM_EMAIL
+        name: mailtrap-secrets
+  - name: MAILTRAP_FROM_NAME
+    valueFrom:
+      secretKeyRef:
+        key: MAILTRAP_FROM_NAME
+        name: mailtrap-secrets
+  - name: MAILTRAP_MIRROR_RECIPIENT
+    valueFrom:
+      secretKeyRef:
+        key: MAILTRAP_MIRROR_RECIPIENT
+        name: mailtrap-secrets
+        optional: true
+  - name: PUBLIC_WEB_BASE_URL
+    valueFrom:
+      configMapKeyRef:
+        key: PUBLIC_WEB_BASE_URL
+        name: app-config
+  - name: HTTP_ADDR
+    valueFrom:
+      secretKeyRef:
+        key: http_addr
+        name: voipms-credentials
+  - name: VOIPMS_DID
+    valueFrom:
+      secretKeyRef:
+        key: did
+        name: voipms-credentials
+  - name: VOIPMS_API_USERNAME
+    valueFrom:
+      secretKeyRef:
+        key: username
+        name: voipms-credentials
+  - name: VOIPMS_API_PASSWORD
+    valueFrom:
+      secretKeyRef:
+        key: password
+        name: voipms-credentials
+  - name: VOIPMS_API_KEY
+    valueFrom:
+      secretKeyRef:
+        key: key
+        name: voipms-credentials
+  - name: VOIPMS_API_BASEURL
+    valueFrom:
+      secretKeyRef:
+        key: voipms_baseurl
+        name: voipms-credentials
+resources:
+  requests:
+    memory: 128Mi
+    cpu: 125m
+  limits:
+    memory: 256Mi
+    cpu: 250m
+service:
+  type: ClusterIP
+  ports:
+    - port: 50056
+      targetPort: 50056
+      name: grpc
+    - port: 3001
+      targetPort: 3001
+      name: http

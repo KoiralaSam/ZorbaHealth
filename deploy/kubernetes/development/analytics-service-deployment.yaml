@@ -14,7 +14,7 @@ spec:
     spec:
       containers:
         - name: analytics-service
-          image: zorba-health/analytics-service
+          image: analytics-service
           imagePullPolicy: IfNotPresent
           ports:
             - containerPort: 50054

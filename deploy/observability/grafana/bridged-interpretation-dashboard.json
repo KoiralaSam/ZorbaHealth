@@ -1,0 +1,61 @@
+{
+  "title": "Bridged Interpretation",
+  "timezone": "browser",
+  "schemaVersion": 39,
+  "version": 1,
+  "refresh": "30s",
+  "panels": [
+    {
+      "id": 1,
+      "title": "Interpretation Requests",
+      "type": "timeseries",
+      "targets": [
+        {
+          "expr": "sum(rate(traces_spanmetrics_calls_total{service_name=\"interpretation-service\", span_name=\"POST /internal/interpretation/segment\"}[5m]))",
+          "legendFormat": "relay requests/sec",
+          "refId": "A"
+        }
+      ],
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 0 }
+    },
+    {
+      "id": 2,
+      "title": "Translation gRPC Latency p95",
+      "type": "timeseries",
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.95, sum by (le) (rate(traces_spanmetrics_latency_bucket{service_name=\"translation-service\", span_name=\"/translation.TranslationService/Translate\"}[5m])))",
+          "legendFormat": "p95",
+          "refId": "A"
+        }
+      ],
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 0 }
+    },
+    {
+      "id": 3,
+      "title": "Bridge Control Plane Errors",
+      "type": "timeseries",
+      "targets": [
+        {
+          "expr": "sum(rate(traces_spanmetrics_calls_total{service_name=\"patient-service\", status_code=\"STATUS_CODE_ERROR\", span_name=~\"bridge.*\"}[5m]))",
+          "legendFormat": "patient-service bridge errors/sec",
+          "refId": "A"
+        }
+      ],
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 8 }
+    },
+    {
+      "id": 4,
+      "title": "Interpretation Audit Segments",
+      "type": "timeseries",
+      "targets": [
+        {
+          "expr": "sum(rate(traces_spanmetrics_calls_total{service_name=\"interpretation-service\", span_name=\"audit.append.segment\"}[5m]))",
+          "legendFormat": "audited segments/sec",
+          "refId": "A"
+        }
+      ],
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 8 }
+    }
+  ]
+}

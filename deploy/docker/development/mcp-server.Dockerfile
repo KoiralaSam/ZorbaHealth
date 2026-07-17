@@ -12,7 +12,7 @@ COPY services/mcp-server ./services/mcp-server
 
 RUN --mount=type=cache,target=/root/.cache/go-build \
     --mount=type=cache,target=/go/pkg/mod \
-    GOOS=linux go build -o /app/build/mcp-server ./services/mcp-server/cmd/mcp-server
+    CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o /app/build/mcp-server ./services/mcp-server/cmd/mcp-server
 
 FROM alpine:latest
 WORKDIR /app

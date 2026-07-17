@@ -10,7 +10,7 @@ This document inventories the services currently present in the repository, thei
 - Entrypoint: `services/api-gateway/cmd/api-gateway/main.go`
 - Interfaces: HTTP on `API_GATEWAY_HTTP_ADDR` (default `:8081`)
 - Primary dependencies: patient service over gRPC
-- Current scope: patient login and registration routes
+- Current scope: patient login, portal, hospital dashboard routes, and health-staff meeting scheduling HTTP APIs
 - Status: Partial
 
 ### Auth Service
@@ -28,7 +28,7 @@ This document inventories the services currently present in the repository, thei
 - Entrypoint: `services/patient-service/cmd/patient-service/main.go`
 - Interfaces: gRPC on `PATIENT_SERVICE_GRPC_ADDR`
 - Primary dependencies: PostgreSQL, Redis, RabbitMQ, auth service
-- Current scope: patient registration, verification, and patient-facing auth flows
+- Current scope: patient registration, verification, portal profile/calls, and `SchedulingService` (pending staff approval, LiveKit room creation, meeting notifications via RabbitMQ)
 - Status: Implemented
 
 ### Health Records Service
@@ -46,7 +46,7 @@ This document inventories the services currently present in the repository, thei
 - Entrypoint: `services/mcp-server/cmd/mcp-server/main.go`
 - Interfaces: MCP stdio transport by default; streamable HTTP on `MCP_HTTP_ADDR` when `MCP_TRANSPORT=http`
 - Primary dependencies: PostgreSQL, RabbitMQ, audit service, health-records service, translation service, location service, analytics service
-- Current scope: tool routing for health-record, translation, location, analytics, and escalation workflows with consent/audit checks
+- Current scope: tool routing for health-record, translation, location, analytics, escalation, and `schedule_health_staff_meeting` with consent/audit checks
 - Status: Implemented
 
 ### Audit Service
@@ -91,9 +91,18 @@ This document inventories the services currently present in the repository, thei
 - Path: `services/translation-service`
 - Entrypoint: `services/translation-service/cmd/translation-service/main.go`
 - Interfaces: gRPC on `TRANSLATION_SERVICE_GRPC_ADDR`
-- Primary dependencies: translation-model HTTP backend
-- Current scope: text translation through a dedicated backend service
+- Primary dependencies: Amazon Translate or the legacy local translation-model HTTP backend
+- Current scope: provider-switched text translation for MCP and bridged-call interpretation workflows
 - Status: Implemented
+
+### Interpretation Service
+
+- Path: `services/interpretation-service`
+- Entrypoint: `services/interpretation-service/cmd/interpretation-service/main.go`
+- Interfaces: HTTP on `INTERPRETATION_SERVICE_HTTP_ADDR`
+- Primary dependencies: Redis, translation service, audit service
+- Current scope: bridged-call relay control for per-segment interpretation decisions using session-scoped patient/staff preferences
+- Status: Partial
 
 ### Analytics Service
 
@@ -144,9 +153,9 @@ This document inventories the services currently present in the repository, thei
 ## Dependency summary
 
 - PostgreSQL: auth, patient, health-records, analytics, MCP server
-- Redis: patient, location
+- Redis: patient, location, interpretation
 - RabbitMQ: auth, patient, notification, location
-- LiveKit and SIP ecosystem: voice agent service
+- LiveKit and SIP ecosystem: voice agent service, bridged-call interpretation workflow
 - AI providers: voice agent service, health-records, translation
 
 ## Important current gaps

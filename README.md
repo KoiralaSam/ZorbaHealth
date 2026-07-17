@@ -17,6 +17,8 @@ This repo also includes contributor-facing assets under `docs/`, `examples/`, an
 
 ## Quick start
 
+### Local (Tilt + Kubernetes)
+
 1. Clone the repository.
 2. Copy the development Kubernetes secrets template:
 
@@ -37,6 +39,20 @@ tilt up
    - Location WebSocket base: `ws://localhost:8091` (patient app uses `/ws/location`)
    - Tilt UI: `http://localhost:10350`
 
+### GitHub Codespaces (Docker Compose)
+
+Create a Codespace from this repo (8-core / 16GB+ recommended). Then:
+
+```bash
+./scripts/codespaces/prepare-env.sh
+docker compose \
+  -f deploy/docker/docker-compose.yml \
+  -f deploy/docker/docker-compose.override.codespaces.yml \
+  up --build
+```
+
+Set Ports panel visibility to **Public** for `3000` / `8081` / `8091` when using `*.app.github.dev` URLs. Full steps: [`docs/local-setup.md`](docs/local-setup.md#option-b-github-codespaces).
+
 Detailed setup instructions live in:
 
 - [`docs/local-setup.md`](docs/local-setup.md)
@@ -51,6 +67,9 @@ Detailed setup instructions live in:
 - [`docs/security.md`](docs/security.md) — authentication, authorization, logging, and secrets posture
 - [`docs/compliance.md`](docs/compliance.md) — audit, consent, analytics separation, and retention guidance
 - [`docs/evaluation.md`](docs/evaluation.md) — evaluation artifacts and measurement roadmap
+- [`docs/database-schema.md`](docs/database-schema.md) — schema ownership, retention, and indexing notes
+- [`docs/testing-strategy.md`](docs/testing-strategy.md) — unit, integration, smoke, and longer-running test guidance
+- [`docs/observability.md`](docs/observability.md) — OpenTelemetry, metrics, dashboards, and trace expectations
 - [`docs/open-source-extension-guide.md`](docs/open-source-extension-guide.md) — how to add providers, services, tools, and migrations
 - [`docs/q1-journal-evaluation-plan.md`](docs/q1-journal-evaluation-plan.md) — research framing and target metrics
 
@@ -103,3 +122,13 @@ Those components are typically operated on separate infrastructure and integrate
 - Proto generation and SQLC generation: `Makefile`
 
 If you are looking for the requested `/zorba-health/services`, `/proto`, or `/deploy` layout from the architecture suggestions, that layout is now the repository structure. [`docs/directory-map.md`](docs/directory-map.md) documents the detailed mapping and development subdirectories.
+
+## Research Alignment
+
+The current implementation and repo artifacts are organized around five evidence-backed claims:
+
+1. An open-source voice healthcare architecture documented in `docs/architecture.md` and `docs/service-map.md`
+2. A controlled MCP gateway backed by auth, consent, and audit boundaries in `docs/compliance.md`
+3. A FHIR-compatible RAG retrieval path demonstrated by the sample bundle and evaluation smoke scripts
+4. A safety / consent / audit framework documented in `docs/security.md` and implemented across `audit-service`, `mcp-server`, and `voice-agent-service`
+5. A reproducible deployment and evaluation path through `deploy/docker/docker-compose.yml`, `docs/local-setup.md`, and `scripts/evaluation/run_all.sh`

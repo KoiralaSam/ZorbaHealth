@@ -14,7 +14,7 @@ spec:
     spec:
       containers:
         - name: auth-service
-          image: zorba-health/auth-service
+          image: auth-service
           imagePullPolicy: IfNotPresent
           ports:
             - containerPort: 9092

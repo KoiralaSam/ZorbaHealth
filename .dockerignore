@@ -1,18 +1,36 @@
-# Exclude directories
-.git/
-node_modules/
-dist/
+**/.git/
+**/.gitignore
+**/node_modules/
+**/.next/
+**/.venv/
+**/.pytest_cache/
+**/.ruff_cache/
+**/.cursor-tmp/
+**/.tmp/
+**/.codex/
+**/.cursor/
+**/.idea/
+**/.vscode/
+**/.junie/
+**/.devtunnel-cache/
+
 *.log
-web/.next/
-web/node_modules/
-mobile/node_modules/
-
-# Exclude editor and OS files
-.idea/
-.vscode/
 .DS_Store
+dist/
+build/
 
-# Include shared code
+examples/
+docs/
+plans/
+Plans/
+tools/
+scripts/
+graphify-out/
+github.com/
+
+mobile/node_modules/
+web/node_modules/
+web/.next/
+
 !shared/
-
-proto/
+!proto/

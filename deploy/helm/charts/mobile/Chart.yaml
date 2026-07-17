@@ -1,0 +1,6 @@
+apiVersion: v2
+name: mobile
+description: Mobile frontend — Expo
+type: application
+version: 0.1.0
+appVersion: "1.0"

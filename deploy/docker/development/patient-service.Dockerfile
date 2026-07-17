@@ -18,7 +18,7 @@ COPY shared ./shared
 WORKDIR /app/services/patient-service
 RUN --mount=type=cache,target=/root/.cache/go-build \
     --mount=type=cache,target=/go/pkg/mod \
-    CGO_ENABLED=0 GOOS=linux go build -o /app/build/patient-service ./cmd/patient-service
+    CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o /app/build/patient-service ./cmd/patient-service
 
 # Final stage
 FROM alpine:latest

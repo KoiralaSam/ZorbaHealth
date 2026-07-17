@@ -12,7 +12,7 @@ COPY services/audit-service ./services/audit-service
 
 RUN --mount=type=cache,target=/root/.cache/go-build \
     --mount=type=cache,target=/go/pkg/mod \
-    CGO_ENABLED=0 GOOS=linux go build -o /app/build/audit-service ./services/audit-service/cmd/audit-service
+    CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o /app/build/audit-service ./services/audit-service/cmd/audit-service
 
 FROM alpine:3.19
 WORKDIR /app

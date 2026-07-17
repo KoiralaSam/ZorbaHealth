@@ -1,0 +1,25 @@
+# Full dev stack for Tilt (namespace dev). CI/production may still use deploy/helm/.
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: dev
+resources:
+  - secrets.yaml
+  - app-config.yaml
+  - postgres-deployment.yaml
+  - redis-deployment.yaml
+  - rabbitmq-deployment.yaml
+  - jaeger.yaml
+  - api-gateway-deployment.yaml
+  - patient-service-deployment.yaml
+  - auth-service-deployment.yaml
+  - notification-service-deployment.yaml
+  - health-records-service-deployment.yaml
+  - analytics-service-deployment.yaml
+  - audit-service-deployment.yaml
+  - location-service-deployment.yaml
+  - translation-service-deployment.yaml
+  - interpretation-service-deployment.yaml
+  - mcp-server-deployment.yaml
+  - voice-agent-service-deployment.yaml
+  - web-deployment.yaml
+  - mobile-deployment.yaml

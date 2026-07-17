@@ -1,0 +1,100 @@
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "EKSDescribeClusterVersions",
+      "Effect": "Allow",
+      "Action": "eks:DescribeClusterVersions",
+      "Resource": "*"
+    },
+    {
+      "Sid": "EKSNodegroupOnZorbaCluster",
+      "Effect": "Allow",
+      "Action": [
+        "eks:DescribeCluster",
+        "eks:ListClusters",
+        "eks:CreateNodegroup",
+        "eks:DescribeNodegroup",
+        "eks:ListNodegroups",
+        "eks:DeleteNodegroup",
+        "eks:UpdateNodegroupConfig",
+        "eks:UpdateNodegroupVersion",
+        "eks:TagResource",
+        "eks:UntagResource",
+        "eks:AccessKubernetesApi",
+        "eks:UpdateClusterConfig",
+        "eks:DescribeUpdate"
+      ],
+      "Resource": [
+        "arn:aws:eks:us-east-1:954976298234:cluster/floral-bluegrass-sheepdog",
+        "arn:aws:eks:us-east-1:954976298234:nodegroup/floral-bluegrass-sheepdog/*"
+      ]
+    },
+    {
+      "Sid": "EKSAccessEntriesStaticEgress",
+      "Effect": "Allow",
+      "Action": [
+        "eks:CreateAccessEntry",
+        "eks:DescribeAccessEntry",
+        "eks:DeleteAccessEntry",
+        "eks:ListAccessEntries",
+        "eks:AssociateAccessPolicy",
+        "eks:DisassociateAccessPolicy",
+        "eks:ListAssociatedAccessPolicies"
+      ],
+      "Resource": [
+        "arn:aws:eks:us-east-1:954976298234:cluster/floral-bluegrass-sheepdog",
+        "arn:aws:eks:us-east-1:954976298234:access-entry/floral-bluegrass-sheepdog/*"
+      ]
+    },
+    {
+      "Sid": "PassEKSNodeRoles",
+      "Effect": "Allow",
+      "Action": "iam:PassRole",
+      "Resource": [
+        "arn:aws:iam::954976298234:role/AmazonEKSAutoNodeRole",
+        "arn:aws:iam::954976298234:role/zorbahealth-static-egress-node"
+      ],
+      "Condition": {
+        "StringEquals": {
+          "iam:PassedToService": [
+            "ec2.amazonaws.com",
+            "eks.amazonaws.com"
+          ]
+        }
+      }
+    },
+    {
+      "Sid": "StaticEgressNodeRole",
+      "Effect": "Allow",
+      "Action": [
+        "iam:GetRole",
+        "iam:CreateRole",
+        "iam:AttachRolePolicy",
+        "iam:ListAttachedRolePolicies"
+      ],
+      "Resource": [
+        "arn:aws:iam::954976298234:role/AmazonEKSAutoNodeRole",
+        "arn:aws:iam::954976298234:role/zorbahealth-static-egress-node"
+      ]
+    },
+    {
+      "Sid": "EC2DescribeForEksctl",
+      "Effect": "Allow",
+      "Action": [
+        "ec2:DescribeSubnets",
+        "ec2:DescribeSecurityGroups",
+        "ec2:DescribeVpcs",
+        "ec2:DescribeRouteTables",
+        "ec2:DescribeAvailabilityZones",
+        "ec2:DescribeImages",
+        "ec2:DescribeInstanceTypes",
+        "ec2:DescribeLaunchTemplates",
+        "ec2:DescribeLaunchTemplateVersions",
+        "ec2:DescribeKeyPairs",
+        "ec2:DescribeAccountAttributes"
+      ],
+      "Resource": "*"
+    }
+  ]
+}

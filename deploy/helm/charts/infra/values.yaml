@@ -1,0 +1,59 @@
+postgres:
+  image: pgvector/pgvector:pg15
+  port: 5432
+  storageSize: 10Gi
+  storageClass: gp3
+  resources:
+    requests:
+      memory: 256Mi
+      cpu: 250m
+    limits:
+      memory: 512Mi
+      cpu: 500m
+
+redis:
+  image: redis:7-alpine
+  port: 6379
+  resources:
+    requests:
+      memory: 64Mi
+      cpu: 50m
+    limits:
+      memory: 128Mi
+      cpu: 200m
+
+rabbitmq:
+  image: rabbitmq:3-management
+  ports:
+    - containerPort: 5672
+      name: amqp
+    - containerPort: 15672
+      name: management
+  storageSize: 1Gi
+  storageClass: gp3
+  resources:
+    requests:
+      memory: 256Mi
+      cpu: 100m
+    limits:
+      memory: 512Mi
+      cpu: 250m
+
+jaeger:
+  image: jaegertracing/all-in-one:1.49
+  ports:
+    - containerPort: 16686
+      name: ui
+    - containerPort: 14268
+      name: collector
+    - containerPort: 4317
+      name: otlp-grpc
+    - containerPort: 4318
+      name: otlp-http
+  resources:
+    requests:
+      memory: 128Mi
+      cpu: 100m
+    limits:
+      memory: 256Mi
+      cpu: 250m

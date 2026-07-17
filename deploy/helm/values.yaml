@@ -1,0 +1,15 @@
+global:
+  environment: development
+  nodeAffinityUserMode: false
+
+ingress:
+  enabled: false
+  rules: []
+
+ingress-nginx:
+  enabled: true
+  controller:
+    service:
+      type: LoadBalancer
+    publishService:
+      enabled: true

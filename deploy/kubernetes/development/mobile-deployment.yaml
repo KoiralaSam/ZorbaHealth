@@ -16,18 +16,18 @@ spec:
     spec:
       containers:
         - name: mobile
-          image: zorba-health/mobile
+          image: mobile
           imagePullPolicy: IfNotPresent
           ports:
             - containerPort: 8084
               name: expo
           resources:
             requests:
-              cpu: "100m"
-              memory: "256Mi"
+              cpu: "10m"
+              memory: "64Mi"
             limits:
-              cpu: "1000m"
-              memory: "1Gi"
+              cpu: "200m"
+              memory: "256Mi"
           env:
             - name: NODE_ENV
               value: "development"

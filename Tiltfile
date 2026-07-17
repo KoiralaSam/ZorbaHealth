@@ -1,97 +1,75 @@
 # Load the restart_process extension
 load('ext://restart_process', 'docker_build_with_restart')
 
+# Tilt owns the full dev stack on EKS (namespace dev):
+#   deploy/kubernetes/development/  — infra + all services
+#   deploy/tilt/migrate-up.sh         — DB migrations via localhost:5432 port-forward
+#
+# One-time if you used Helm on dev before:
+#   ./deploy/tilt/switch-from-helm.sh
+#
+# Day-to-day:
+#   ./deploy/tilt/preflight.sh && tilt up
+#
+# CI / shared deploys without Tilt: deploy/helm/ + deploy/helm/values/eks-dev.yaml
+#
+_ecr_registry = os.getenv('ECR_REGISTRY', '954976298234.dkr.ecr.us-east-1.amazonaws.com')
+# Tilt docker_build accepts one platform string (not comma-separated multi-arch).
+# EKS Auto Mode: general-purpose is amd64; set TILT_DOCKER_PLATFORM=linux/arm64 to test on arm nodes only.
+_docker_platform = os.getenv('TILT_DOCKER_PLATFORM', 'linux/amd64')
+# Image refs must match ECR repo names (create-ecr-repos.sh). Slashes become underscores on push
+# (e.g. zorba-health/foo -> zorba-health_foo), so use bare names like patient-service, web, mobile.
+default_registry(_ecr_registry)
+
+# Deploy into the dev namespace (same as Helm / Postgres / Redis)
+k8s_namespace('dev')
+
+# EKS dev cluster (kubeconfig context name varies; allow ARN and short name)
+allow_k8s_contexts('floral-bluegrass-sheepdog')
+allow_k8s_contexts('arn:aws:eks:us-east-1:954976298234:cluster/floral-bluegrass-sheepdog')
+
 ### K8s Config ###
 
-# Uncomment to use secrets
-k8s_yaml('./deploy/kubernetes/development/secrets.yaml')
+# Kustomize sets namespace: dev on every manifest (k8s_namespace alone is not always enough).
+k8s_yaml(kustomize('./deploy/kubernetes/development'))
 
-k8s_yaml('./deploy/kubernetes/development/app-config.yaml')
+# Infra must be up before app pods connect to postgres/redis/rabbitmq.
+infra_deps = ['postgres', 'redis', 'rabbitmq']
+# App services wait for SQL migrations (local_resource below).
+app_deps = infra_deps + ['db-migrate']
 
-### PostgreSQL Database ###
-k8s_yaml('./deploy/kubernetes/development/postgres-deployment.yaml')
-k8s_resource('postgres', port_forwards=5432, labels="infrastructure")
+local_resource(
+  'tilt-preflight',
+  './deploy/tilt/preflight.sh',
+  labels='setup',
+  auto_init=True,
+)
+
+k8s_resource(
+  'postgres',
+  port_forwards='5432:5432',
+  labels='infra',
+)
+k8s_resource('redis', port_forwards='6379:6379', labels='infra')
+k8s_resource(
+  'rabbitmq',
+  port_forwards=['5672:5672', '15672:15672'],
+  labels='infra',
+)
+k8s_resource('jaeger', port_forwards='16686:16686', labels='infra')
+
 local_resource(
   'db-migrate',
-  '''
-  set -euo pipefail
-
-  DB_PORT=15432
-  PF_PID=""
-
-  cleanup() {
-    if [ -n "${PF_PID}" ] && kill -0 "${PF_PID}" > /dev/null 2>&1; then
-      kill "${PF_PID}" > /dev/null 2>&1 || true
-      wait "${PF_PID}" > /dev/null 2>&1 || true
-    fi
-  }
-
-  trap cleanup EXIT
-
-  echo "Waiting for postgres to be ready..."
-  # Wait until pg_isready inside the postgres pod reports ready
-  until kubectl exec deploy/postgres -- pg_isready -U healthai -d healthai > /dev/null 2>&1; do
-    echo "Postgres not ready yet, retrying in 2s..."
-    sleep 2
-  done
-
-  DB_USER=$(kubectl get secret postgres-secret -o jsonpath='{.data.POSTGRES_USER}' | base64 --decode)
-  DB_PASSWORD=$(kubectl get secret postgres-secret -o jsonpath='{.data.POSTGRES_PASSWORD}' | base64 --decode)
-  DB_NAME=$(kubectl get secret postgres-secret -o jsonpath='{.data.POSTGRES_DB}' | base64 --decode)
-
-  echo "Starting local port-forward on ${DB_PORT}..."
-  kubectl port-forward svc/postgres ${DB_PORT}:5432 > /tmp/zorba-postgres-port-forward.log 2>&1 &
-  PF_PID=$!
-
-  for _ in $(seq 1 15); do
-    if nc -z 127.0.0.1 "${DB_PORT}" > /dev/null 2>&1; then
-      break
-    fi
-    sleep 1
-  done
-
-  if ! nc -z 127.0.0.1 "${DB_PORT}" > /dev/null 2>&1; then
-    echo "postgres port-forward failed to start"
-    cat /tmp/zorba-postgres-port-forward.log || true
-    exit 1
-  fi
-
-  echo "Postgres is ready. Running migrations..."
-  DATABASE_URL="postgres://${DB_USER}:${DB_PASSWORD}@127.0.0.1:${DB_PORT}/${DB_NAME}?sslmode=disable"
-  migrate -path ./migrations \
-    -database "${DATABASE_URL}" \
-    up
-
-  echo "Migrations completed."
-  ''',
-  # Re-run this resource if migration files change
-  deps=['./migrations'],
-  # Ensure postgres is up (and its port_forward active) before we run this
+  './deploy/tilt/migrate-up.sh',
+  deps=['./migrations', './Makefile', './deploy/tilt/migrate-up.sh'],
   resource_deps=['postgres'],
-  # Only run when you click it in the Tilt UI (avoid every code change triggering migrations)
-  trigger_mode=TRIGGER_MODE_MANUAL,
+  labels='database',
+  auto_init=True,
 )
-### End of PostgreSQL ###
-
-### Redis ###
-k8s_yaml('./deploy/kubernetes/development/redis-deployment.yaml')
-k8s_resource('redis', port_forwards=6379, labels="infrastructure")
-### End of Redis ###
-
-### End of K8s Config ###
-### RabbitMQ ###
-k8s_yaml('./deploy/kubernetes/development/rabbitmq-deployment.yaml')
-k8s_resource('rabbitmq', port_forwards=[5672, 15672], labels="tooling")
-### End of RabbitMQ ###
-
-### Jaeger ###
-k8s_yaml('./deploy/kubernetes/development/jaeger.yaml')
-k8s_resource('jaeger', port_forwards=['16686:16686', '4318:4318'], labels="tooling")
-### End of Jaeger ###
 
 ### API Gateway ###
 
-gateway_compile_cmd = 'CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go build -o build/api-gateway ./services/api-gateway/cmd/api-gateway'
+gateway_compile_cmd = 'CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o build/api-gateway ./services/api-gateway/cmd/api-gateway'
 if os.name == 'nt':
   gateway_compile_cmd = './deploy/docker/development/api-gateway-build.bat'
 
@@ -101,10 +79,11 @@ local_resource(
   deps=['./services/api-gateway', './shared'], labels="compiles")
 
 docker_build_with_restart(
-  'zorba-health/api-gateway',
+  'api-gateway',
   '.',
   entrypoint=['/app/build/api-gateway'],
   dockerfile='./deploy/docker/development/api-gateway.Dockerfile',
+  platform=_docker_platform,
   only=[
     './build/api-gateway',
     './shared',
@@ -118,181 +97,188 @@ docker_build_with_restart(
   ],
 )
 
-k8s_yaml('./deploy/kubernetes/development/api-gateway-deployment.yaml')
 k8s_resource('api-gateway', port_forwards=8081,
-             resource_deps=['api-gateway-compile', 'rabbitmq'], labels="services")
+             resource_deps=app_deps + ['api-gateway-compile'], labels="services")
 ### End of API Gateway ###
 
 ### Patient Service (HTTP Gateway) ###
 docker_build(
-  'zorba-health/patient-service',
+  'patient-service',
   '.',
   dockerfile='./deploy/docker/development/patient-service.Dockerfile',
+  platform=_docker_platform,
 )
 
-k8s_yaml('./deploy/kubernetes/development/patient-service-deployment.yaml')
-k8s_resource('patient-service', resource_deps=['patient-service-compile', 'rabbitmq'], port_forwards=8083, labels="services")
+k8s_resource('patient-service', port_forwards=8083, resource_deps=app_deps, labels="services")
 ### End of Patient Service ###
 
 
 ### Auth Service ###
 docker_build(
-  'zorba-health/auth-service',
+  'auth-service',
   '.',
   dockerfile='./deploy/docker/development/auth-service.Dockerfile',
+  platform=_docker_platform,
 )
 
-k8s_yaml('./deploy/kubernetes/development/auth-service-deployment.yaml')
-k8s_resource('auth-service',resource_deps=['auth-service-compile', 'rabbitmq'], port_forwards='8082:9092', labels="services")
+k8s_resource('auth-service', port_forwards='8082:9092', resource_deps=app_deps, labels="services")
 ### End of Auth Service ###
 
 ### Notification Service ###
 docker_build(
-  'zorba-health/notification-service',
+  'notification-service',
   '.',
   dockerfile='./deploy/docker/development/notification-service.Dockerfile',
+  platform=_docker_platform,
 )
 
-k8s_yaml('./deploy/kubernetes/development/notification-service-deployment.yaml')
-k8s_resource('notification-service', resource_deps=['rabbitmq'], port_forwards=[50056, 3001], labels="services")
+k8s_resource('notification-service', port_forwards=[50056, 3001], resource_deps=app_deps, labels="services")
 ### End of Notification Service ###
 
 ### Health Records Service ###
 docker_build(
-  'zorba-health/health-records-service',
+  'health-records-service',
   '.',
   dockerfile='./deploy/docker/development/health-records-service.Dockerfile',
+  platform=_docker_platform,
 )
 
-k8s_yaml('./deploy/kubernetes/development/health-records-service-deployment.yaml')
-k8s_resource('health-records-service', resource_deps=['db-migrate'], port_forwards='50054:50054', labels="services")
+k8s_resource('health-records-service', port_forwards='50054:50054', resource_deps=app_deps, labels="services")
 ### End of Health Records Service ###
 
 ### Analytics Service ###
 docker_build(
-  'zorba-health/analytics-service',
+  'analytics-service',
   '.',
   dockerfile='./deploy/docker/development/analytics-service.Dockerfile',
+  platform=_docker_platform,
 )
 
-k8s_yaml('./deploy/kubernetes/development/analytics-service-deployment.yaml')
 k8s_resource(
   'analytics-service',
-  resource_deps=['db-migrate'],
   port_forwards='50055:50054',
+  resource_deps=app_deps,
   labels="services",
 )
 ### End of Analytics Service ###
 
 ### Audit Service ###
 docker_build(
-  'zorba-health/audit-service',
+  'audit-service',
   '.',
   dockerfile='./deploy/docker/development/audit-service.Dockerfile',
+  platform=_docker_platform,
 )
 
-k8s_yaml('./deploy/kubernetes/development/audit-service-deployment.yaml')
 k8s_resource(
   'audit-service',
-  resource_deps=['db-migrate'],
   port_forwards='50058:50058',
+  resource_deps=app_deps,
   labels="services",
 )
 ### End of Audit Service ###
 
 ### Location Service ###
 docker_build(
-  'zorba-health/location-service',
+  'location-service',
   '.',
   dockerfile='./deploy/docker/development/location-service.Dockerfile',
+  platform=_docker_platform,
 )
 
-k8s_yaml('./deploy/kubernetes/development/location-service-deployment.yaml')
 k8s_resource(
   'location-service',
-  resource_deps=['rabbitmq', 'redis'],
   port_forwards=['50051:50051', '8091:8090'],
+  resource_deps=app_deps,
   labels="services",
 )
 ### End of Location Service ###
 
-### Translation Model ###
-k8s_yaml('./deploy/kubernetes/development/translation-model-deployment.yaml')
-k8s_resource(
-  'translation-model',
-  port_forwards=['8080:8080'],
-  labels="infrastructure",
-)
-### End of Translation Model ###
-
 ### Translation Service ###
 docker_build(
-  'zorba-health/translation-service',
+  'translation-service',
   '.',
   dockerfile='./deploy/docker/development/translation-service.Dockerfile',
+  platform=_docker_platform,
 )
 
-k8s_yaml('./deploy/kubernetes/development/translation-service-deployment.yaml')
 k8s_resource(
   'translation-service',
-  resource_deps=['translation-model'],
   port_forwards='50057:50057',
+  resource_deps=app_deps,
   labels="services",
 )
 ### End of Translation Service ###
 
-### MCP Server ###
+### Interpretation Service ###
 docker_build(
-  'zorba-health/mcp-server',
+  'interpretation-service',
   '.',
-  dockerfile='./deploy/docker/development/mcp-server.Dockerfile',
+  dockerfile='./deploy/docker/development/interpretation-service.Dockerfile',
+  platform=_docker_platform,
 )
 
-k8s_yaml('./deploy/kubernetes/development/mcp-server-deployment.yaml')
+k8s_resource(
+  'interpretation-service',
+  port_forwards='8095:8095',
+  resource_deps=app_deps + ['translation-service'],
+  labels="services",
+)
+### End of Interpretation Service ###
+
+### MCP Server ###
+docker_build(
+  'mcp-server',
+  '.',
+  dockerfile='./deploy/docker/development/mcp-server.Dockerfile',
+  platform=_docker_platform,
+)
+
 k8s_resource(
   'mcp-server',
-  resource_deps=['health-records-service', 'location-service', 'translation-service', 'analytics-service', 'audit-service', 'db-migrate'],
   port_forwards='8092:8092',
+  resource_deps=app_deps,
   labels="services",
 )
 ### End of MCP Server ###
 
 ### Voice Agent Service ###
 docker_build(
-  'zorba-health/voice-agent-service',
+  'voice-agent-service',
   './services/voice-agent-service',
   dockerfile='./services/voice-agent-service/Dockerfile',
+  platform=_docker_platform,
 )
 
-k8s_yaml('./deploy/kubernetes/development/voice-agent-service-deployment.yaml')
 k8s_resource(
   'voice-agent-service',
-  resource_deps=['mcp-server'],
   port_forwards='8090:8090',
+  resource_deps=app_deps + ['mcp-server'],
   labels="services",
 )
 ### End of Voice Agent Service ###
 
 docker_build(
-  'zorba-health/web',
+  'web',
   '.',
   dockerfile='./deploy/docker/development/web.Dockerfile',
+  platform=_docker_platform,
   build_args={
     'NEXT_PUBLIC_API_URL': 'http://localhost:8081',
     'NEXT_PUBLIC_LOCATION_WS_URL': 'ws://localhost:8091',
   },
 )
 
-k8s_yaml('./deploy/kubernetes/development/web-deployment.yaml')
-k8s_resource('web', port_forwards=3000, labels="frontend")
+k8s_resource('web', port_forwards=3000, resource_deps=app_deps, labels="frontend")
 
 ### End of Web Frontend ###
 
 ### Mobile Frontend ###
 docker_build(
-  'zorba-health/mobile',
+  'mobile',
   '.',
   dockerfile='./deploy/docker/development/mobile.Dockerfile',
+  platform=_docker_platform,
   build_args={
     'EXPO_PUBLIC_API_URL': 'http://localhost:8081',
     'EXPO_PUBLIC_LOCATION_WS_URL': 'ws://localhost:8091',
@@ -302,7 +288,6 @@ docker_build(
   ],
 )
 
-k8s_yaml('./deploy/kubernetes/development/mobile-deployment.yaml')
-k8s_resource('mobile', port_forwards='8084:8084', labels="frontend")
+k8s_resource('mobile', port_forwards='8084:8084', resource_deps=app_deps, labels="frontend")
 
 ### End of Mobile Frontend ###
