@@ -38,15 +38,61 @@ For a contributor-friendly view of environment variables, also see:
 
 ### Option A: Docker Compose
 
-For a single-command OSS setup path:
+For a single-command OSS setup path (prefer the local override so services use Compose-friendly defaults):
 
 ```bash
-docker compose -f deploy/docker/docker-compose.yml up --build
+docker compose \
+  -f deploy/docker/docker-compose.yml \
+  -f deploy/docker/docker-compose.override.local.yml \
+  up --build
 ```
+
+Without the override, the base file still works but loads placeholder values from `examples/sample-env/.env.example`.
 
 This starts Postgres (pgvector), Redis, RabbitMQ, Jaeger, the OTEL collector, Prometheus, Grafana, and the core Go / web services using the sample environment contract.
 
-### Option B: Tilt on Kubernetes
+After Postgres is healthy, apply migrations from the repository root:
+
+```bash
+export DATABASE_URL='postgres://healthai:healthai@localhost:5432/healthai?sslmode=disable'
+make migrate-up
+```
+
+### Option B: GitHub Codespaces
+
+Codespaces is supported via Docker Compose (not Tilt/EKS). The repo includes a [`.devcontainer/`](../.devcontainer/) config with Docker-in-Docker, Go, and Node.
+
+1. On GitHub: **Code → Codespaces → Create codespace on …**. Prefer **8-core / 16GB+** (full image builds are heavy).
+2. Wait for the post-create step (installs `migrate`, verifies Docker).
+3. Prepare browser-facing URLs and start the stack:
+
+```bash
+./scripts/codespaces/prepare-env.sh
+docker compose \
+  -f deploy/docker/docker-compose.yml \
+  -f deploy/docker/docker-compose.override.codespaces.yml \
+  up --build
+```
+
+4. Apply migrations:
+
+```bash
+export DATABASE_URL='postgres://healthai:healthai@localhost:5432/healthai?sslmode=disable'
+make migrate-up
+```
+
+5. In the **Ports** panel, set **visibility to Public** for `3000`, `8081`, and `8091` when opening `*.app.github.dev` URLs from a browser outside the tunnel.
+6. Open the forwarded web URL (`https://<codespace-name>-3000.app.github.dev`). The prepare script sets `NEXT_PUBLIC_API_URL`, `API_GATEWAY_ALLOWED_ORIGINS`, and related values so the web app can call the forwarded API without `localhost`/CORS breakage.
+
+VS Code tasks under **Terminal → Run Task…**:
+
+- `Codespaces: prepare env`
+- `Codespaces: compose up`
+- `Codespaces: migrate-up`
+
+**Do not** use `tilt up` against EKS from Codespaces for day-to-day contributor work. Voice/LiveKit and other provider features still need real API keys (see Troubleshooting).
+
+### Option C: Tilt on Kubernetes
 
 ```bash
 aws eks update-kubeconfig --region us-east-1 --name floral-bluegrass-sheepdog

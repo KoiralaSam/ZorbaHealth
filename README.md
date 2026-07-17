@@ -17,6 +17,8 @@ This repo also includes contributor-facing assets under `docs/`, `examples/`, an
 
 ## Quick start
 
+### Local (Tilt + Kubernetes)
+
 1. Clone the repository.
 2. Copy the development Kubernetes secrets template:
 
@@ -36,6 +38,20 @@ tilt up
    - API gateway: `http://localhost:8081`
    - Location WebSocket base: `ws://localhost:8091` (patient app uses `/ws/location`)
    - Tilt UI: `http://localhost:10350`
+
+### GitHub Codespaces (Docker Compose)
+
+Create a Codespace from this repo (8-core / 16GB+ recommended). Then:
+
+```bash
+./scripts/codespaces/prepare-env.sh
+docker compose \
+  -f deploy/docker/docker-compose.yml \
+  -f deploy/docker/docker-compose.override.codespaces.yml \
+  up --build
+```
+
+Set Ports panel visibility to **Public** for `3000` / `8081` / `8091` when using `*.app.github.dev` URLs. Full steps: [`docs/local-setup.md`](docs/local-setup.md#option-b-github-codespaces).
 
 Detailed setup instructions live in:
 

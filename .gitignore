@@ -65,3 +65,15 @@ lerna-debug.log*
 
 # Cursor
 .cursorrules
+
+# Local compose secrets (never commit)
+examples/sample-env/.env.docker
+examples/sample-env/.env.codespaces
+
+# LaTeX intermediates (keep main.pdf)
+docs/research/latex/*.aux
+docs/research/latex/*.log
+docs/research/latex/*.bbl
+docs/research/latex/*.blg
+docs/research/latex/*.out
+docs/research/latex/*.synctex.gz

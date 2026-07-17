@@ -1,0 +1,39 @@
+# Codespaces override: use prepared .env.codespaces and expose browser-facing ports.
+# Usage:
+#   ./scripts/codespaces/prepare-env.sh
+#   docker compose -f deploy/docker/docker-compose.yml \
+#     -f deploy/docker/docker-compose.override.codespaces.yml up --build
+
+x-env: &env
+  env_file:
+    - ../../examples/sample-env/.env.codespaces
+
+services:
+  auth-service:
+    <<: *env
+  patient-service:
+    <<: *env
+  audit-service:
+    <<: *env
+  health-records-service:
+    <<: *env
+  location-service:
+    <<: *env
+    environment:
+      IP_GEOLOCATION_ENDPOINT_TEMPLATE: "https://ipapi.co/%s/json/"
+    ports:
+      - "8091:8090"
+  translation-service:
+    <<: *env
+  notification-service:
+    <<: *env
+  mcp-server:
+    <<: *env
+  api-gateway:
+    <<: *env
+    ports: !override
+      - "8081:8081"
+  web:
+    <<: *env
+    ports: !override
+      - "3000:3000"
