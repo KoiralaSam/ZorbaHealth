@@ -10,14 +10,14 @@ import (
 	"time"
 
 	"github.com/KoiralaSam/ZorbaHealth/services/api-gateway/cmd/api-gateway/grpc_clients"
-	"github.com/KoiralaSam/ZorbaHealth/shared/env"
-	sharedauth "github.com/KoiralaSam/ZorbaHealth/shared/auth"
 	sharedaudit "github.com/KoiralaSam/ZorbaHealth/shared/audit"
+	sharedauth "github.com/KoiralaSam/ZorbaHealth/shared/auth"
 	"github.com/KoiralaSam/ZorbaHealth/shared/contracts"
+	"github.com/KoiralaSam/ZorbaHealth/shared/env"
 	"github.com/KoiralaSam/ZorbaHealth/shared/grpcclient"
-	authpb "github.com/KoiralaSam/ZorbaHealth/shared/proto/auth"
 	auditpb "github.com/KoiralaSam/ZorbaHealth/shared/proto/audit"
 	auditportalpb "github.com/KoiralaSam/ZorbaHealth/shared/proto/auditportal"
+	authpb "github.com/KoiralaSam/ZorbaHealth/shared/proto/auth"
 	healthpb "github.com/KoiralaSam/ZorbaHealth/shared/proto/health_records"
 	patientpb "github.com/KoiralaSam/ZorbaHealth/shared/proto/patient"
 	"github.com/KoiralaSam/ZorbaHealth/shared/proto/patient/registration_verification"
@@ -701,6 +701,99 @@ func PatientCallsHandler(w http.ResponseWriter, r *http.Request) {
 	}, nil)
 }
 
+func PatientCreateWelfareCheckHandler(w http.ResponseWriter, r *http.Request) {
+	accessToken, claims, apiErr := requirePatientClaims(r)
+	if apiErr != nil {
+		writeJson(w, statusCodeForAPIError(apiErr), nil, apiErr)
+		return
+	}
+	var reqBody CreateWelfareCheckRequest
+	if err := json.NewDecoder(r.Body).Decode(&reqBody); err != nil {
+		writeJson(w, http.StatusBadRequest, nil, &contracts.APIError{Code: "INVALID_REQUEST_BODY", Message: "Invalid request body: " + err.Error()})
+		return
+	}
+	defer r.Body.Close()
+	scheduledAt, err := time.Parse(time.RFC3339, strings.TrimSpace(reqBody.ScheduledAt))
+	if err != nil {
+		writeJson(w, http.StatusBadRequest, nil, &contracts.APIError{Code: "INVALID_REQUEST_BODY", Message: "scheduled_at must be RFC3339"})
+		return
+	}
+	client, conn, err := newPatientPortalClient()
+	if err != nil {
+		writeJson(w, http.StatusInternalServerError, nil, &contracts.APIError{Code: "INTERNAL_SERVER_ERROR", Message: "Failed to connect to patient service: " + err.Error()})
+		return
+	}
+	defer conn.Close()
+	resp, err := client.CreateWelfareCheck(grpcclient.WithForwardedToken(r.Context(), accessToken), &patientportalpb.CreateWelfareCheckRequest{
+		PatientId:    claims.PatientID,
+		ScheduledAt:  timestamppb.New(scheduledAt),
+		Timezone:     strings.TrimSpace(reqBody.Timezone),
+		ReasonCode:   strings.TrimSpace(reqBody.ReasonCode),
+		ReasonDetail: strings.TrimSpace(reqBody.ReasonDetail),
+	})
+	if err != nil {
+		writeGrpcAPIError(w, err, "WELFARE_CHECK_CREATE_FAILED")
+		return
+	}
+	writeJson(w, http.StatusCreated, WelfareCheckResponse{WelfareCheck: welfareCheckFromProto(resp.GetWelfareCheck())}, nil)
+}
+
+func PatientListWelfareChecksHandler(w http.ResponseWriter, r *http.Request) {
+	accessToken, claims, apiErr := requirePatientClaims(r)
+	if apiErr != nil {
+		writeJson(w, statusCodeForAPIError(apiErr), nil, apiErr)
+		return
+	}
+	client, conn, err := newPatientPortalClient()
+	if err != nil {
+		writeJson(w, http.StatusInternalServerError, nil, &contracts.APIError{Code: "INTERNAL_SERVER_ERROR", Message: "Failed to connect to patient service: " + err.Error()})
+		return
+	}
+	defer conn.Close()
+	resp, err := client.ListWelfareChecks(grpcclient.WithForwardedToken(r.Context(), accessToken), &patientportalpb.ListWelfareChecksRequest{
+		PatientId:        claims.PatientID,
+		IncludeCancelled: strings.EqualFold(r.URL.Query().Get("include_cancelled"), "true"),
+		Limit:            50,
+	})
+	if err != nil {
+		writeGrpcAPIError(w, err, "WELFARE_CHECK_LIST_FAILED")
+		return
+	}
+	checks := make([]WelfareCheckRecord, 0, len(resp.GetWelfareChecks()))
+	for _, check := range resp.GetWelfareChecks() {
+		checks = append(checks, welfareCheckFromProto(check))
+	}
+	writeJson(w, http.StatusOK, WelfareCheckListResponse{WelfareChecks: checks}, nil)
+}
+
+func PatientCancelWelfareCheckHandler(w http.ResponseWriter, r *http.Request) {
+	accessToken, claims, apiErr := requirePatientClaims(r)
+	if apiErr != nil {
+		writeJson(w, statusCodeForAPIError(apiErr), nil, apiErr)
+		return
+	}
+	checkID := strings.TrimSpace(r.PathValue("id"))
+	if checkID == "" {
+		writeJson(w, http.StatusBadRequest, nil, &contracts.APIError{Code: "INVALID_REQUEST_BODY", Message: "welfare check id is required"})
+		return
+	}
+	client, conn, err := newPatientPortalClient()
+	if err != nil {
+		writeJson(w, http.StatusInternalServerError, nil, &contracts.APIError{Code: "INTERNAL_SERVER_ERROR", Message: "Failed to connect to patient service: " + err.Error()})
+		return
+	}
+	defer conn.Close()
+	resp, err := client.CancelWelfareCheck(grpcclient.WithForwardedToken(r.Context(), accessToken), &patientportalpb.CancelWelfareCheckRequest{
+		PatientId:      claims.PatientID,
+		WelfareCheckId: checkID,
+	})
+	if err != nil {
+		writeGrpcAPIError(w, err, "WELFARE_CHECK_CANCEL_FAILED")
+		return
+	}
+	writeJson(w, http.StatusOK, WelfareCheckResponse{WelfareCheck: welfareCheckFromProto(resp.GetWelfareCheck())}, nil)
+}
+
 func PatientAuditHandler(w http.ResponseWriter, r *http.Request) {
 	accessToken, claims, apiErr := requirePatientClaims(r)
 	if apiErr != nil {
@@ -885,6 +978,29 @@ func statusCodeForAPIError(err *contracts.APIError) int {
 	default:
 		return http.StatusInternalServerError
 	}
+}
+
+func writeGrpcAPIError(w http.ResponseWriter, err error, code string) {
+	httpStatus := http.StatusInternalServerError
+	message := err.Error()
+	if st, ok := status.FromError(err); ok {
+		message = st.Message()
+		switch st.Code() {
+		case codes.InvalidArgument:
+			httpStatus = http.StatusBadRequest
+		case codes.NotFound:
+			httpStatus = http.StatusNotFound
+		case codes.FailedPrecondition:
+			httpStatus = http.StatusPreconditionFailed
+		case codes.PermissionDenied:
+			httpStatus = http.StatusForbidden
+		case codes.Unauthenticated:
+			httpStatus = http.StatusUnauthorized
+		default:
+			httpStatus = http.StatusInternalServerError
+		}
+	}
+	writeJson(w, httpStatus, nil, &contracts.APIError{Code: code, Message: message})
 }
 
 func newHealthRecordsClient() (healthpb.HealthRecordServiceClient, *grpc.ClientConn, error) {
@@ -1099,4 +1215,27 @@ func protoTimeOrEmpty(value *timestamppb.Timestamp) string {
 		return ""
 	}
 	return value.AsTime().UTC().Format(time.RFC3339)
+}
+
+func welfareCheckFromProto(check *patientportalpb.WelfareCheck) WelfareCheckRecord {
+	if check == nil {
+		return WelfareCheckRecord{}
+	}
+	return WelfareCheckRecord{
+		ID:                     check.GetId(),
+		PatientID:              check.GetPatientId(),
+		ScheduledAt:            protoTimeOrEmpty(check.GetScheduledAt()),
+		Timezone:               check.GetTimezone(),
+		ReasonCode:             check.GetReasonCode(),
+		ReasonDetail:           check.GetReasonDetail(),
+		Status:                 check.GetStatus(),
+		RecurrenceRule:         check.GetRecurrenceRule(),
+		CreatedAt:              protoTimeOrEmpty(check.GetCreatedAt()),
+		UpdatedAt:              protoTimeOrEmpty(check.GetUpdatedAt()),
+		CancelledAt:            protoTimeOrEmpty(check.GetCancelledAt()),
+		LatestRunID:            check.GetLatestRunId(),
+		LatestRunStatus:        check.GetLatestRunStatus(),
+		LatestRunAttempts:      check.GetLatestRunAttempts(),
+		LatestRunFailureReason: check.GetLatestRunFailureReason(),
+	}
 }

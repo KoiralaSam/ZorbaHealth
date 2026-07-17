@@ -9,6 +9,11 @@ import "google/protobuf/timestamp.proto";
 service PatientPortalService {
   rpc GetProfile(GetPatientProfileRequest) returns (GetPatientProfileResponse);
   rpc ListCallSummaries(ListPatientCallSummariesRequest) returns (ListPatientCallSummariesResponse);
+  rpc CreateWelfareCheck(CreateWelfareCheckRequest) returns (CreateWelfareCheckResponse);
+  rpc ListWelfareChecks(ListWelfareChecksRequest) returns (ListWelfareChecksResponse);
+  rpc CancelWelfareCheck(CancelWelfareCheckRequest) returns (CancelWelfareCheckResponse);
+  // Internal lifecycle updates from voice-agent/MCP after outbound welfare calls.
+  rpc UpdateWelfareRunLifecycle(UpdateWelfareRunLifecycleRequest) returns (UpdateWelfareRunLifecycleResponse);
 }
 
 message GetPatientProfileRequest {
@@ -46,4 +51,76 @@ message PatientCallSummary {
 
 message ListPatientCallSummariesResponse {
   repeated PatientCallSummary calls = 1;
+}
+
+message CreateWelfareCheckRequest {
+  string patient_id = 1;
+  google.protobuf.Timestamp scheduled_at = 2;
+  string timezone = 3;
+  string reason_code = 4;
+  string reason_detail = 5;
+}
+
+message WelfareCheck {
+  string id = 1;
+  string patient_id = 2;
+  google.protobuf.Timestamp scheduled_at = 3;
+  string timezone = 4;
+  string reason_code = 5;
+  string reason_detail = 6;
+  string status = 7;
+  string recurrence_rule = 8;
+  google.protobuf.Timestamp created_at = 9;
+  google.protobuf.Timestamp updated_at = 10;
+  google.protobuf.Timestamp cancelled_at = 11;
+  string latest_run_id = 12;
+  string latest_run_status = 13;
+  int32 latest_run_attempts = 14;
+  string latest_run_failure_reason = 15;
+}
+
+message CreateWelfareCheckResponse {
+  WelfareCheck welfare_check = 1;
+}
+
+message ListWelfareChecksRequest {
+  string patient_id = 1;
+  bool include_cancelled = 2;
+  int32 limit = 3;
+}
+
+message ListWelfareChecksResponse {
+  repeated WelfareCheck welfare_checks = 1;
+}
+
+message CancelWelfareCheckRequest {
+  string patient_id = 1;
+  string welfare_check_id = 2;
+}
+
+message CancelWelfareCheckResponse {
+  WelfareCheck welfare_check = 1;
+}
+
+message UpdateWelfareRunLifecycleRequest {
+  string patient_id = 1;
+  string run_id = 2;
+  string status = 3; // answered | completed | missed | failed
+  string reason = 4;
+}
+
+message WelfareCheckRun {
+  string id = 1;
+  string request_id = 2;
+  string patient_id = 3;
+  string status = 4;
+  int32 attempts = 5;
+  string failure_reason = 6;
+  string livekit_room_name = 7;
+  google.protobuf.Timestamp scheduled_at = 8;
+  google.protobuf.Timestamp updated_at = 9;
+}
+
+message UpdateWelfareRunLifecycleResponse {
+  WelfareCheckRun run = 1;
 }

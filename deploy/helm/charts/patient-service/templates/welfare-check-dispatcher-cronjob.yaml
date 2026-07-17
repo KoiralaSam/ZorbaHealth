@@ -1,0 +1,39 @@
+{{- if .Values.welfareCheckDispatcher.enabled }}
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: {{ .Chart.Name }}-welfare-check-dispatcher
+  labels:
+    app: {{ .Chart.Name }}-welfare-check-dispatcher
+spec:
+  schedule: {{ .Values.welfareCheckDispatcher.schedule | quote }}
+  concurrencyPolicy: {{ .Values.welfareCheckDispatcher.concurrencyPolicy }}
+  successfulJobsHistoryLimit: {{ .Values.welfareCheckDispatcher.successfulJobsHistoryLimit }}
+  failedJobsHistoryLimit: {{ .Values.welfareCheckDispatcher.failedJobsHistoryLimit }}
+  {{- if .Values.welfareCheckDispatcher.startingDeadlineSeconds }}
+  startingDeadlineSeconds: {{ .Values.welfareCheckDispatcher.startingDeadlineSeconds }}
+  {{- end }}
+  jobTemplate:
+    spec:
+      backoffLimit: {{ .Values.welfareCheckDispatcher.backoffLimit }}
+      {{- if .Values.welfareCheckDispatcher.activeDeadlineSeconds }}
+      activeDeadlineSeconds: {{ .Values.welfareCheckDispatcher.activeDeadlineSeconds }}
+      {{- end }}
+      template:
+        metadata:
+          labels:
+            app: {{ .Chart.Name }}-welfare-check-dispatcher
+        spec:
+          {{- include "zorba.userNodeAffinity" . | nindent 10 }}
+          restartPolicy: OnFailure
+          containers:
+            - name: welfare-check-dispatcher
+              image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+              imagePullPolicy: {{ .Values.image.pullPolicy }}
+              command:
+                {{- toYaml .Values.welfareCheckDispatcher.command | nindent 16 }}
+              env:
+                {{- toYaml .Values.env | nindent 16 }}
+              resources:
+                {{- toYaml .Values.welfareCheckDispatcher.resources | nindent 16 }}
+{{- end }}

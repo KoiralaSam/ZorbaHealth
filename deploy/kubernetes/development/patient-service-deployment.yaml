@@ -112,6 +112,12 @@ spec:
                 secretKeyRef:
                   key: apiSecret
                   name: livekit-credentials
+            - name: LIVEKIT_SIP_TRUNK_ID
+              valueFrom:
+                secretKeyRef:
+                  key: sipTrunkId
+                  name: livekit-credentials
+                  optional: true
 
 ---
 apiVersion: v1

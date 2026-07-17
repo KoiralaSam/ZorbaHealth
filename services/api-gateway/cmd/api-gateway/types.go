@@ -87,6 +87,39 @@ type PatientCallListResponse struct {
 	Calls     []PatientCallSummary `json:"calls,omitempty"`
 }
 
+type CreateWelfareCheckRequest struct {
+	ScheduledAt  string `json:"scheduled_at"`
+	Timezone     string `json:"timezone"`
+	ReasonCode   string `json:"reason_code"`
+	ReasonDetail string `json:"reason_detail,omitempty"`
+}
+
+type WelfareCheckRecord struct {
+	ID                     string `json:"id"`
+	PatientID              string `json:"patient_id"`
+	ScheduledAt            string `json:"scheduled_at"`
+	Timezone               string `json:"timezone"`
+	ReasonCode             string `json:"reason_code"`
+	ReasonDetail           string `json:"reason_detail,omitempty"`
+	Status                 string `json:"status"`
+	RecurrenceRule         string `json:"recurrence_rule,omitempty"`
+	CreatedAt              string `json:"created_at,omitempty"`
+	UpdatedAt              string `json:"updated_at,omitempty"`
+	CancelledAt            string `json:"cancelled_at,omitempty"`
+	LatestRunID            string `json:"latest_run_id,omitempty"`
+	LatestRunStatus        string `json:"latest_run_status,omitempty"`
+	LatestRunAttempts      int32  `json:"latest_run_attempts,omitempty"`
+	LatestRunFailureReason string `json:"latest_run_failure_reason,omitempty"`
+}
+
+type WelfareCheckResponse struct {
+	WelfareCheck WelfareCheckRecord `json:"welfare_check"`
+}
+
+type WelfareCheckListResponse struct {
+	WelfareChecks []WelfareCheckRecord `json:"welfare_checks"`
+}
+
 type AuditEventRecord struct {
 	EventID       string         `json:"event_id,omitempty"`
 	EventType     string         `json:"event_type,omitempty"`

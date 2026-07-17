@@ -18,6 +18,7 @@ export enum APIEndpoints {
   PATIENT_CONSENTS = "/api/v1/patient/consents",
   PATIENT_RECORDS_ANSWER = "/api/v1/patient/records/answer",
   PATIENT_CALLS = "/api/v1/patient/calls",
+  PATIENT_WELFARE_CHECKS = "/api/v1/patient/welfare-checks",
   PATIENT_AUDIT = "/api/v1/patient/audit",
   HOSPITAL_REGISTER = "/api/v1/auth/hospital/register",
   HOSPITAL_PATIENT_SUMMARY = "/api/v1/hospital/records/summary",
@@ -163,6 +164,55 @@ export interface PatientCallListResponseData {
 
 export type HTTPPatientCallListResponse =
   APIResponse<PatientCallListResponseData>;
+
+export type WelfareCheckReason =
+  | "medication_reminder"
+  | "mental_wellbeing"
+  | "daily_checkup"
+  | "symptom_follow_up"
+  | "care_plan_reminder"
+  | "other";
+
+export interface HTTPPatientWelfareCheckCreateRequest {
+  scheduled_at: string;
+  timezone: string;
+  reason_code: WelfareCheckReason;
+  reason_detail?: string;
+}
+
+export interface PatientWelfareCheck {
+  id?: string;
+  patient_id?: string;
+  scheduled_at?: string;
+  timezone?: string;
+  reason_code?: WelfareCheckReason | string;
+  reason_detail?: string;
+  status?: string;
+  attempt_count?: number;
+  latest_run_id?: string;
+  latest_run_status?: string;
+  latest_run_attempts?: number;
+  latest_run_failure_reason?: string;
+  livekit_room_id?: string;
+  sip_participant_id?: string;
+  created_at?: string;
+  updated_at?: string;
+  cancelled_at?: string;
+}
+
+export interface PatientWelfareCheckResponseData {
+  welfare_check?: PatientWelfareCheck;
+}
+
+export interface PatientWelfareCheckListResponseData {
+  welfare_checks?: PatientWelfareCheck[];
+}
+
+export type HTTPPatientWelfareCheckResponse =
+  APIResponse<PatientWelfareCheckResponseData>;
+
+export type HTTPPatientWelfareCheckListResponse =
+  APIResponse<PatientWelfareCheckListResponseData>;
 
 export interface AuditEventRecord {
   event_id?: string;

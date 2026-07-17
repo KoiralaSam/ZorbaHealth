@@ -117,7 +117,9 @@ welfareCheckDispatcher:
   concurrencyPolicy: Forbid
   successfulJobsHistoryLimit: 2
   failedJobsHistoryLimit: 4
+  startingDeadlineSeconds: 50
   backoffLimit: 1
+  activeDeadlineSeconds: 90
   command:
     - ./build/welfare-check-dispatcher
   resources:

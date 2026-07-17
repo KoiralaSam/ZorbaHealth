@@ -105,7 +105,11 @@ docker_build(
 )
 
 k8s_resource('patient-service', port_forwards=8083, resource_deps=app_deps, labels="services")
-k8s_resource('welfare-check-dispatcher', resource_deps=app_deps, labels="services")
+k8s_resource(
+  'welfare-check-dispatcher',
+  resource_deps=app_deps + ['patient-service', 'auth-service', 'audit-service'],
+  labels='jobs',
+)
 ### End of Patient Service ###
 
 

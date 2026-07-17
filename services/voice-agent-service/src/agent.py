@@ -8,6 +8,7 @@ provisions a session token locally, then uses MCP for backend tools.
 from __future__ import annotations
 
 import asyncio
+from collections.abc import Mapping
 import logging
 import os
 import sys
@@ -83,6 +84,30 @@ _GREETING = (
 )
 
 
+def _welfare_preamble(ud: SessionUserData) -> str:
+    context = ud.welfare_check_context
+    if not context:
+        return ""
+    reason = _display_reason(context.get("reason", "welfare check"))
+    detail = (context.get("reason_detail") or "").strip()
+    scheduled_at = (context.get("scheduled_at") or "").strip()
+    timezone = (context.get("timezone") or "").strip()
+    detail_text = f" Patient-provided detail: {detail}" if detail else ""
+    scheduled_text = ""
+    if scheduled_at:
+        scheduled_text = f" The scheduled check time is {scheduled_at}"
+        if timezone:
+            scheduled_text += f" ({timezone})"
+        scheduled_text += "."
+    return (
+        "This is a patient-scheduled welfare check. The caller is pre-authorized for this scheduled session, "
+        "and a verified patient token is already available for record access when clinically relevant. "
+        f"The selected reason is {reason}."
+        + detail_text
+        + scheduled_text
+    )
+
+
 def _safety_preamble(ud: SessionUserData) -> str:
     if not ud.escalation_triggered:
         return ""
@@ -136,6 +161,7 @@ async def zorba_session(ctx: JobContext) -> None:
 
     ud = SessionUserData(room_name=ctx.room.name, mcp_client=mcp_client)
     ud.session_auth = auth
+    _apply_welfare_metadata(ctx, ud)
 
     await ctx.connect()
 
@@ -152,6 +178,7 @@ async def zorba_session(ctx: JobContext) -> None:
     ud.transfer_target = settings.emergency_transfer_target
     ud.alert_phone_numbers = list(settings.emergency_alert_numbers)
     ud.provisional_token = auth.mint_provisional_token(room_sid)
+    _finalize_welfare_session_token(ud)
     if caller_identity:
         ud.caller_phone = _extract_phone(caller_identity)
         logger.info(
@@ -238,6 +265,8 @@ async def zorba_session(ctx: JobContext) -> None:
             "voice.tts_provider": settings.tts_provider,
         },
     ) as span:
+        welfare_terminal_status = "completed"
+        welfare_terminal_reason = ""
         try:
             await session.start(
                 agent=ZorbaAgent(ud),
@@ -249,7 +278,26 @@ async def zorba_session(ctx: JobContext) -> None:
             try:
                 with tracer.start_as_current_span("voice_agent.greeting"):
                     greeting = _GREETING
-                    if ud.escalation_triggered and ud.escalation_reason:
+                    if ud.welfare_check_context:
+                        reason = _display_reason(
+                            ud.welfare_check_context.get("reason")
+                            or ud.welfare_check_context.get("reason_code")
+                            or "welfare check"
+                        )
+                        detail = (ud.welfare_check_context.get("reason_detail") or "").strip()
+                        greeting = (
+                            "Greet the patient as Zorba Health and say this is their scheduled welfare check "
+                            f"for {reason}. "
+                        )
+                        if detail:
+                            greeting += f"Mention their note briefly: {detail}. "
+                        greeting += "Ask one open question about how they are doing right now."
+                        if caller_identity:
+                            await _report_welfare_run_status(ud, mcp_client, "answered")
+                        else:
+                            welfare_terminal_status = "missed"
+                            welfare_terminal_reason = "no_sip_participant"
+                    elif ud.escalation_triggered and ud.escalation_reason:
                         greeting = (
                             "Tell the caller this may be a medical emergency because of "
                             f"{ud.escalation_reason}. "
@@ -263,12 +311,25 @@ async def zorba_session(ctx: JobContext) -> None:
                     await session.generate_reply(instructions=greeting)
             except Exception:
                 logger.exception("greeting failed room=%s", ctx.room.name)
+                if ud.welfare_check_context:
+                    welfare_terminal_status = "failed"
+                    welfare_terminal_reason = "greeting_failed"
             await session_closed.wait()
         except Exception as exc:
             span.record_exception(exc)
             logger.exception("voice session failed room=%s", ctx.room.name)
+            if ud.welfare_check_context:
+                welfare_terminal_status = "failed"
+                welfare_terminal_reason = str(exc)[:500] or "session_failed"
             raise
         finally:
+            if ud.welfare_check_context:
+                await _report_welfare_run_status(
+                    ud,
+                    mcp_client,
+                    welfare_terminal_status,
+                    welfare_terminal_reason,
+                )
             if ud.is_verified:
                 from tools.zorba_tools import notify_call_lifecycle_for_session
 
@@ -313,6 +374,103 @@ def _find_sip_language(room: rtc.Room) -> str | None:
     return None
 
 
+def _apply_welfare_metadata(ctx: JobContext, ud: SessionUserData) -> None:
+    metadata = _load_job_metadata(ctx)
+    if not metadata or metadata.get("type") != "welfare_check":
+        return
+
+    patient_id = str(metadata.get("patient_id") or "").strip()
+    patient_token = str(metadata.get("patient_token") or "").strip()
+    request_id = str(metadata.get("request_id") or "").strip()
+    run_id = str(metadata.get("run_id") or "").strip()
+    if not patient_id or not patient_token or not request_id or not run_id:
+        logger.warning("ignoring incomplete welfare-check metadata room=%s", ud.room_name)
+        return
+
+    reason = str(metadata.get("reason_code") or metadata.get("reason") or "").strip()
+    context = {
+        "request_id": request_id,
+        "run_id": run_id,
+        "patient_id": patient_id,
+        "reason": reason,
+        "reason_code": reason,
+        "reason_detail": str(metadata.get("reason_detail") or "").strip(),
+        "scheduled_at": str(metadata.get("scheduled_at") or "").strip(),
+        "timezone": str(metadata.get("timezone") or "").strip(),
+    }
+    # Token stays agent-private; never read SIP participant metadata for auth.
+    ud.welfare_check_context = context
+    ud.patient_id_hint = patient_id
+    ud.upgrade(patient_id, patient_token)
+    logger.info(
+        "scheduled welfare-check context applied request_id=%s run_id=%s patient_id=%s",
+        request_id,
+        run_id,
+        patient_id,
+    )
+
+
+def _finalize_welfare_session_token(ud: SessionUserData) -> None:
+    """Remint a voice-scoped token so MCP session checks match this LiveKit call."""
+    if not ud.welfare_check_context or not ud.verified_patient_id or ud.session_auth is None:
+        return
+    if not ud.session_id:
+        return
+    voice_token = ud.session_auth.mint_patient_token(
+        patient_id=ud.verified_patient_id,
+        session_id=ud.session_id,
+        scopes=["location:read", "records:read"],
+    )
+    ud.upgrade(ud.verified_patient_id, voice_token)
+
+
+async def _report_welfare_run_status(
+    ud: SessionUserData,
+    mcp_client: MCPClient,
+    status: str,
+    reason: str = "",
+) -> None:
+    context = ud.welfare_check_context
+    if not context or not ud.verified_patient_id:
+        return
+    run_id = (context.get("run_id") or "").strip()
+    patient_id = (context.get("patient_id") or ud.verified_patient_id or "").strip()
+    if not run_id or not patient_id:
+        return
+    try:
+        await mcp_client.call_tool(
+            "update_welfare_run_status",
+            {
+                "patientID": patient_id,
+                "runID": run_id,
+                "status": status,
+                "reason": reason,
+                "_auth": ud.active_token,
+            },
+        )
+    except Exception:
+        logger.exception(
+            "welfare run status update failed status=%s run_id=%s session=%s",
+            status,
+            run_id,
+            ud.session_id,
+        )
+
+
+def _load_job_metadata(ctx: JobContext) -> dict[str, str]:
+    raw = getattr(getattr(ctx, "job", None), "metadata", "") or ""
+    if not raw:
+        return {}
+    try:
+        parsed = json.loads(raw)
+    except json.JSONDecodeError:
+        logger.warning("invalid LiveKit job metadata json room=%s", getattr(ctx.room, "name", ""))
+        return {}
+    if not isinstance(parsed, Mapping):
+        return {}
+    return {str(key): str(value) for key, value in parsed.items() if value is not None}
+
+
 async def _wait_for_sip_identity(room: rtc.Room, timeout: float = 15.0) -> str | None:
     deadline = asyncio.get_event_loop().time() + timeout
     while asyncio.get_event_loop().time() < deadline:
@@ -353,6 +511,9 @@ def _build_llm(settings: cfg.Config):
 
 def _agent_instructions(ud: SessionUserData) -> str:
     parts = [_ZORBA_INSTRUCTIONS]
+    welfare = _welfare_preamble(ud)
+    if welfare:
+        parts.append(welfare)
     if ud.language not in {"", "en"}:
         parts.append(
             f"The caller's preferred language is {ud.language}. Speak in {ud.language} unless they ask to switch languages."
@@ -361,6 +522,10 @@ def _agent_instructions(ud: SessionUserData) -> str:
     if preamble:
         parts.append(preamble)
     return "\n\n".join(parts)
+
+
+def _display_reason(reason: str) -> str:
+    return reason.replace("_", " ").strip() or "welfare check"
 
 
 async def log_emergency_escalation(ud: SessionUserData) -> None:

@@ -3,14 +3,16 @@ package grpc
 import (
 	"context"
 	"errors"
+	"strings"
 	"time"
 
 	domainErrors "github.com/KoiralaSam/ZorbaHealth/services/patient-service/internal/core/domain/errors"
 	"github.com/KoiralaSam/ZorbaHealth/services/patient-service/internal/core/domain/models"
 	"github.com/KoiralaSam/ZorbaHealth/services/patient-service/internal/core/ports/inbound"
 	pb "github.com/KoiralaSam/ZorbaHealth/shared/proto/patient"
-	patientportalpb "github.com/KoiralaSam/ZorbaHealth/shared/proto/patientportal"
 	"github.com/KoiralaSam/ZorbaHealth/shared/proto/patient/registration_verification"
+	patientportalpb "github.com/KoiralaSam/ZorbaHealth/shared/proto/patientportal"
+	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
@@ -160,8 +162,8 @@ func (h *gRPCHandler) Login(ctx context.Context, req *pb.LoginRequest) (*pb.Logi
 		return nil, status.Error(codes.InvalidArgument, "request required")
 	}
 	session, err := h.svc.LoginPatient(ctx, &models.Patient{
-		PhoneNumber: req.PhoneNumber,
-		Email:       req.Email,
+		PhoneNumber:  req.PhoneNumber,
+		Email:        req.Email,
 		MedicalNotes: req.Password,
 	})
 	if err != nil {
@@ -220,11 +222,153 @@ func (h *gRPCHandler) ListCallSummaries(ctx context.Context, req *patientportalp
 	return &patientportalpb.ListPatientCallSummariesResponse{Calls: out}, nil
 }
 
+func (h *gRPCHandler) CreateWelfareCheck(ctx context.Context, req *patientportalpb.CreateWelfareCheckRequest) (*patientportalpb.CreateWelfareCheckResponse, error) {
+	if req == nil || strings.TrimSpace(req.GetPatientId()) == "" {
+		return nil, status.Error(codes.InvalidArgument, "patient_id is required")
+	}
+	if req.GetScheduledAt() == nil {
+		return nil, status.Error(codes.InvalidArgument, "scheduled_at is required")
+	}
+	patientID, err := uuid.Parse(strings.TrimSpace(req.GetPatientId()))
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "invalid patient_id")
+	}
+	check, err := h.svc.CreateWelfareCheck(ctx, &models.CreateWelfareCheckCommand{
+		PatientID:    patientID,
+		ScheduledAt:  req.GetScheduledAt().AsTime(),
+		Timezone:     strings.TrimSpace(req.GetTimezone()),
+		ReasonCode:   models.WelfareCheckReason(strings.TrimSpace(req.GetReasonCode())),
+		ReasonDetail: req.GetReasonDetail(),
+		ActorID:      patientID.String(),
+	})
+	if err != nil {
+		return nil, mapWelfareError(err)
+	}
+	return &patientportalpb.CreateWelfareCheckResponse{WelfareCheck: welfareCheckToProto(check)}, nil
+}
+
+func (h *gRPCHandler) ListWelfareChecks(ctx context.Context, req *patientportalpb.ListWelfareChecksRequest) (*patientportalpb.ListWelfareChecksResponse, error) {
+	if req == nil || strings.TrimSpace(req.GetPatientId()) == "" {
+		return nil, status.Error(codes.InvalidArgument, "patient_id is required")
+	}
+	patientID, err := uuid.Parse(strings.TrimSpace(req.GetPatientId()))
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "invalid patient_id")
+	}
+	checks, err := h.svc.ListWelfareChecks(ctx, models.ListWelfareChecksFilter{
+		PatientID:        patientID,
+		IncludeCancelled: req.GetIncludeCancelled(),
+		Limit:            req.GetLimit(),
+	})
+	if err != nil {
+		return nil, mapWelfareError(err)
+	}
+	out := make([]*patientportalpb.WelfareCheck, 0, len(checks))
+	for i := range checks {
+		out = append(out, welfareCheckToProto(&checks[i]))
+	}
+	return &patientportalpb.ListWelfareChecksResponse{WelfareChecks: out}, nil
+}
+
+func (h *gRPCHandler) CancelWelfareCheck(ctx context.Context, req *patientportalpb.CancelWelfareCheckRequest) (*patientportalpb.CancelWelfareCheckResponse, error) {
+	if req == nil || strings.TrimSpace(req.GetPatientId()) == "" || strings.TrimSpace(req.GetWelfareCheckId()) == "" {
+		return nil, status.Error(codes.InvalidArgument, "patient_id and welfare_check_id are required")
+	}
+	check, err := h.svc.CancelWelfareCheck(ctx, req.GetPatientId(), req.GetWelfareCheckId())
+	if err != nil {
+		return nil, mapWelfareError(err)
+	}
+	return &patientportalpb.CancelWelfareCheckResponse{WelfareCheck: welfareCheckToProto(check)}, nil
+}
+
+func (h *gRPCHandler) UpdateWelfareRunLifecycle(ctx context.Context, req *patientportalpb.UpdateWelfareRunLifecycleRequest) (*patientportalpb.UpdateWelfareRunLifecycleResponse, error) {
+	if req == nil || strings.TrimSpace(req.GetPatientId()) == "" || strings.TrimSpace(req.GetRunId()) == "" {
+		return nil, status.Error(codes.InvalidArgument, "patient_id and run_id are required")
+	}
+	run, err := h.svc.UpdateWelfareRunLifecycle(ctx, &models.UpdateWelfareRunLifecycleCommand{
+		PatientID: strings.TrimSpace(req.GetPatientId()),
+		RunID:     strings.TrimSpace(req.GetRunId()),
+		Status:    models.WelfareCheckRunStatus(strings.TrimSpace(req.GetStatus())),
+		Reason:    strings.TrimSpace(req.GetReason()),
+	})
+	if err != nil {
+		return nil, mapWelfareError(err)
+	}
+	return &patientportalpb.UpdateWelfareRunLifecycleResponse{Run: welfareCheckRunToProto(run)}, nil
+}
+
+func welfareCheckToProto(check *models.WelfareCheck) *patientportalpb.WelfareCheck {
+	if check == nil {
+		return nil
+	}
+	return &patientportalpb.WelfareCheck{
+		Id:                     check.ID.String(),
+		PatientId:              check.PatientID.String(),
+		ScheduledAt:            timestamppb.New(check.ScheduledAt),
+		Timezone:               check.Timezone,
+		ReasonCode:             string(check.ReasonCode),
+		ReasonDetail:           check.ReasonDetail,
+		Status:                 string(check.Status),
+		RecurrenceRule:         check.RecurrenceRule,
+		CreatedAt:              timestamppb.New(check.CreatedAt),
+		UpdatedAt:              timestamppb.New(check.UpdatedAt),
+		CancelledAt:            timePtrToProto(check.CancelledAt),
+		LatestRunId:            check.LatestRunID,
+		LatestRunStatus:        check.LatestRunStatus,
+		LatestRunAttempts:      check.LatestRunAttempts,
+		LatestRunFailureReason: check.LatestRunFailureReason,
+	}
+}
+
+func welfareCheckRunToProto(run *models.WelfareCheckRun) *patientportalpb.WelfareCheckRun {
+	if run == nil {
+		return nil
+	}
+	return &patientportalpb.WelfareCheckRun{
+		Id:              run.ID.String(),
+		RequestId:       run.RequestID.String(),
+		PatientId:       run.PatientID.String(),
+		Status:          string(run.Status),
+		Attempts:        run.Attempts,
+		FailureReason:   run.FailureReason,
+		LivekitRoomName: run.LiveKitRoomName,
+		ScheduledAt:     timestamppb.New(run.ScheduledAt),
+		UpdatedAt:       timestamppb.New(run.UpdatedAt),
+	}
+}
+
+func mapWelfareError(err error) error {
+	switch {
+	case errors.Is(err, domainErrors.ErrWelfareCheckNotFound),
+		errors.Is(err, domainErrors.ErrWelfareCheckRunNotFound):
+		return status.Error(codes.NotFound, err.Error())
+	case errors.Is(err, domainErrors.ErrWelfareCheckStartsAtInvalid),
+		errors.Is(err, domainErrors.ErrWelfareCheckTimezoneInvalid),
+		errors.Is(err, domainErrors.ErrWelfareCheckReasonInvalid),
+		errors.Is(err, domainErrors.ErrWelfareCheckReasonRequired),
+		errors.Is(err, domainErrors.ErrWelfareCheckReasonTooLong),
+		errors.Is(err, domainErrors.ErrWelfareCheckPhoneRequired),
+		errors.Is(err, domainErrors.ErrWelfareCheckRunTransition):
+		return status.Error(codes.InvalidArgument, err.Error())
+	case errors.Is(err, domainErrors.ErrWelfareCheckConsentRequired):
+		return status.Error(codes.FailedPrecondition, err.Error())
+	case errors.Is(err, domainErrors.ErrWelfareCheckConsentUnavailable),
+		errors.Is(err, domainErrors.ErrWelfareCheckDispatchUnavailable):
+		return status.Error(codes.Unavailable, err.Error())
+	default:
+		return status.Error(codes.Internal, err.Error())
+	}
+}
+
 func timeToProto(value *time.Time) *timestamppb.Timestamp {
 	if value == nil || value.IsZero() {
 		return nil
 	}
 	return timestamppb.New(*value)
+}
+
+func timePtrToProto(value *time.Time) *timestamppb.Timestamp {
+	return timeToProto(value)
 }
 
 func dateOnly(value time.Time) string {
