@@ -31,6 +31,9 @@ import {
   HospitalConsentRequestRecord,
   PatientHospitalConsentRecord,
   HTTPPatientProfileResponse,
+  HTTPPatientWelfareCheckCreateRequest,
+  HTTPPatientWelfareCheckListResponse,
+  HTTPPatientWelfareCheckResponse,
   PatientCallSummary,
   HospitalMeetingRecord,
   HTTPPatientMeetingListResponse,
@@ -41,6 +44,8 @@ import {
   UpdateBridgedCallTranslationRequest,
   InterpretationSegmentMessage,
   PatientSchedulableStaffRecord,
+  PatientWelfareCheck,
+  WelfareCheckReason,
 } from "../../contracts";
 import { apiFetch, cachedApiJSON, clearApiCache, logoutAuth, preloadApiJSON } from "../../lib/auth-client";
 import {
@@ -71,6 +76,7 @@ import {
   Languages,
   Video,
   VideoOff,
+  HeartPulse,
 } from "lucide-react";
 import { Room, RoomEvent } from "livekit-client";
 import { formatDateTime, formatEventType, formatTimeOnly, meaningfulDate } from "../../lib/format";
@@ -87,12 +93,32 @@ const consentLabels: Record<string, string> = {
 
 const consentTypes = Object.keys(consentLabels);
 
+const welfareReasonLabels: Record<WelfareCheckReason, string> = {
+  medication_reminder: "Medication reminder",
+  mental_wellbeing: "Mental wellbeing",
+  daily_checkup: "Daily checkup",
+  symptom_follow_up: "Symptom follow-up",
+  care_plan_reminder: "Care plan reminder",
+  other: "Other",
+};
+
+const welfareReasons = Object.keys(welfareReasonLabels) as WelfareCheckReason[];
+
+const localDateTimeValue = () => {
+  const date = new Date(Date.now() + 60 * 60 * 1000);
+  date.setMinutes(Math.ceil(date.getMinutes() / 5) * 5, 0, 0);
+  return new Date(date.getTime() - date.getTimezoneOffset() * 60_000)
+    .toISOString()
+    .slice(0, 16);
+};
+
 const navItems: SidebarItem[] = [
   { id: "dashboard", label: "Dashboard", icon: LayoutDashboard },
   { id: "consents", label: "Consents", icon: ToggleLeft },
   { id: "records", label: "Ask Records", icon: MessageSquare },
   { id: "calls", label: "Call History", icon: Phone },
   { id: "meetings", label: "Meetings", icon: Video },
+  { id: "welfare", label: "Welfare Checks", icon: HeartPulse },
   { id: "audit", label: "Audit Trail", icon: Shield },
   { id: "gps", label: "GPS", icon: Compass },
 ];
@@ -170,6 +196,7 @@ function PatientHomePageContent() {
   const [consents, setConsents] = useState<ConsentRecord[]>([]);
   const [hospitalConsents, setHospitalConsents] = useState<PatientHospitalConsentRecord[]>([]);
   const [calls, setCalls] = useState<PatientCallSummary[]>([]);
+  const [welfareChecks, setWelfareChecks] = useState<PatientWelfareCheck[]>([]);
   const [auditEvents, setAuditEvents] = useState<AuditEventRecord[]>([]);
   const [question, setQuestion] = useState("");
   const [answer, setAnswer] = useState("");
@@ -180,6 +207,12 @@ function PatientHomePageContent() {
   const [loading, setLoading] = useState(true);
   const [mutatingConsent, setMutatingConsent] = useState<string | null>(null);
   const [askingQuestion, setAskingQuestion] = useState(false);
+  const [welfareScheduledAt, setWelfareScheduledAt] = useState(localDateTimeValue);
+  const [welfareReason, setWelfareReason] =
+    useState<WelfareCheckReason>("daily_checkup");
+  const [welfareDetail, setWelfareDetail] = useState("");
+  const [creatingWelfareCheck, setCreatingWelfareCheck] = useState(false);
+  const [cancellingWelfareCheck, setCancellingWelfareCheck] = useState<string | null>(null);
   const [meetings, setMeetings] = useState<HospitalMeetingRecord[]>([]);
   const [schedulableStaff, setSchedulableStaff] = useState<PatientSchedulableStaffRecord[]>([]);
   const [showScheduleForm, setShowScheduleForm] = useState(false);
@@ -213,11 +246,12 @@ function PatientHomePageContent() {
     setError("");
     try {
       const cacheOptions = { ttlMs: 45_000, force };
-      const [profileData, consentsData, hospitalConsentsData, callsData, auditData, meetingsData] = await Promise.all([
+      const [profileData, consentsData, hospitalConsentsData, callsData, welfareData, auditData, meetingsData] = await Promise.all([
         cachedApiJSON<HTTPPatientProfileResponse>("patient", APIEndpoints.PATIENT_PROFILE, cacheOptions),
         cachedApiJSON<HTTPPatientConsentListResponse>("patient", APIEndpoints.PATIENT_CONSENTS, cacheOptions),
         cachedApiJSON<HTTPPatientHospitalConsentListResponse>("patient", APIEndpoints.PATIENT_HOSPITAL_CONSENTS, cacheOptions),
         cachedApiJSON<HTTPPatientCallListResponse>("patient", APIEndpoints.PATIENT_CALLS, cacheOptions),
+        cachedApiJSON<HTTPPatientWelfareCheckListResponse>("patient", APIEndpoints.PATIENT_WELFARE_CHECKS, cacheOptions),
         cachedApiJSON<HTTPPatientAuditResponse>("patient", APIEndpoints.PATIENT_AUDIT, cacheOptions),
         cachedApiJSON<HTTPPatientMeetingListResponse>("patient", APIEndpoints.PATIENT_MEETINGS, cacheOptions),
       ]);
@@ -226,6 +260,7 @@ function PatientHomePageContent() {
       setConsents(consentsData.data?.consents ?? []);
       setHospitalConsents(hospitalConsentsData.data?.consents ?? []);
       setCalls(normalizePatientCalls(callsData));
+      setWelfareChecks(welfareData.data?.welfare_checks ?? []);
       setAuditEvents(auditData.data?.events ?? []);
       setMeetings(meetingsData.data?.meetings ?? []);
     } catch {
@@ -260,6 +295,7 @@ function PatientHomePageContent() {
       return;
     }
     preloadApiJSON<HTTPPatientCallListResponse>("patient", APIEndpoints.PATIENT_CALLS, { ttlMs: 60_000 });
+    preloadApiJSON<HTTPPatientWelfareCheckListResponse>("patient", APIEndpoints.PATIENT_WELFARE_CHECKS, { ttlMs: 60_000 });
     preloadApiJSON<HTTPPatientAuditResponse>("patient", APIEndpoints.PATIENT_AUDIT, { ttlMs: 60_000 });
     preloadApiJSON<HTTPPatientMeetingListResponse>("patient", APIEndpoints.PATIENT_MEETINGS, { ttlMs: 60_000 });
   }, [accessToken, authenticated, ready]);
@@ -542,6 +578,84 @@ function PatientHomePageContent() {
     }
   };
 
+  const createWelfareCheck = async (event: React.FormEvent) => {
+    event.preventDefault();
+    if (!accessToken || creatingWelfareCheck) return;
+
+    const scheduledAt = new Date(welfareScheduledAt);
+    if (Number.isNaN(scheduledAt.getTime())) {
+      setError("Choose a valid date and time.");
+      return;
+    }
+    if (welfareDetail.length > 1000) {
+      setError("Reason detail must be 1000 characters or less.");
+      return;
+    }
+
+    setCreatingWelfareCheck(true);
+    setError("");
+    const payload: HTTPPatientWelfareCheckCreateRequest = {
+      scheduled_at: scheduledAt.toISOString(),
+      timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC",
+      reason_code: welfareReason,
+      reason_detail: welfareDetail.trim(),
+    };
+
+    try {
+      const response = await apiFetch("patient", APIEndpoints.PATIENT_WELFARE_CHECKS, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      const data: HTTPPatientWelfareCheckResponse = await response.json();
+      if (!response.ok) {
+        setError(data.error?.message || "Unable to schedule welfare check.");
+        return;
+      }
+      if (data.data?.welfare_check) {
+        setWelfareChecks((current) => [data.data.welfare_check!, ...current]);
+      }
+      clearApiCache("patient");
+      setWelfareDetail("");
+      setWelfareScheduledAt(localDateTimeValue());
+      toast.success("Welfare check scheduled.");
+    } catch {
+      setError("Network error while scheduling welfare check.");
+    } finally {
+      setCreatingWelfareCheck(false);
+    }
+  };
+
+  const cancelWelfareCheck = async (id?: string) => {
+    if (!accessToken || !id) return;
+
+    setCancellingWelfareCheck(id);
+    setError("");
+    try {
+      const response = await apiFetch(
+        "patient",
+        `${APIEndpoints.PATIENT_WELFARE_CHECKS}/${encodeURIComponent(id)}`,
+        { method: "DELETE" },
+      );
+      const data: HTTPPatientWelfareCheckResponse = await response.json();
+      if (!response.ok) {
+        setError(data.error?.message || "Unable to cancel welfare check.");
+        return;
+      }
+      if (data.data?.welfare_check) {
+        setWelfareChecks((current) =>
+          current.map((item) => (item.id === id ? data.data.welfare_check! : item)),
+        );
+      }
+      clearApiCache("patient");
+      toast.success("Welfare check cancelled.");
+    } catch {
+      setError("Network error while cancelling welfare check.");
+    } finally {
+      setCancellingWelfareCheck(null);
+    }
+  };
+
   const askHealthQuestion = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!accessToken || !question.trim()) return;
@@ -728,7 +842,7 @@ function PatientHomePageContent() {
 
           {activeSection === "dashboard" ? (
             <section className="space-y-6">
-              <div className="grid gap-4 md:grid-cols-3">
+              <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
                 <StatCard
                   icon={FileText}
                   label="Active Consents"
@@ -741,6 +855,13 @@ function PatientHomePageContent() {
                   value={calls.length}
                   tone="orange"
                   trend={profile?.voice_phone || "Voice line pending"}
+                />
+                <StatCard
+                  icon={HeartPulse}
+                  label="Scheduled Checks"
+                  value={welfareChecks.filter((check) => ["scheduled", "pending"].includes((check.status || "").toLowerCase())).length}
+                  tone="emerald"
+                  trend={`${welfareChecks.length} total welfare checks`}
                 />
                 <StatCard
                   icon={Shield}
@@ -1070,6 +1191,22 @@ function PatientHomePageContent() {
               onSchedule={(e) => void handleScheduleMeeting(e)}
               onCancel={(id) => void handleCancelMeeting(id)}
               onHospitalChange={(hospitalID) => void loadSchedulableStaff(hospitalID)}
+            />
+          ) : null}
+
+          {activeSection === "welfare" ? (
+            <WelfarePanel
+              welfareChecks={welfareChecks}
+              welfareScheduledAt={welfareScheduledAt}
+              welfareReason={welfareReason}
+              welfareDetail={welfareDetail}
+              creatingWelfareCheck={creatingWelfareCheck}
+              cancellingWelfareCheck={cancellingWelfareCheck}
+              setWelfareScheduledAt={setWelfareScheduledAt}
+              setWelfareReason={setWelfareReason}
+              setWelfareDetail={setWelfareDetail}
+              onCreate={(event) => void createWelfareCheck(event)}
+              onCancel={(id) => void cancelWelfareCheck(id)}
             />
           ) : null}
 
@@ -1851,6 +1988,150 @@ function PatientMeetingPanel({
         {meetings.length === 0 ? (
           <div className="rounded-2xl border border-dashed border-slate-200 bg-slate-50 px-4 py-12 text-center text-sm font-semibold text-slate-400">
             No meetings scheduled.
+          </div>
+        ) : null}
+      </div>
+    </section>
+  );
+}
+
+function WelfarePanel({
+  welfareChecks,
+  welfareScheduledAt,
+  welfareReason,
+  welfareDetail,
+  creatingWelfareCheck,
+  cancellingWelfareCheck,
+  setWelfareScheduledAt,
+  setWelfareReason,
+  setWelfareDetail,
+  onCreate,
+  onCancel,
+}: {
+  welfareChecks: PatientWelfareCheck[];
+  welfareScheduledAt: string;
+  welfareReason: WelfareCheckReason;
+  welfareDetail: string;
+  creatingWelfareCheck: boolean;
+  cancellingWelfareCheck: string | null;
+  setWelfareScheduledAt: (value: string) => void;
+  setWelfareReason: (value: WelfareCheckReason) => void;
+  setWelfareDetail: (value: string) => void;
+  onCreate: (event: React.FormEvent) => void;
+  onCancel: (id?: string) => void;
+}) {
+  return (
+    <section className="clinical-card p-6">
+      <div className="border-b border-slate-100 pb-5">
+        <h2 className="flex items-center gap-2 text-lg font-black">
+          <HeartPulse className="h-5 w-5 text-rose-500" />
+          Scheduled Welfare Checks
+        </h2>
+        <p className="mt-2 text-sm leading-7 text-slate-600">
+          Schedule a check-in call from Zorba using your saved profile number.
+        </p>
+      </div>
+
+      <form onSubmit={onCreate} className="mt-5 grid gap-4 rounded-2xl border border-slate-200 bg-slate-50/70 p-5 md:grid-cols-2">
+        <label className="space-y-2">
+          <span className="text-xs font-black uppercase tracking-wide text-slate-500">Date & time</span>
+          <input
+            type="datetime-local"
+            value={welfareScheduledAt}
+            onChange={(event) => setWelfareScheduledAt(event.target.value)}
+            className="h-10 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-700 outline-none focus:border-indigo-400 focus:ring-4 focus:ring-indigo-100"
+            required
+          />
+        </label>
+        <label className="space-y-2">
+          <span className="text-xs font-black uppercase tracking-wide text-slate-500">Reason</span>
+          <select
+            value={welfareReason}
+            onChange={(event) => setWelfareReason(event.target.value as WelfareCheckReason)}
+            className="h-10 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-700 outline-none focus:border-indigo-400 focus:ring-4 focus:ring-indigo-100"
+          >
+            {welfareReasons.map((reason) => (
+              <option key={reason} value={reason}>
+                {welfareReasonLabels[reason]}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label className="space-y-2 md:col-span-2">
+          <span className="text-xs font-black uppercase tracking-wide text-slate-500">Detail (optional)</span>
+          <textarea
+            value={welfareDetail}
+            maxLength={1000}
+            onChange={(event) => setWelfareDetail(event.target.value)}
+            placeholder="Anything Zorba should know before calling?"
+            rows={3}
+            className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700 outline-none focus:border-indigo-400 focus:ring-4 focus:ring-indigo-100"
+          />
+          <p className="text-xs font-semibold text-slate-400">{welfareDetail.length}/1000</p>
+        </label>
+        <div className="flex justify-end md:col-span-2">
+          <Button type="submit" variant="healthcare" disabled={creatingWelfareCheck}>
+            <HeartPulse className="h-4 w-4" />
+            {creatingWelfareCheck ? "Scheduling..." : "Schedule welfare check"}
+          </Button>
+        </div>
+      </form>
+
+      <div className="mt-6 grid gap-4">
+        {welfareChecks.map((check) => {
+          const status = check.latest_run_status || check.status || "scheduled";
+          const cancellable = ["scheduled", "pending"].includes((check.status || "").toLowerCase());
+
+          return (
+            <article key={check.id} className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+              <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+                <div className="min-w-0">
+                  <h3 className="text-base font-black text-slate-950">
+                    {check.reason_code
+                      ? welfareReasonLabels[check.reason_code as WelfareCheckReason] ??
+                        check.reason_code.replaceAll("_", " ")
+                      : "Welfare check"}
+                  </h3>
+                  <p className="mt-2 text-sm font-semibold text-slate-500">
+                    {formatDateTime(check.scheduled_at, "Time not set")}
+                  </p>
+                  {check.reason_detail ? (
+                    <p className="mt-3 text-sm leading-6 text-slate-600">{check.reason_detail}</p>
+                  ) : null}
+                  {check.latest_run_failure_reason ? (
+                    <p className="mt-3 text-sm font-semibold text-rose-700">
+                      {check.latest_run_failure_reason}
+                    </p>
+                  ) : null}
+                  {typeof check.latest_run_attempts === "number" && check.latest_run_attempts > 0 ? (
+                    <p className="mt-1 text-xs font-semibold text-slate-400">
+                      Attempts: {check.latest_run_attempts}
+                    </p>
+                  ) : null}
+                </div>
+                <div className="flex shrink-0 items-center gap-2">
+                  <span className="rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-black uppercase text-emerald-700">
+                    {status.replaceAll("_", " ")}
+                  </span>
+                  {cancellable ? (
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      disabled={cancellingWelfareCheck === check.id}
+                      onClick={() => onCancel(check.id)}
+                    >
+                      {cancellingWelfareCheck === check.id ? "Cancelling..." : "Cancel"}
+                    </Button>
+                  ) : null}
+                </div>
+              </div>
+            </article>
+          );
+        })}
+        {welfareChecks.length === 0 ? (
+          <div className="rounded-2xl border border-dashed border-slate-200 bg-slate-50 px-4 py-12 text-center text-sm font-semibold text-slate-400">
+            No welfare checks scheduled yet.
           </div>
         ) : null}
       </div>
