@@ -1,36 +1,73 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Zorba Health Web
 
-## Getting Started
+Next.js App Router frontend for the patient and hospital-provider workflows.
 
-First, run the development server:
+## Local Setup
 
 ```bash
+cp .env.example .env.local
+npm install
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+The app defaults to:
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+- web: `http://localhost:3000`
+- API gateway: `http://localhost:8081`
+- location WebSocket: `ws://localhost:8091`
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+The API gateway must allow the web origin:
 
-## Learn More
+```bash
+API_GATEWAY_ALLOWED_ORIGINS=http://localhost:3000
+```
 
-To learn more about Next.js, take a look at the following resources:
+For preview or production deployments, set `API_GATEWAY_ALLOWED_ORIGINS` to the exact comma-separated browser origins that should be trusted. Do not use `*` with credentialed healthcare routes.
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## Environment
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+- `NEXT_PUBLIC_API_URL`: browser-facing API gateway URL
+- `NEXT_PUBLIC_LOCATION_WS_URL`: location-service WebSocket URL for live emergency location sessions
+- `NEXT_PUBLIC_LOCATION_HTTP_URL`: location-service HTTP URL for approximate IP fallback
 
-## Deploy on Vercel
+## Patient Workflow
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+- `/register/patient`: start patient account registration
+- `/verify-email`: finish email verification from registration links
+- `/login/patient`: patient login
+- `/patient`: patient portal for profile, consent center, record Q&A, call summaries, audit trail, and emergency location sharing
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+Patient UX expectations:
+
+- Raw health records and bearer tokens must not be persisted in browser storage beyond the current implementation needs.
+- Consent controls should make grant/revoke state clear before record Q&A or provider summaries depend on it.
+- Emergency location sharing should stay explicit and session scoped.
+
+## Hospital Provider Workflow
+
+- `/register/hospital`: start hospital registration
+- `/login/hospital`: hospital staff login
+- `/login/hospital_staff`: explicit hospital staff login alias
+- `/hospital/dashboard`: hospital staff dashboard for patient summaries, meeting requests, emergency incidents, and patient audit lookup
+- `/hospital_staff/dashboard`: explicit hospital staff dashboard alias
+
+Provider UX expectations:
+
+- Staff-only screens must require hospital staff tokens.
+- Patient summary and audit lookup should fail closed when consent or authorization is missing.
+- Incident metadata displayed to staff should stay PHI-minimal unless a specific consented workflow needs more detail.
+
+## Verification
+
+After the gateway and backing services are running:
+
+```bash
+node ../scripts/evaluation/demo-smoke.mjs patient-portal-smoke
+node ../scripts/evaluation/demo-smoke.mjs hospital-escalation-smoke
+```
+
+Use the full runner from the repository root when seed data is available:
+
+```bash
+node scripts/evaluation/demo-smoke.mjs all
+```

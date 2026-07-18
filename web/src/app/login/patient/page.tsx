@@ -1,35 +1,60 @@
 "use client";
 
-import { useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { useForm } from "react-hook-form";
+import { z } from "zod";
+import { zodResolver } from "@hookform/resolvers/zod";
 import { Button } from "../../../components/ui/button";
+import { Input } from "../../../components/ui/input";
+import { StatusBanner } from "../../../components/status-banner";
+import { AuthShell } from "../../../components/layout/auth-shell";
+import {
+  KeyRound,
+  Mail,
+  ShieldCheck,
+  UserRound,
+} from "lucide-react";
 import {
   HTTPPatientLoginRequest,
   HTTPPatientLoginResponse,
   APIEndpoints,
 } from "../../../contracts";
 import { API_URL } from "../../../constants";
+import { setAuth } from "../../../lib/auth-client";
+
+const schema = z.object({
+  identifier: z.string().min(3, "Enter your email address or phone number."),
+  password: z.string().min(8, "Password must be at least 8 characters."),
+});
+
+type FormValues = z.infer<typeof schema>;
 
 export default function PatientLogin() {
   const router = useRouter();
-  const [phoneNumber, setPhoneNumber] = useState("");
-  const [password, setPassword] = useState("");
-  const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState("");
+  const {
+    register,
+    handleSubmit,
+    formState: { errors, isSubmitting },
+    setError,
+  } = useForm<FormValues>({
+    resolver: zodResolver(schema),
+    defaultValues: {
+      identifier: "",
+      password: "",
+    },
+  });
 
-  const handleLogin = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setIsLoading(true);
-    setError("");
-
+  const handleLogin = async ({ identifier, password }: FormValues) => {
     const patientLoginRequest: HTTPPatientLoginRequest = {
-      phone_number: phoneNumber,
+      identifier: identifier.trim(),
       password,
     };
 
     try {
       const response = await fetch(`${API_URL}${APIEndpoints.PATIENT_LOGIN}`, {
         method: "POST",
+        credentials: "include",
         headers: {
           "Content-Type": "application/json",
         },
@@ -38,151 +63,79 @@ export default function PatientLogin() {
 
       const data: HTTPPatientLoginResponse = await response.json();
       if (!response.ok) {
-        setError(data.error?.message || "Login failed. Please try again.");
+        setError("root", {
+          message: data.error?.message || "Login failed. Please try again.",
+        });
         return;
       }
 
       const accessToken = data.data?.access_token;
       const patientID = data.data?.patient_id;
       if (!accessToken || !patientID) {
-        setError("Login succeeded but no patient session was returned.");
+        setError("root", {
+          message: "Login succeeded but no patient session was returned.",
+        });
         return;
       }
 
-      window.sessionStorage.setItem("patient_access_token", accessToken);
-      window.sessionStorage.setItem("patient_id", patientID);
+      setAuth({ role: "patient", accessToken, patientId: patientID });
       router.replace("/patient");
     } catch (error) {
       console.error("Network error - Please try again", error);
-      setError("Network error. Please try again.");
-    } finally {
-      setIsLoading(false);
+      setError("root", {
+        message: "Network error. Please try again.",
+      });
     }
   };
 
   return (
-    <main className="min-h-screen bg-gradient-to-b from-blue-50 to-white">
-      <div className="flex min-h-screen flex-col">
-        <header className="w-full border-b border-blue-100 bg-white/70 backdrop-blur">
-          <div className="mx-auto flex max-w-5xl items-center justify-between px-4 py-4">
-            <button
-              type="button"
-              onClick={() => router.push("/")}
-              className="flex items-center gap-2"
-            >
-              <div className="flex h-9 w-9 items-center justify-center rounded-full bg-blue-100">
-                <span className="text-base font-semibold text-blue-700">Z</span>
-              </div>
-              <span className="text-lg font-semibold text-gray-900">
-                Zorba Health
-              </span>
-            </button>
+    <AuthShell
+      eyebrow="Patient sign in"
+      title="Secure access to your voice care workspace."
+      description="Log in to securely consult your record summaries, manage consents, and review your voice assistant activity."
+      featureTitle="Patient Portal"
+      featureItems={["Consent controls", "Record Q&A", "Call history", "GPS safety sessions"]}
+      featureIcon={ShieldCheck}
+      navLinks={[
+        { href: "/register/patient", label: "Sign Up" },
+        { href: "/login/hospital", label: "Hospital Portal" },
+      ]}
+      footer={
+        <p className="text-center text-sm text-slate-500 dark:text-slate-400">
+          New patient?{" "}
+          <Link href="/register/patient" className="font-bold text-indigo-600 hover:text-indigo-700">
+            Register here
+          </Link>
+        </p>
+      }
+    >
+      {errors.root?.message ? <StatusBanner tone="error" message={errors.root.message} className="mb-6" /> : null}
 
-            <nav className="flex items-center gap-3 text-sm">
-              <button
-                type="button"
-                onClick={() => router.push("/register/patient")}
-                className="text-gray-600 hover:text-gray-900"
-              >
-                Patient sign up
-              </button>
-              <button
-                type="button"
-                onClick={() => router.push("/login/hospital")}
-                className="text-gray-600 hover:text-gray-900"
-              >
-                Hospital login
-              </button>
-            </nav>
-          </div>
-        </header>
+      <form onSubmit={handleSubmit(handleLogin)} className="space-y-5">
+        <Input
+          label="Email or Phone Number"
+          icon={<Mail className="h-5 w-5" />}
+          placeholder="you@example.com or +15551234567"
+          autoComplete="username"
+          error={errors.identifier?.message}
+          {...register("identifier")}
+        />
 
-        <div className="flex flex-1 items-center justify-center px-4 py-8">
-          <div className="bg-white p-8 rounded-2xl shadow-lg max-w-md w-full">
-            <div className="mb-6">
-              <button
-                onClick={() => router.push("/")}
-                className="text-gray-500 hover:text-gray-700 mb-4 text-sm"
-                type="button"
-              >
-                ← Back to home
-              </button>
-              <h2 className="text-2xl font-bold text-gray-900 mb-2">
-                Patient Login
-              </h2>
-              <p className="text-gray-600 text-sm">
-                Enter your phone number and password to access your health
-                records and voice assistant.
-              </p>
-            </div>
+        <Input
+          label="Password"
+          icon={<KeyRound className="h-5 w-5" />}
+          type="password"
+          placeholder="Enter your account password"
+          autoComplete="current-password"
+          error={errors.password?.message}
+          {...register("password")}
+        />
 
-            <form onSubmit={handleLogin} className="space-y-4">
-            <div>
-              <label
-                htmlFor="phone"
-                className="block text-sm font-medium text-gray-700 mb-2"
-              >
-                Phone Number
-              </label>
-              <input
-                id="phone"
-                type="tel"
-                value={phoneNumber}
-                onChange={(e) => setPhoneNumber(e.target.value)}
-                placeholder="+1 (555) 123-4567"
-                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                required
-              />
-            </div>
-
-            <div>
-              <label
-                htmlFor="password"
-                className="block text-sm font-medium text-gray-700 mb-2"
-              >
-                Password
-              </label>
-              <input
-                id="password"
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                placeholder="Enter your password"
-                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                required
-              />
-            </div>
-
-              <Button
-                type="submit"
-                className="w-full text-lg py-6 bg-blue-600 hover:bg-blue-700 text-white"
-                disabled={isLoading}
-              >
-                {isLoading ? "Logging in..." : "Continue"}
-              </Button>
-            </form>
-
-            {error ? (
-              <div className="mt-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
-                {error}
-              </div>
-            ) : null}
-
-            <div className="mt-6 text-center">
-              <p className="text-sm text-gray-500">
-                New patient?{" "}
-                <button
-                  onClick={() => router.push("/register/patient")}
-                  className="text-blue-600 hover:text-blue-700 font-medium"
-                  type="button"
-                >
-                  Register here
-                </button>
-              </p>
-            </div>
-          </div>
-        </div>
-      </div>
-    </main>
+        <Button type="submit" variant="healthcare" className="h-12 w-full text-base" disabled={isSubmitting}>
+          <UserRound className="h-4 w-4" />
+          {isSubmitting ? "Signing in..." : "Continue"}
+        </Button>
+      </form>
+    </AuthShell>
   );
 }

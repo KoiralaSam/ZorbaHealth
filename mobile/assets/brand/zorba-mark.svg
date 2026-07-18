@@ -1,0 +1,19 @@
+<svg width="1024" height="1024" viewBox="0 0 1024 1024" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="zorbaBg" x1="168" y1="144" x2="860" y2="880" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#EEF2FF" />
+      <stop offset="0.5" stop-color="#F8FAFC" />
+      <stop offset="1" stop-color="#FFF7ED" />
+    </linearGradient>
+    <linearGradient id="zorbaPulse" x1="264" y1="314" x2="776" y2="712" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#4F46E5" />
+      <stop offset="0.58" stop-color="#2563EB" />
+      <stop offset="1" stop-color="#F97316" />
+    </linearGradient>
+  </defs>
+  <rect width="1024" height="1024" rx="256" fill="url(#zorbaBg)"/>
+  <rect x="80" y="80" width="864" height="864" rx="224" fill="white" fill-opacity="0.9"/>
+  <path d="M512 784C378.138 689.045 290 611.76 290 482.844C290 387.558 359.628 320 450.226 320C493.251 320 534.284 340.884 561 375.857C587.716 340.884 628.749 320 671.774 320C762.372 320 832 387.558 832 482.844C832 611.76 743.862 689.045 610 784L561 818L512 784Z" fill="url(#zorbaPulse)"/>
+  <path d="M252 552H388L452 462L514 614L578 520L642 552H772" stroke="white" stroke-width="42" stroke-linecap="round" stroke-linejoin="round"/>
+  <circle cx="772" cy="552" r="24" fill="white"/>
+</svg>
