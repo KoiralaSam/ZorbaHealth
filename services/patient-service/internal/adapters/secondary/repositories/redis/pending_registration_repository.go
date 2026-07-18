@@ -14,6 +14,9 @@ import (
 
 const keyPrefix = "pending_reg:"
 const otpKeyPrefix = "otp:"
+const voiceOTPWaitPrefix = "voice:otp_wait:"
+const voiceVerifiedPrefix = "voice:verified:"
+const voiceOTPFailPrefix = "voice:otp_fail:"
 
 type PendingRegistrationRepository struct {
 	client *redis.Client
@@ -97,4 +100,41 @@ func (r *PendingRegistrationRepository) GetOTP(ctx context.Context, phone string
 
 func (r *PendingRegistrationRepository) DeleteOTP(ctx context.Context, phone string) error {
 	return r.client.Del(ctx, otpKeyPrefix+normalizePhone(phone)).Err()
+}
+
+func (r *PendingRegistrationRepository) SetVoiceOTPWait(ctx context.Context, phone string, voiceSessionID string, ttl time.Duration) error {
+	return r.client.Set(ctx, voiceOTPWaitPrefix+normalizePhone(phone), voiceSessionID, ttl).Err()
+}
+
+func (r *PendingRegistrationRepository) GetVoiceOTPWait(ctx context.Context, phone string) (string, error) {
+	return r.client.Get(ctx, voiceOTPWaitPrefix+normalizePhone(phone)).Result()
+}
+
+func (r *PendingRegistrationRepository) DeleteVoiceOTPWait(ctx context.Context, phone string) error {
+	return r.client.Del(ctx, voiceOTPWaitPrefix+normalizePhone(phone)).Err()
+}
+
+func (r *PendingRegistrationRepository) SetVoiceVerified(ctx context.Context, voiceSessionID string, patientID string, ttl time.Duration) error {
+	return r.client.Set(ctx, voiceVerifiedPrefix+voiceSessionID, patientID, ttl).Err()
+}
+
+func (r *PendingRegistrationRepository) ConsumeVoiceVerified(ctx context.Context, voiceSessionID string) (string, error) {
+	key := voiceVerifiedPrefix + voiceSessionID
+	val, err := r.client.GetDel(ctx, key).Result()
+	if err != nil {
+		return "", err
+	}
+	return val, nil
+}
+
+func (r *PendingRegistrationRepository) IncrVoiceOTPFail(ctx context.Context, phone string, window time.Duration) (int64, error) {
+	key := voiceOTPFailPrefix + normalizePhone(phone)
+	n, err := r.client.Incr(ctx, key).Result()
+	if err != nil {
+		return 0, err
+	}
+	if n == 1 {
+		_ = r.client.Expire(ctx, key, window).Err()
+	}
+	return n, nil
 }

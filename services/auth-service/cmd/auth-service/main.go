@@ -56,7 +56,8 @@ func main() {
 
 	userRepo := postgres.NewUserRepository(pool)
 	authRepo := postgres.NewAuthRepository(pool)
-	svc := services.NewAuthService(userRepo, authRepo)
+	refreshRepo := postgres.NewRefreshRepository(pool)
+	svc := services.NewAuthService(userRepo, authRepo, refreshRepo)
 
 	//connecting to rabbitmq
 	rabbitmq, err := messaging.NewRabbitMQ(env.GetString("RABBITMQ_URI", "amqp://guest:guest@rabbitmq:5672/"), events.PatientExchange, events.AuthServicePatientQueueBindings)

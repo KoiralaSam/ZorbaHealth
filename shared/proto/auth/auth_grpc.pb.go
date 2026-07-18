@@ -640,3 +640,208 @@ var LogoutService_ServiceDesc = grpc.ServiceDesc{
 	Streams:  []grpc.StreamDesc{},
 	Metadata: "auth.proto",
 }
+
+const (
+	RefreshSessionService_RefreshSession_FullMethodName = "/auth.RefreshSessionService/RefreshSession"
+)
+
+// RefreshSessionServiceClient is the client API for RefreshSessionService service.
+//
+// For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
+type RefreshSessionServiceClient interface {
+	RefreshSession(ctx context.Context, in *RefreshSessionRequest, opts ...grpc.CallOption) (*RefreshSessionResponse, error)
+}
+
+type refreshSessionServiceClient struct {
+	cc grpc.ClientConnInterface
+}
+
+func NewRefreshSessionServiceClient(cc grpc.ClientConnInterface) RefreshSessionServiceClient {
+	return &refreshSessionServiceClient{cc}
+}
+
+func (c *refreshSessionServiceClient) RefreshSession(ctx context.Context, in *RefreshSessionRequest, opts ...grpc.CallOption) (*RefreshSessionResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(RefreshSessionResponse)
+	err := c.cc.Invoke(ctx, RefreshSessionService_RefreshSession_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+// RefreshSessionServiceServer is the server API for RefreshSessionService service.
+// All implementations must embed UnimplementedRefreshSessionServiceServer
+// for forward compatibility.
+type RefreshSessionServiceServer interface {
+	RefreshSession(context.Context, *RefreshSessionRequest) (*RefreshSessionResponse, error)
+	mustEmbedUnimplementedRefreshSessionServiceServer()
+}
+
+// UnimplementedRefreshSessionServiceServer must be embedded to have
+// forward compatible implementations.
+//
+// NOTE: this should be embedded by value instead of pointer to avoid a nil
+// pointer dereference when methods are called.
+type UnimplementedRefreshSessionServiceServer struct{}
+
+func (UnimplementedRefreshSessionServiceServer) RefreshSession(context.Context, *RefreshSessionRequest) (*RefreshSessionResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method RefreshSession not implemented")
+}
+func (UnimplementedRefreshSessionServiceServer) mustEmbedUnimplementedRefreshSessionServiceServer() {}
+func (UnimplementedRefreshSessionServiceServer) testEmbeddedByValue()                               {}
+
+// UnsafeRefreshSessionServiceServer may be embedded to opt out of forward compatibility for this service.
+// Use of this interface is not recommended, as added methods to RefreshSessionServiceServer will
+// result in compilation errors.
+type UnsafeRefreshSessionServiceServer interface {
+	mustEmbedUnimplementedRefreshSessionServiceServer()
+}
+
+func RegisterRefreshSessionServiceServer(s grpc.ServiceRegistrar, srv RefreshSessionServiceServer) {
+	// If the following call panics, it indicates UnimplementedRefreshSessionServiceServer was
+	// embedded by pointer and is nil.  This will cause panics if an
+	// unimplemented method is ever invoked, so we test this at initialization
+	// time to prevent it from happening at runtime later due to I/O.
+	if t, ok := srv.(interface{ testEmbeddedByValue() }); ok {
+		t.testEmbeddedByValue()
+	}
+	s.RegisterService(&RefreshSessionService_ServiceDesc, srv)
+}
+
+func _RefreshSessionService_RefreshSession_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(RefreshSessionRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(RefreshSessionServiceServer).RefreshSession(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: RefreshSessionService_RefreshSession_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(RefreshSessionServiceServer).RefreshSession(ctx, req.(*RefreshSessionRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+// RefreshSessionService_ServiceDesc is the grpc.ServiceDesc for RefreshSessionService service.
+// It's only intended for direct use with grpc.RegisterService,
+// and not to be introspected or modified (even as a copy)
+var RefreshSessionService_ServiceDesc = grpc.ServiceDesc{
+	ServiceName: "auth.RefreshSessionService",
+	HandlerType: (*RefreshSessionServiceServer)(nil),
+	Methods: []grpc.MethodDesc{
+		{
+			MethodName: "RefreshSession",
+			Handler:    _RefreshSessionService_RefreshSession_Handler,
+		},
+	},
+	Streams:  []grpc.StreamDesc{},
+	Metadata: "auth.proto",
+}
+
+const (
+	UserCredentialsService_ValidateUserCredentials_FullMethodName = "/auth.UserCredentialsService/ValidateUserCredentials"
+)
+
+// UserCredentialsServiceClient is the client API for UserCredentialsService service.
+//
+// For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
+type UserCredentialsServiceClient interface {
+	ValidateUserCredentials(ctx context.Context, in *LoginRequest, opts ...grpc.CallOption) (*ValidateUserCredentialsResponse, error)
+}
+
+type userCredentialsServiceClient struct {
+	cc grpc.ClientConnInterface
+}
+
+func NewUserCredentialsServiceClient(cc grpc.ClientConnInterface) UserCredentialsServiceClient {
+	return &userCredentialsServiceClient{cc}
+}
+
+func (c *userCredentialsServiceClient) ValidateUserCredentials(ctx context.Context, in *LoginRequest, opts ...grpc.CallOption) (*ValidateUserCredentialsResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ValidateUserCredentialsResponse)
+	err := c.cc.Invoke(ctx, UserCredentialsService_ValidateUserCredentials_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+// UserCredentialsServiceServer is the server API for UserCredentialsService service.
+// All implementations must embed UnimplementedUserCredentialsServiceServer
+// for forward compatibility.
+type UserCredentialsServiceServer interface {
+	ValidateUserCredentials(context.Context, *LoginRequest) (*ValidateUserCredentialsResponse, error)
+	mustEmbedUnimplementedUserCredentialsServiceServer()
+}
+
+// UnimplementedUserCredentialsServiceServer must be embedded to have
+// forward compatible implementations.
+//
+// NOTE: this should be embedded by value instead of pointer to avoid a nil
+// pointer dereference when methods are called.
+type UnimplementedUserCredentialsServiceServer struct{}
+
+func (UnimplementedUserCredentialsServiceServer) ValidateUserCredentials(context.Context, *LoginRequest) (*ValidateUserCredentialsResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method ValidateUserCredentials not implemented")
+}
+func (UnimplementedUserCredentialsServiceServer) mustEmbedUnimplementedUserCredentialsServiceServer() {
+}
+func (UnimplementedUserCredentialsServiceServer) testEmbeddedByValue() {}
+
+// UnsafeUserCredentialsServiceServer may be embedded to opt out of forward compatibility for this service.
+// Use of this interface is not recommended, as added methods to UserCredentialsServiceServer will
+// result in compilation errors.
+type UnsafeUserCredentialsServiceServer interface {
+	mustEmbedUnimplementedUserCredentialsServiceServer()
+}
+
+func RegisterUserCredentialsServiceServer(s grpc.ServiceRegistrar, srv UserCredentialsServiceServer) {
+	// If the following call panics, it indicates UnimplementedUserCredentialsServiceServer was
+	// embedded by pointer and is nil.  This will cause panics if an
+	// unimplemented method is ever invoked, so we test this at initialization
+	// time to prevent it from happening at runtime later due to I/O.
+	if t, ok := srv.(interface{ testEmbeddedByValue() }); ok {
+		t.testEmbeddedByValue()
+	}
+	s.RegisterService(&UserCredentialsService_ServiceDesc, srv)
+}
+
+func _UserCredentialsService_ValidateUserCredentials_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(LoginRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(UserCredentialsServiceServer).ValidateUserCredentials(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: UserCredentialsService_ValidateUserCredentials_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(UserCredentialsServiceServer).ValidateUserCredentials(ctx, req.(*LoginRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+// UserCredentialsService_ServiceDesc is the grpc.ServiceDesc for UserCredentialsService service.
+// It's only intended for direct use with grpc.RegisterService,
+// and not to be introspected or modified (even as a copy)
+var UserCredentialsService_ServiceDesc = grpc.ServiceDesc{
+	ServiceName: "auth.UserCredentialsService",
+	HandlerType: (*UserCredentialsServiceServer)(nil),
+	Methods: []grpc.MethodDesc{
+		{
+			MethodName: "ValidateUserCredentials",
+			Handler:    _UserCredentialsService_ValidateUserCredentials_Handler,
+		},
+	},
+	Streams:  []grpc.StreamDesc{},
+	Metadata: "auth.proto",
+}

@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"testing"
 
+	domainErrors "github.com/KoiralaSam/ZorbaHealth/services/health-records-service/internal/core/domain/errors"
 	"github.com/KoiralaSam/ZorbaHealth/services/health-records-service/internal/core/domain/models"
 	sharedauth "github.com/KoiralaSam/ZorbaHealth/shared/auth"
 	pb "github.com/KoiralaSam/ZorbaHealth/shared/proto/health_records"
@@ -21,6 +22,7 @@ type stubHealthRecordsService struct {
 	saveConversationPatient  string
 	saveConversationSession  string
 	loadRecentContextPatient string
+	answerErr                error
 }
 
 func (s *stubHealthRecordsService) SearchRecords(context.Context, string, string, int32) ([]models.ScoredChunk, error) {
@@ -29,6 +31,9 @@ func (s *stubHealthRecordsService) SearchRecords(context.Context, string, string
 }
 
 func (s *stubHealthRecordsService) AnswerPatientQuestion(context.Context, string, string, int32) (string, []models.ScoredChunk, error) {
+	if s.answerErr != nil {
+		return "", nil, s.answerErr
+	}
 	return "answer", nil, nil
 }
 
@@ -122,6 +127,24 @@ func TestAnswerPatientQuestionAllowsMatchingPatient(t *testing.T) {
 	}
 	if resp.GetAnswer() != "answer" {
 		t.Fatalf("unexpected answer: %q", resp.GetAnswer())
+	}
+}
+
+func TestAnswerPatientQuestionMapsNoRecordsToNotFound(t *testing.T) {
+	stub := &stubHealthRecordsService{answerErr: domainErrors.ErrNoRecordsFound}
+	handler := &GRPCHandler{svc: stub}
+	ctx := sharedauth.WithClaims(context.Background(), &sharedauth.Claims{
+		ActorType: sharedauth.ActorPatient,
+		PatientID: "patient-1",
+	})
+
+	_, err := handler.AnswerPatientQuestion(ctx, &pb.AnswerPatientQuestionRequest{
+		PatientId: "patient-1",
+		Question:  "What medications am I taking?",
+		TopK:      3,
+	})
+	if status.Code(err) != codes.NotFound {
+		t.Fatalf("expected not found, got %v", err)
 	}
 }
 

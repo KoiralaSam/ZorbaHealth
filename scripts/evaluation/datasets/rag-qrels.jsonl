@@ -1,0 +1,2 @@
+{"question":"What medications are in my records?","expected_resource_type":"MedicationRequest","expected_keyword":"Albuterol","patient_bundle":"examples/sample-fhir-data/demo-patient-bundle.json"}
+{"question":"What allergy is documented?","expected_resource_type":"AllergyIntolerance","expected_keyword":"Penicillin","patient_bundle":"examples/sample-fhir-data/demo-patient-bundle.json"}

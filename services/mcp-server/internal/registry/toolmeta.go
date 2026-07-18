@@ -145,6 +145,14 @@ var toolMetadata = map[string]ToolMetadata{
 		RateLimitPerMinute:     20,
 		EventType:              sharedaudit.EventEmergencyEscalationTriggered,
 	},
+	"consume_voice_verification": {
+		ToolName:           "consume_voice_verification",
+		Description:        "Poll SMS-completed voice session verification",
+		AllowedActorTypes:  []string{"patient"},
+		AuditRequired:      true,
+		RateLimitPerMinute: 120,
+		EventType:          sharedaudit.EventAIToolCalled,
+	},
 	"get_hospital_analytics": {
 		ToolName:               "get_hospital_analytics",
 		Description:            "Get hospital analytics summary",

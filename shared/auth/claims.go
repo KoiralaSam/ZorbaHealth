@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
@@ -18,14 +19,15 @@ const (
 )
 
 type Claims struct {
-	ActorType  string
-	PatientID  string
-	SessionID  string
-	StaffID    string
-	HospitalID string
-	Role       string
-	AdminID    string
-	Scopes     []string
+	ActorType   string
+	PatientID   string
+	SessionID   string
+	CallerPhone string
+	StaffID     string
+	HospitalID  string
+	Role        string
+	AdminID     string
+	Scopes      []string
 }
 
 type claimsContextKey struct{}
@@ -33,10 +35,11 @@ type claimsContextKey struct{}
 var errNoClaims = errors.New("no verified claims")
 
 type patientClaims struct {
-	ActorType string   `json:"actorType"`
-	PatientID string   `json:"patientID"`
-	SessionID string   `json:"sessionID"`
-	Scopes    []string `json:"scopes"`
+	ActorType   string   `json:"actorType"`
+	PatientID   string   `json:"patientID"`
+	SessionID   string   `json:"sessionID"`
+	CallerPhone string   `json:"callerPhone,omitempty"`
+	Scopes      []string `json:"scopes"`
 	jwt.RegisteredClaims
 }
 
@@ -69,6 +72,7 @@ func ClaimsFromContext(ctx context.Context) (*Claims, error) {
 }
 
 func VerifyToken(tokenStr string) (*Claims, error) {
+	tokenStr = NormalizeBearerToken(tokenStr)
 	if tokenStr == "" {
 		return nil, errors.New("missing forwarded token")
 	}
@@ -99,10 +103,11 @@ func VerifyToken(tokenStr string) (*Claims, error) {
 			return nil, errors.New("invalid patient claims")
 		}
 		return &Claims{
-			ActorType: parsed.ActorType,
-			PatientID: parsed.PatientID,
-			SessionID: parsed.SessionID,
-			Scopes:    parsed.Scopes,
+			ActorType:   parsed.ActorType,
+			PatientID:   parsed.PatientID,
+			SessionID:   parsed.SessionID,
+			CallerPhone: NormalizePhoneDigits(parsed.CallerPhone),
+			Scopes:      parsed.Scopes,
 		}, nil
 	case ActorStaff:
 		var parsed staffClaims
@@ -135,6 +140,15 @@ func VerifyToken(tokenStr string) (*Claims, error) {
 	default:
 		return nil, fmt.Errorf("unsupported actorType %q", actorType)
 	}
+}
+
+func NormalizeBearerToken(token string) string {
+	token = strings.TrimSpace(token)
+	parts := strings.Fields(token)
+	if len(parts) == 2 && strings.EqualFold(parts[0], "Bearer") {
+		return parts[1]
+	}
+	return token
 }
 
 func RequireActorType(claims *Claims, actorType string) error {

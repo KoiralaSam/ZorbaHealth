@@ -20,10 +20,11 @@ type RegisterPatientRequest struct {
 }
 
 type LoginResult struct {
-	Message     string
-	UserID      string
-	AccessToken string
-	Role        string
+	Message      string
+	UserID       string
+	AccessToken  string
+	RefreshToken string
+	Role         string
 }
 
 type RegisterResult struct {
@@ -32,8 +33,9 @@ type RegisterResult struct {
 }
 
 type PatientSessionResult struct {
-	PatientID   string
-	UserID      string
-	AccessToken string
-	AuthUUID    string
+	PatientID    string
+	UserID       string
+	AccessToken  string
+	RefreshToken string
+	AuthUUID     string
 }

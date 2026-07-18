@@ -20,6 +20,7 @@ import (
 	locpb "github.com/KoiralaSam/ZorbaHealth/shared/proto/location"
 	regpb "github.com/KoiralaSam/ZorbaHealth/shared/proto/patient/registration_verification"
 	patientportalpb "github.com/KoiralaSam/ZorbaHealth/shared/proto/patientportal"
+	schedpb "github.com/KoiralaSam/ZorbaHealth/shared/proto/patient/scheduling"
 	transpb "github.com/KoiralaSam/ZorbaHealth/shared/proto/translation"
 	"github.com/KoiralaSam/ZorbaHealth/shared/tracing"
 	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
@@ -93,6 +94,7 @@ func main() {
 	analyticsClient := analyticspb.NewAnalyticsServiceClient(analyticsConn)
 	patientClient := regpb.NewRegistrationVerificationServiceClient(patientConn)
 	patientPortalClient := patientportalpb.NewPatientPortalServiceClient(patientConn)
+	schedulingClient := schedpb.NewSchedulingServiceClient(patientConn)
 	auditClient := auditpb.NewAuditServiceClient(auditConn)
 	tools.ConfigureAuditClient(auditClient)
 
@@ -112,8 +114,12 @@ func main() {
 	tools.RegisterLookupPatientByPhone(server, db, patientClient)
 	tools.RegisterStartExistingPhoneVerification(server, db, patientClient)
 	tools.RegisterVerifyExistingPhoneOTP(server, db, patientClient)
+	tools.RegisterConsumeVoiceVerification(server, db, patientClient)
 	tools.RegisterNotifyCallLifecycle(server, db, callsRabbitMQ)
 	tools.RegisterUpdateWelfareRunStatus(server, db, patientPortalClient)
+	tools.RegisterListPatientHospitals(server, db)
+	tools.RegisterListSchedulableStaff(server, db, schedulingClient)
+	tools.RegisterScheduleHealthStaffMeeting(server, db, schedulingClient)
 
 	if strings.EqualFold(sharedenv.GetString("MCP_TRANSPORT", "stdio"), "http") {
 		addr := sharedenv.GetString("MCP_HTTP_ADDR", ":8092")

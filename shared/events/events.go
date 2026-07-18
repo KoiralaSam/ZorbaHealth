@@ -4,12 +4,14 @@ import "github.com/KoiralaSam/ZorbaHealth/shared/contracts"
 
 const (
 	// PatientExchange is the topic exchange for patient-related events (publish + consume).
-	PatientExchange = "patient"
+	PatientExchange    = "patient"
 	EscalationExchange = "zorba.escalation"
 
 	NotifyPatientRegisteredQueue          = "notify_patient_registered"
 	NotifyPatientPendingVerificationQueue = "notify_patient_pending_verification"
 	NotifyEmergencyEscalationQueue        = "notify_emergency_escalation"
+	NotifyMeetingRequestedQueue           = "notify_meeting_requested"
+	NotifyMeetingScheduledQueue           = "notify_meeting_scheduled"
 
 	// CallsExchange is the topic exchange for call lifecycle events.
 	CallsExchange = "zorba.calls"
@@ -44,6 +46,14 @@ var NotificationServicePatientQueueBindings = []QueueBinding{
 	{
 		QueueName:   NotifyEmergencyEscalationQueue,
 		RoutingKeys: []string{contracts.EmergencyEscalatedEvent},
+	},
+	{
+		QueueName:   NotifyMeetingRequestedQueue,
+		RoutingKeys: []string{contracts.PatientEventMeetingRequested},
+	},
+	{
+		QueueName:   NotifyMeetingScheduledQueue,
+		RoutingKeys: []string{contracts.PatientEventMeetingScheduled},
 	},
 }
 
@@ -93,13 +103,52 @@ type CallEvent struct {
 }
 
 type EmergencyEscalationData struct {
-	SessionID          string   `json:"session_id"`
-	PatientID          string   `json:"patient_id,omitempty"`
-	CallerPhone        string   `json:"caller_phone,omitempty"`
-	Reason             string   `json:"reason"`
-	Severity           string   `json:"severity,omitempty"`
-	TransferRequested  bool     `json:"transfer_requested,omitempty"`
-	TransferTarget     string   `json:"transfer_target,omitempty"`
-	AlertPhoneNumbers  []string `json:"alert_phone_numbers,omitempty"`
-	TranscriptExcerpt  string   `json:"transcript_excerpt,omitempty"`
+	SessionID         string   `json:"session_id"`
+	PatientID         string   `json:"patient_id,omitempty"`
+	CallerPhone       string   `json:"caller_phone,omitempty"`
+	Reason            string   `json:"reason"`
+	Severity          string   `json:"severity,omitempty"`
+	TransferRequested bool     `json:"transfer_requested,omitempty"`
+	TransferTarget    string   `json:"transfer_target,omitempty"`
+	AlertPhoneNumbers []string `json:"alert_phone_numbers,omitempty"`
+	TranscriptExcerpt string   `json:"transcript_excerpt,omitempty"`
+}
+
+// MeetingRequestedData is published after a meeting request is persisted but before LiveKit join links exist.
+type MeetingRequestedData struct {
+	MeetingID       string `json:"meeting_id"`
+	PatientID       string `json:"patient_id"`
+	StaffID         string `json:"staff_id"`
+	HospitalID      string `json:"hospital_id"`
+	CorrelationID   string `json:"correlation_id"`
+	StartsAtRFC3339 string `json:"starts_at"`
+	DurationMinutes int    `json:"duration_minutes"`
+	Timezone        string `json:"timezone"`
+	Title           string `json:"title"`
+	PatientName     string `json:"patient_name"`
+	StaffEmail      string `json:"staff_email"`
+	StaffName       string `json:"staff_name"`
+}
+
+// MeetingScheduledData is published after a health-staff meeting is persisted.
+type MeetingScheduledData struct {
+	MeetingID       string `json:"meeting_id"`
+	PatientID       string `json:"patient_id"`
+	StaffID         string `json:"staff_id"`
+	HospitalID      string `json:"hospital_id"`
+	CorrelationID   string `json:"correlation_id"`
+	StartsAtRFC3339 string `json:"starts_at"`
+	DurationMinutes int    `json:"duration_minutes"`
+	Timezone        string `json:"timezone"`
+	Title           string `json:"title"`
+	JoinURL         string `json:"join_url"`
+	PatientEmail    string `json:"patient_email"`
+	PatientPhone    string `json:"patient_phone"`
+	PatientName     string `json:"patient_name"`
+	StaffEmail      string `json:"staff_email"`
+	StaffName       string `json:"staff_name"`
+	SendSMS         bool   `json:"send_sms"`
+	LiveKitRoomName string `json:"livekit_room_name,omitempty"`
+	PatientToken    string `json:"patient_token,omitempty"`
+	StaffToken      string `json:"staff_token,omitempty"`
 }

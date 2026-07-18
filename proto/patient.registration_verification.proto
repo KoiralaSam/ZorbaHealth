@@ -22,6 +22,10 @@ service RegistrationVerificationService {
   rpc VerifyExistingPhoneOTP(VerifyExistingPhoneOTPRequest) returns (VerifyExistingPhoneOTPResponse);
   // VerifyEmail consumes the token from the verification link, creates user and patient, returns ids.
   rpc VerifyEmail(VerifyEmailRequest) returns (VerifyEmailResponse);
+  // ProcessInboundVoiceSms handles an inbound SMS reply during an active voice OTP wait (internal).
+  rpc ProcessInboundVoiceSms(ProcessInboundVoiceSmsRequest) returns (ProcessInboundVoiceSmsResponse);
+  // ConsumeVoiceVerification returns a patient id verified via SMS for a voice session (internal).
+  rpc ConsumeVoiceVerification(ConsumeVoiceVerificationRequest) returns (ConsumeVoiceVerificationResponse);
 }
 
 message StartRegistrationRequest {
@@ -48,6 +52,7 @@ message LookupPatientByPhoneResponse {
 
 message StartExistingPhoneVerificationRequest {
   string phone_number = 1;
+  string voice_session_id = 2;
 }
 
 message StartExistingPhoneVerificationResponse {
@@ -82,4 +87,25 @@ message VerifyEmailResponse {
   string message = 1;
   string patient_id = 2;
   string user_id = 3;  // for redirect to login or session
+}
+
+message ProcessInboundVoiceSmsRequest {
+  string from_phone = 1;
+  string message_body = 2;
+}
+
+message ProcessInboundVoiceSmsResponse {
+  bool processed = 1;
+  string reason = 2;
+  string voice_session_id = 3;
+  string correlation_id = 4;
+}
+
+message ConsumeVoiceVerificationRequest {
+  string voice_session_id = 1;
+}
+
+message ConsumeVoiceVerificationResponse {
+  bool verified = 1;
+  string patient_id = 2;
 }

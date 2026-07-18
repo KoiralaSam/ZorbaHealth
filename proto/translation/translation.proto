@@ -13,6 +13,12 @@ message TranslateRequest {
 }
 
 message TranslateResponse {
-    string translated_text = 1;
-    string detected_lang   = 2;
+    string translated_text                 = 1;
+    string detected_lang                   = 2;
+    string source_language                 = 3;
+    string target_language                 = 4;
+    float confidence_score                 = 5;
+    string translation_provider            = 6;
+    bool medical_term_preservation_check   = 7;
+    string advisory_message                = 8;
 }

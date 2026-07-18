@@ -58,8 +58,8 @@ func (r *HospitalAnalyticsRepository) GetCallVolume(
 
 	rows, err := r.queries.GetHospitalCallVolume(ctx, sqlc.GetHospitalCallVolumeParams{
 		Granularity: granularity,
-		FromDate:    pgTimestamp(from),
-		ToDate:      pgTimestamp(to),
+		FromDate:    pgDate(from),
+		ToDate:      pgDate(to),
 		HospitalID:  hospitalUUID,
 	})
 	if err != nil {
@@ -119,7 +119,7 @@ func (r *HospitalAnalyticsRepository) GetTopConditions(ctx context.Context, hosp
 func (r *HospitalAnalyticsRepository) GetToolUsage(ctx context.Context, hospitalID string, from time.Time) ([]models.ToolUsageStat, error) {
 	rows, err := r.queries.GetHospitalToolUsage(ctx, sqlc.GetHospitalToolUsageParams{
 		HospitalID: hospitalID,
-		FromTime:   pgTimestamptz(from),
+		FromTime:   pgTimestamp(from),
 	})
 	if err != nil {
 		return nil, err
@@ -286,6 +286,14 @@ func pgTimestamp(t time.Time) pgtype.Timestamp {
 	return pgtype.Timestamp{
 		Time:  t,
 		Valid: true,
+	}
+}
+
+func pgDate(t time.Time) pgtype.Date {
+	return pgtype.Date{
+		Time:             t,
+		Valid:            true,
+		InfinityModifier: 0,
 	}
 }
 

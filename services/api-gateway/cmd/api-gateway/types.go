@@ -3,15 +3,17 @@ package main
 import "time"
 
 type PatientLoginRequest struct {
+	Identifier  string `json:"identifier"`
 	PhoneNumber string `json:"phone_number"`
 	Email       string `json:"email"`
 	Password    string `json:"password"`
 }
 
 type PatientLoginResponse struct {
-	Message     string `json:"message,omitempty"`
-	AccessToken string `json:"access_token,omitempty"`
-	PatientID   string `json:"patient_id,omitempty"`
+	Message      string `json:"message,omitempty"`
+	AccessToken  string `json:"access_token,omitempty"`
+	PatientID    string `json:"patient_id,omitempty"`
+	RefreshToken string `json:"refresh_token,omitempty"`
 }
 
 type PatientProfileResponse struct {
@@ -120,6 +122,72 @@ type WelfareCheckListResponse struct {
 	WelfareChecks []WelfareCheckRecord `json:"welfare_checks"`
 }
 
+type BridgedCallTranslationPreferencesRecord struct {
+	Enabled             bool   `json:"enabled"`
+	LanguageMode        string `json:"language_mode,omitempty"`
+	LanguageCode        string `json:"language_code,omitempty"`
+	ParticipantIdentity string `json:"participant_identity,omitempty"`
+	UpdatedAt           string `json:"updated_at,omitempty"`
+}
+
+type BridgedCallSessionRecord struct {
+	SessionID            string                                  `json:"session_id,omitempty"`
+	RoomSID              string                                  `json:"room_sid,omitempty"`
+	PatientID            string                                  `json:"patient_id,omitempty"`
+	HospitalID           string                                  `json:"hospital_id,omitempty"`
+	StaffID              string                                  `json:"staff_id,omitempty"`
+	Status               string                                  `json:"status,omitempty"`
+	RequestedByActorType string                                  `json:"requested_by_actor_type,omitempty"`
+	RequestedByActorID   string                                  `json:"requested_by_actor_id,omitempty"`
+	TransferReason       string                                  `json:"transfer_reason,omitempty"`
+	RequestedAt          string                                  `json:"requested_at,omitempty"`
+	ConnectedAt          string                                  `json:"connected_at,omitempty"`
+	EndedAt              string                                  `json:"ended_at,omitempty"`
+	PatientTranslation   BridgedCallTranslationPreferencesRecord `json:"patient_translation"`
+	StaffTranslation     BridgedCallTranslationPreferencesRecord `json:"staff_translation"`
+}
+
+type BridgedCallSessionResponse struct {
+	Session          BridgedCallSessionRecord `json:"session"`
+	PatientRoomToken string                   `json:"patient_room_token,omitempty"`
+	LiveKitWSURL     string                   `json:"livekit_ws_url,omitempty"`
+}
+
+type BridgedCallConnectResponse struct {
+	Session BridgedCallSessionRecord `json:"session"`
+	// LiveKit join credentials for the connecting staff member.
+	StaffRoomToken string `json:"staff_room_token,omitempty"`
+	LiveKitWSURL   string `json:"livekit_ws_url,omitempty"`
+}
+
+type BridgedCallSessionListResponse struct {
+	Sessions []BridgedCallSessionRecord `json:"sessions"`
+}
+
+type RequestBridgedCallTransferRequest struct {
+	SessionID      string `json:"session_id"`
+	RoomSID        string `json:"room_sid,omitempty"`
+	HospitalID     string `json:"hospital_id"`
+	StaffID        string `json:"staff_id,omitempty"`
+	TransferReason string `json:"transfer_reason,omitempty"`
+}
+
+type ConnectBridgedCallRequest struct {
+	SessionID                string `json:"session_id"`
+	StaffParticipantIdentity string `json:"staff_participant_identity,omitempty"`
+}
+
+type UpdateBridgedCallTranslationRequest struct {
+	SessionID   string                                  `json:"session_id"`
+	Participant string                                  `json:"participant"`
+	Translation BridgedCallTranslationPreferencesRecord `json:"translation"`
+}
+
+type EndBridgedCallRequest struct {
+	SessionID string `json:"session_id"`
+	Reason    string `json:"reason,omitempty"`
+}
+
 type AuditEventRecord struct {
 	EventID       string         `json:"event_id,omitempty"`
 	EventType     string         `json:"event_type,omitempty"`
@@ -165,11 +233,41 @@ type HospitalLoginRequest struct {
 	Password string `json:"password"`
 }
 
+type HospitalRegisterRequest struct {
+	HospitalName       string `json:"hospital_name"`
+	LicenseNo          string `json:"license_no"`
+	Email              string `json:"email"`
+	PhoneNumber        string `json:"phone_number,omitempty"`
+	Password           string `json:"password"`
+	StaffName          string `json:"staff_name"`
+	StaffRole          string `json:"staff_role,omitempty"`
+	Address            string `json:"address,omitempty"`
+	RegistrationNumber string `json:"registration_number,omitempty"`
+}
+
+type HospitalStaffRegisterRequest struct {
+	Email       string `json:"email"`
+	PhoneNumber string `json:"phone_number,omitempty"`
+	Password    string `json:"password"`
+	StaffName   string `json:"staff_name"`
+	StaffRole   string `json:"staff_role"`
+}
+
+type HospitalRegisterResponse struct {
+	Message    string `json:"message,omitempty"`
+	UserID     string `json:"user_id,omitempty"`
+	HospitalID string `json:"hospital_id,omitempty"`
+	StaffID    string `json:"staff_id,omitempty"`
+	StaffRole  string `json:"staff_role,omitempty"`
+}
+
 type HospitalLoginResponse struct {
-	Message     string `json:"message,omitempty"`
-	AccessToken string `json:"access_token,omitempty"`
-	HospitalID  string `json:"hospital_id,omitempty"`
-	Role        string `json:"role,omitempty"`
+	Message      string `json:"message,omitempty"`
+	AccessToken  string `json:"access_token,omitempty"`
+	HospitalID   string `json:"hospital_id,omitempty"`
+	StaffID      string `json:"staff_id,omitempty"`
+	Role         string `json:"role,omitempty"`
+	RefreshToken string `json:"refresh_token,omitempty"`
 }
 
 type HospitalPatientSummaryRequest struct {
@@ -178,7 +276,22 @@ type HospitalPatientSummaryRequest struct {
 }
 
 type HospitalPatientSummaryResponse struct {
-	Summary string `json:"summary,omitempty"`
+	PatientID string `json:"patient_id,omitempty"`
+	Summary   string `json:"summary,omitempty"`
+}
+
+type HospitalPatientRecord struct {
+	PatientID        string `json:"patient_id,omitempty"`
+	FullName         string `json:"full_name,omitempty"`
+	Email            string `json:"email,omitempty"`
+	PhoneNumber      string `json:"phone_number,omitempty"`
+	DateOfBirth      string `json:"date_of_birth,omitempty"`
+	ConsentGrantedAt string `json:"consent_granted_at,omitempty"`
+	LastCallAt       string `json:"last_call_at,omitempty"`
+}
+
+type HospitalPatientListResponse struct {
+	Patients []HospitalPatientRecord `json:"patients"`
 }
 
 type HospitalIncidentRecord struct {
@@ -199,4 +312,57 @@ type HospitalIncidentListResponse struct {
 type HospitalPatientAuditResponse struct {
 	PatientID string             `json:"patient_id,omitempty"`
 	Events    []AuditEventRecord `json:"events,omitempty"`
+}
+
+type HospitalConsentRequestCreateRequest struct {
+	RequestedPermissions []string `json:"requested_permissions,omitempty"`
+	Note                 string   `json:"note,omitempty"`
+	ExpiresInMinutes     int      `json:"expires_in_minutes,omitempty"`
+}
+
+type HospitalConsentRequestRecord struct {
+	ID                   string   `json:"id,omitempty"`
+	Token                string   `json:"token,omitempty"`
+	HospitalID           string   `json:"hospital_id,omitempty"`
+	HospitalName         string   `json:"hospital_name,omitempty"`
+	StaffID              string   `json:"staff_id,omitempty"`
+	StaffName            string   `json:"staff_name,omitempty"`
+	StaffRole            string   `json:"staff_role,omitempty"`
+	PatientID            string   `json:"patient_id,omitempty"`
+	RequestedPermissions []string `json:"requested_permissions,omitempty"`
+	Note                 string   `json:"note,omitempty"`
+	ExpiresAt            string   `json:"expires_at,omitempty"`
+	ApprovedAt           string   `json:"approved_at,omitempty"`
+	CreatedAt            string   `json:"created_at,omitempty"`
+	Status               string   `json:"status,omitempty"`
+	QRPayload            string   `json:"qr_payload,omitempty"`
+}
+
+type HospitalConsentRequestCreateResponse struct {
+	Request HospitalConsentRequestRecord `json:"request"`
+}
+
+type HospitalConsentRequestListResponse struct {
+	Requests []HospitalConsentRequestRecord `json:"requests"`
+}
+
+type PatientHospitalConsentRecord struct {
+	HospitalID   string `json:"hospital_id,omitempty"`
+	HospitalName string `json:"hospital_name,omitempty"`
+	GrantedAt    string `json:"granted_at,omitempty"`
+	RevokedAt    string `json:"revoked_at,omitempty"`
+	Status       string `json:"status,omitempty"`
+}
+
+type PatientHospitalConsentListResponse struct {
+	Consents []PatientHospitalConsentRecord `json:"consents"`
+}
+
+type PatientConsentRequestLookupResponse struct {
+	Request HospitalConsentRequestRecord `json:"request"`
+}
+
+type PatientConsentRequestApproveResponse struct {
+	Message string                       `json:"message,omitempty"`
+	Consent PatientHospitalConsentRecord `json:"consent"`
 }

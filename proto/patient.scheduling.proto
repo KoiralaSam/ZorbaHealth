@@ -1,0 +1,208 @@
+syntax = "proto3";
+
+package patient.scheduling;
+
+import "google/protobuf/timestamp.proto";
+
+option go_package = "shared/proto/patient/scheduling;scheduling";
+
+service SchedulingService {
+  rpc ScheduleHealthStaffMeeting(ScheduleHealthStaffMeetingRequest) returns (ScheduleHealthStaffMeetingResponse);
+  rpc AcceptScheduledMeeting(AcceptScheduledMeetingRequest) returns (AcceptScheduledMeetingResponse);
+  rpc RescheduleScheduledMeeting(RescheduleScheduledMeetingRequest) returns (RescheduleScheduledMeetingResponse);
+  rpc ListScheduledMeetings(ListScheduledMeetingsRequest) returns (ListScheduledMeetingsResponse);
+  rpc CancelScheduledMeeting(CancelScheduledMeetingRequest) returns (CancelScheduledMeetingResponse);
+  rpc ListSchedulableStaff(ListSchedulableStaffRequest) returns (ListSchedulableStaffResponse);
+  rpc RequestBridgedCallTransfer(RequestBridgedCallTransferRequest) returns (RequestBridgedCallTransferResponse);
+  rpc ConnectBridgedCall(ConnectBridgedCallRequest) returns (ConnectBridgedCallResponse);
+  rpc GetBridgedCallSession(GetBridgedCallSessionRequest) returns (GetBridgedCallSessionResponse);
+  rpc ListBridgedCallSessions(ListBridgedCallSessionsRequest) returns (ListBridgedCallSessionsResponse);
+  rpc UpdateBridgedCallTranslation(UpdateBridgedCallTranslationRequest) returns (UpdateBridgedCallTranslationResponse);
+  rpc EndBridgedCall(EndBridgedCallRequest) returns (EndBridgedCallResponse);
+}
+
+message ScheduleHealthStaffMeetingRequest {
+  string patient_id = 1;
+  string staff_id = 2;
+  string hospital_id = 3;
+  google.protobuf.Timestamp starts_at = 4;
+  int32 duration_minutes = 5;
+  string timezone = 6;
+  string title = 7;
+  string notes = 8;
+  string channel = 9; // voice | portal | dashboard
+  string correlation_id = 10;
+  string voice_session_id = 11;
+  bool send_sms = 12;
+}
+
+message ScheduledMeeting {
+  string id = 1;
+  string patient_id = 2;
+  string staff_id = 3;
+  string hospital_id = 4;
+  google.protobuf.Timestamp starts_at = 5;
+  int32 duration_minutes = 6;
+  string timezone = 7;
+  string title = 8;
+  string join_url = 9;
+  string status = 10;
+  string correlation_id = 11;
+  string livekit_room_name = 12;
+  string patient_token = 13;
+  string staff_token = 14;
+}
+
+message ScheduleHealthStaffMeetingResponse {
+  ScheduledMeeting meeting = 1;
+}
+
+message AcceptScheduledMeetingRequest {
+  string meeting_id = 1;
+}
+
+message AcceptScheduledMeetingResponse {
+  ScheduledMeeting meeting = 1;
+}
+
+message RescheduleScheduledMeetingRequest {
+  string meeting_id = 1;
+  google.protobuf.Timestamp starts_at = 2;
+  int32 duration_minutes = 3;
+  string timezone = 4;
+  string title = 5;
+}
+
+message RescheduleScheduledMeetingResponse {
+  ScheduledMeeting meeting = 1;
+}
+
+message ListScheduledMeetingsRequest {
+  string patient_id = 1;
+  string staff_id = 2;
+  string hospital_id = 3;
+  bool include_cancelled = 4;
+  int32 limit = 5;
+}
+
+message ListScheduledMeetingsResponse {
+  repeated ScheduledMeeting meetings = 1;
+}
+
+message CancelScheduledMeetingRequest {
+  string meeting_id = 1;
+  string reason = 2;
+}
+
+message CancelScheduledMeetingResponse {
+  ScheduledMeeting meeting = 1;
+}
+
+message ListSchedulableStaffRequest {
+  string patient_id = 1;
+  string hospital_id = 2;
+}
+
+message StaffSummary {
+  string staff_id = 1;
+  string hospital_id = 2;
+  string name = 3;
+  string role = 4;
+  string email = 5;
+}
+
+message ListSchedulableStaffResponse {
+  repeated StaffSummary staff = 1;
+}
+
+message BridgedCallTranslationPreferences {
+  bool enabled = 1;
+  string language_mode = 2; // auto | manual
+  string language_code = 3;
+  string participant_identity = 4;
+  google.protobuf.Timestamp updated_at = 5;
+}
+
+message BridgedCallSession {
+  string session_id = 1;
+  string room_sid = 2;
+  string patient_id = 3;
+  string hospital_id = 4;
+  string staff_id = 5;
+  string status = 6; // transfer_requested | connected | ended
+  string requested_by_actor_type = 7;
+  string requested_by_actor_id = 8;
+  string transfer_reason = 9;
+  google.protobuf.Timestamp requested_at = 10;
+  google.protobuf.Timestamp connected_at = 11;
+  google.protobuf.Timestamp ended_at = 12;
+  BridgedCallTranslationPreferences patient_translation = 13;
+  BridgedCallTranslationPreferences staff_translation = 14;
+}
+
+message RequestBridgedCallTransferRequest {
+  string session_id = 1;
+  string room_sid = 2;
+  string patient_id = 3;
+  string hospital_id = 4;
+  string staff_id = 5;
+  string transfer_reason = 6;
+}
+
+message RequestBridgedCallTransferResponse {
+  BridgedCallSession session = 1;
+  string patient_room_token = 2;
+  string livekit_ws_url = 3;
+}
+
+message ConnectBridgedCallRequest {
+  string session_id = 1;
+  string staff_id = 2;
+  string staff_participant_identity = 3;
+}
+
+message ConnectBridgedCallResponse {
+  BridgedCallSession session = 1;
+  // LiveKit join token for the connecting staff member (not persisted).
+  string staff_room_token = 2;
+  string livekit_ws_url = 3;
+  string patient_room_token = 4;
+}
+
+message GetBridgedCallSessionRequest {
+  string session_id = 1;
+}
+
+message GetBridgedCallSessionResponse {
+  BridgedCallSession session = 1;
+  string patient_room_token = 2;
+  string livekit_ws_url = 3;
+}
+
+message ListBridgedCallSessionsRequest {
+  string status = 1; // optional: transfer_requested | connected | ended
+  int32 limit = 2;
+}
+
+message ListBridgedCallSessionsResponse {
+  repeated BridgedCallSession sessions = 1;
+}
+
+message UpdateBridgedCallTranslationRequest {
+  string session_id = 1;
+  string participant = 2; // patient | staff
+  BridgedCallTranslationPreferences translation = 3;
+}
+
+message UpdateBridgedCallTranslationResponse {
+  BridgedCallSession session = 1;
+}
+
+message EndBridgedCallRequest {
+  string session_id = 1;
+  string reason = 2;
+}
+
+message EndBridgedCallResponse {
+  BridgedCallSession session = 1;
+}

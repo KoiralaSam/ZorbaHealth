@@ -18,13 +18,23 @@ type Querier interface {
 	DeleteUser(ctx context.Context, id pgtype.UUID) error
 	FetchAuth(ctx context.Context, arg FetchAuthParams) (Auth, error)
 	GetAdminByUserID(ctx context.Context, userID pgtype.UUID) (GetAdminByUserIDRow, error)
+	GetAuthByAuthUUID(ctx context.Context, authUuid pgtype.UUID) (Auth, error)
 	GetAuthByUserIDAndAuthUUID(ctx context.Context, arg GetAuthByUserIDAndAuthUUIDParams) (Auth, error)
 	GetHospitalStaffByUserID(ctx context.Context, userID pgtype.UUID) (GetHospitalStaffByUserIDRow, error)
+	GetMaxGenerationForAuthUUID(ctx context.Context, authUuid pgtype.UUID) (int32, error)
 	GetPatientByUserID(ctx context.Context, userID pgtype.UUID) (GetPatientByUserIDRow, error)
+	GetRefreshTokenByHash(ctx context.Context, tokenHash []byte) (RefreshToken, error)
+	GetRefreshTokenByHashForUpdate(ctx context.Context, tokenHash []byte) (RefreshToken, error)
 	GetUserByEmail(ctx context.Context, email pgtype.Text) (User, error)
 	GetUserByID(ctx context.Context, id pgtype.UUID) (User, error)
 	GetUserByPhoneNumber(ctx context.Context, phoneNumber pgtype.Text) (User, error)
+	InsertRefreshToken(ctx context.Context, arg InsertRefreshTokenParams) (RefreshToken, error)
 	ListUsersByRole(ctx context.Context, arg ListUsersByRoleParams) ([]User, error)
+	MarkRefreshTokenUsed(ctx context.Context, id int64) error
+	RevokeAllRefreshTokensForAuthUUID(ctx context.Context, authUuid pgtype.UUID) error
+	RevokeAuthByAuthUUID(ctx context.Context, arg RevokeAuthByAuthUUIDParams) error
+	RevokeRefreshToken(ctx context.Context, id int64) error
+	TouchAuthByAuthUUID(ctx context.Context, authUuid pgtype.UUID) error
 	UpdateUserPassword(ctx context.Context, arg UpdateUserPasswordParams) (User, error)
 }
 

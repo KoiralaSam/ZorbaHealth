@@ -1,18 +1,20 @@
 package grpcclient
 
 import (
-	"context"
-	"errors"
 	"os"
 
+	sharedgrpcauth "github.com/KoiralaSam/ZorbaHealth/shared/grpc/auth"
 	"github.com/KoiralaSam/ZorbaHealth/shared/tracing"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
-	"google.golang.org/grpc/metadata"
 )
 
 func Dial(addr string) (*grpc.ClientConn, error) {
-	return DialInsecure(addr, grpc.WithUnaryInterceptor(injectAuthMetadata))
+	serviceName := os.Getenv("GRPC_CLIENT_SERVICE_NAME")
+	if serviceName == "" {
+		serviceName = os.Getenv("SERVICE_NAME")
+	}
+	return DialInsecure(addr, grpc.WithUnaryInterceptor(sharedgrpcauth.UnaryClientInterceptor(serviceName, os.Getenv("INTERNAL_SERVICE_SECRET"), true)))
 }
 
 func DialInsecure(addr string, extraOptions ...grpc.DialOption) (*grpc.ClientConn, error) {
@@ -24,29 +26,4 @@ func DialInsecure(addr string, extraOptions ...grpc.DialOption) (*grpc.ClientCon
 	return grpc.NewClient(addr, dialOptions...)
 }
 
-func injectAuthMetadata(
-	ctx context.Context,
-	method string,
-	req, reply any,
-	cc *grpc.ClientConn,
-	invoker grpc.UnaryInvoker,
-	opts ...grpc.CallOption,
-) error {
-	internal := os.Getenv("INTERNAL_SERVICE_SECRET")
-	if internal == "" {
-		return errors.New("INTERNAL_SERVICE_SECRET is not set")
-	}
-
-	forwarded, ok := ForwardedTokenFromContext(ctx)
-	if !ok {
-		return errors.New("forwarded token missing from context")
-	}
-
-	ctx = metadata.AppendToOutgoingContext(
-		ctx,
-		"x-internal-token", internal,
-		"x-forwarded-token", forwarded,
-	)
-
-	return invoker(ctx, method, req, reply, cc, opts...)
-}
+// injectAuthMetadata is now handled by shared/grpc/auth.UnaryClientInterceptor.

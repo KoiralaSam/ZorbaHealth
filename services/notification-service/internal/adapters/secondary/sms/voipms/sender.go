@@ -3,12 +3,14 @@ package voipms
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"io"
 	"net/http"
 	"net/url"
 	"strings"
 
 	domainErrors "github.com/KoiralaSam/ZorbaHealth/services/notification-service/internal/core/domain/errors"
+	sharedproviders "github.com/KoiralaSam/ZorbaHealth/shared/ports/providers"
 )
 
 // Sender sends SMS via VoIP.ms REST/JSON API.
@@ -21,6 +23,8 @@ type Sender struct {
 	password string // api_password (API password from account settings)
 	did      string // from number (DID)
 }
+
+var _ sharedproviders.SMSProvider = (*Sender)(nil)
 
 // NewSender creates a VoIP.ms SMS sender. baseURL is the REST endpoint (e.g. rest.php).
 // username and password are the VoIP.ms API credentials (api_username, api_password) sent in the URL.
@@ -54,6 +58,9 @@ func (s *Sender) SendSMS(ctx context.Context, toPhoneNumber, message string) err
 	}
 
 	to := normalizePhone(toPhoneNumber)
+	if len(to) != 10 {
+		return fmt.Errorf("voipms: destination must be 10-digit NANP after normalization, got %d digits", len(to))
+	}
 	fromDID := normalizePhone(s.did)
 
 	// VoIP.ms REST/JSON API: api_username, api_password, method and params in the URL; content_type=json for JSON output.
@@ -70,18 +77,21 @@ func (s *Sender) SendSMS(ctx context.Context, toPhoneNumber, message string) err
 	reqURL := s.baseURL + "?" + params.Encode()
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, reqURL, nil)
 	if err != nil {
-		return domainErrors.ErrVoipmsNewRequest
+		return fmt.Errorf("voipms: new request: %w", err)
 	}
 
 	resp, err := s.client.Do(req)
 	if err != nil {
-		return domainErrors.ErrVoipmsDoRequest
+		return fmt.Errorf("voipms: do request: %w", err)
 	}
 	defer resp.Body.Close()
 
-	bodyBytes, _ := io.ReadAll(resp.Body)
+	bodyBytes, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return fmt.Errorf("voipms: read response: %w", err)
+	}
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		return domainErrors.ErrVoipmsStatusBody
+		return fmt.Errorf("voipms: http status=%d body=%s", resp.StatusCode, truncateForError(bodyBytes, 512))
 	}
 
 	// VoIP.ms commonly returns HTTP 200 even when the request failed; the JSON body contains status=success|error.
@@ -91,11 +101,10 @@ func (s *Sender) SendSMS(ctx context.Context, toPhoneNumber, message string) err
 		Error   string `json:"error"`
 	}
 	if err := json.Unmarshal(bodyBytes, &out); err != nil {
-		// If response isn't JSON for some reason, treat non-empty body as a clue.
 		if len(bodyBytes) > 0 {
-			return domainErrors.ErrVoipmsUnexpectedResponse
+			return fmt.Errorf("voipms: unexpected response: %s", truncateForError(bodyBytes, 512))
 		}
-		return nil
+		return fmt.Errorf("voipms: empty response body")
 	}
 	if strings.ToLower(out.Status) != "success" {
 		msg := out.Message
@@ -103,11 +112,27 @@ func (s *Sender) SendSMS(ctx context.Context, toPhoneNumber, message string) err
 			msg = out.Error
 		}
 		if msg == "" {
-			msg = string(bodyBytes)
+			msg = truncateForError(bodyBytes, 512)
 		}
-		return domainErrors.ErrVoipmsAPIStatusMsg
+		return fmt.Errorf("voipms: api status=%s msg=%s", out.Status, msg)
 	}
 	return nil
+}
+
+func (s *Sender) ProviderName() string {
+	return "voipms"
+}
+
+func (s *Sender) SendText(ctx context.Context, msg sharedproviders.SMSMessage) error {
+	return s.SendSMS(ctx, msg.ToPhoneNumber, msg.Body)
+}
+
+func truncateForError(b []byte, max int) string {
+	s := strings.TrimSpace(string(b))
+	if len(s) <= max {
+		return s
+	}
+	return s[:max] + "..."
 }
 
 func normalizePhone(phone string) string {

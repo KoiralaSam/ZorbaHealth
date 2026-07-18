@@ -2,8 +2,11 @@ package interceptors
 
 import (
 	"context"
+	"log"
 
 	sharedauth "github.com/KoiralaSam/ZorbaHealth/shared/auth"
+	"github.com/KoiralaSam/ZorbaHealth/shared/grpcclient"
+	healthpb "github.com/KoiralaSam/ZorbaHealth/shared/proto/health_records"
 	grpcserver "google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/metadata"
@@ -27,12 +30,16 @@ func ClaimsInterceptor(
 		return nil, status.Error(codes.Unauthenticated, "missing forwarded token")
 	}
 
-	claims, err := sharedauth.VerifyToken(tokens[0])
+	forwardedToken := sharedauth.NormalizeBearerToken(tokens[0])
+	claims, err := sharedauth.VerifyToken(forwardedToken)
 	if err != nil {
+		log.Printf("forwarded token verification failed: %v", err)
 		return nil, status.Error(codes.Unauthenticated, "invalid forwarded token")
 	}
 
-	return handler(sharedauth.WithClaims(ctx, claims), req)
+	ctx = sharedauth.WithClaims(ctx, claims)
+	ctx = grpcclient.WithForwardedToken(ctx, forwardedToken)
+	return handler(ctx, req)
 }
 
 // Chain enforces trusted-service auth first, then end-user forwarded claims.
@@ -44,7 +51,20 @@ func Chain() grpcserver.UnaryServerInterceptor {
 		handler grpcserver.UnaryHandler,
 	) (any, error) {
 		return InternalAuthInterceptor(ctx, req, info, func(ctx context.Context, req any) (any, error) {
+			if !requiresForwardedClaims(info.FullMethod) {
+				return handler(ctx, req)
+			}
 			return ClaimsInterceptor(ctx, req, info, handler)
 		})
+	}
+}
+
+func requiresForwardedClaims(fullMethod string) bool {
+	switch fullMethod {
+	case healthpb.HealthRecordService_IngestDocument_FullMethodName,
+		healthpb.HealthRecordService_IngestFHIRBundle_FullMethodName:
+		return false
+	default:
+		return true
 	}
 }

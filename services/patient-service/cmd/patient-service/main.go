@@ -9,6 +9,7 @@ import (
 	"syscall"
 
 	grpc "github.com/KoiralaSam/ZorbaHealth/services/patient-service/internal/adapters/primary/grpc/handlers"
+	"github.com/KoiralaSam/ZorbaHealth/services/patient-service/internal/adapters/primary/grpc/interceptors"
 	authsvc "github.com/KoiralaSam/ZorbaHealth/services/patient-service/internal/adapters/secondary/external/auth"
 	livekitadapter "github.com/KoiralaSam/ZorbaHealth/services/patient-service/internal/adapters/secondary/external/livekit"
 	rmqadapter "github.com/KoiralaSam/ZorbaHealth/services/patient-service/internal/adapters/secondary/messaging/rabbitmq"
@@ -78,6 +79,10 @@ func main() {
 	if err != nil {
 		log.Fatalf("Failed to create pending registration repository: %v", err)
 	}
+	bridgedCallRepo, err := redisrepo.NewBridgedCallRepository()
+	if err != nil {
+		log.Fatalf("Failed to create bridged call repository: %v", err)
+	}
 
 	go func() {
 		sigChan := make(chan os.Signal, 1)
@@ -101,11 +106,14 @@ func main() {
 	defer rabbitmq.Close()
 	log.Println("Starting RabbitMQ connection")
 	patientPublisher := rmqadapter.NewPatientPublisher(rabbitmq)
+	schedulingPublisher := rmqadapter.NewSchedulingPublisher(rabbitmq)
+	meetingRepo := postgres.NewMeetingRepository(db)
+	liveKitProvider := livekitadapter.NewClient()
 
 	var auditClient auditpb.AuditServiceClient
 	auditConn, err := grpcclient.Dial(env.GetString("AUDIT_SERVICE_GRPC_ADDR", "audit-service:50058"))
 	if err != nil {
-		log.Printf("audit-service dial failed (welfare consent/audit disabled): %v", err)
+		log.Printf("audit-service dial failed (welfare, voice, and scheduling audit disabled): %v", err)
 	} else {
 		defer auditConn.Close()
 		auditClient = auditpb.NewAuditServiceClient(auditConn)
@@ -120,10 +128,13 @@ func main() {
 		auditClient,
 		livekitadapter.NewWelfareCheckCallProvider(),
 	)
+	schedulingSvc := services.NewSchedulingService(meetingRepo, postgresRepo, bridgedCallRepo, liveKitProvider, schedulingPublisher, auditClient)
 
 	// --- gRPC server: register handlers and serve ---
-	grpcServer := grpcserver.NewServer(tracing.WithTracingInterceptors()...)
-	grpc.NewGRPCHandler(grpcServer, svc)
+	opts := tracing.WithTracingInterceptors()
+	opts = append(opts, grpcserver.ChainUnaryInterceptor(interceptors.ForwardedTokenInterceptor))
+	grpcServer := grpcserver.NewServer(opts...)
+	grpc.NewGRPCHandler(grpcServer, svc, schedulingSvc)
 	log.Printf("Starting gRPC server patient service on port %s", grpcAddr)
 	go func() {
 		if err := grpcServer.Serve(lis); err != nil {

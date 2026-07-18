@@ -86,6 +86,7 @@ type LoginResponse struct {
 	Message       string                 `protobuf:"bytes,1,opt,name=Message,proto3" json:"Message,omitempty"`
 	AccessToken   string                 `protobuf:"bytes,2,opt,name=AccessToken,proto3" json:"AccessToken,omitempty"`
 	PatientID     string                 `protobuf:"bytes,3,opt,name=PatientID,proto3" json:"PatientID,omitempty"`
+	RefreshToken  string                 `protobuf:"bytes,4,opt,name=RefreshToken,proto3" json:"RefreshToken,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -141,6 +142,13 @@ func (x *LoginResponse) GetPatientID() string {
 	return ""
 }
 
+func (x *LoginResponse) GetRefreshToken() string {
+	if x != nil {
+		return x.RefreshToken
+	}
+	return ""
+}
+
 var File_patient_auth_proto protoreflect.FileDescriptor
 
 const file_patient_auth_proto_rawDesc = "" +
@@ -149,11 +157,12 @@ const file_patient_auth_proto_rawDesc = "" +
 	"\fLoginRequest\x12 \n" +
 	"\vPhoneNumber\x18\x01 \x01(\tR\vPhoneNumber\x12\x14\n" +
 	"\x05Email\x18\x02 \x01(\tR\x05Email\x12\x1a\n" +
-	"\bPassword\x18\x03 \x01(\tR\bPassword\"i\n" +
+	"\bPassword\x18\x03 \x01(\tR\bPassword\"\x8d\x01\n" +
 	"\rLoginResponse\x12\x18\n" +
 	"\aMessage\x18\x01 \x01(\tR\aMessage\x12 \n" +
 	"\vAccessToken\x18\x02 \x01(\tR\vAccessToken\x12\x1c\n" +
-	"\tPatientID\x18\x03 \x01(\tR\tPatientID2P\n" +
+	"\tPatientID\x18\x03 \x01(\tR\tPatientID\x12\"\n" +
+	"\fRefreshToken\x18\x04 \x01(\tR\fRefreshToken2P\n" +
 	"\fLoginService\x12@\n" +
 	"\x05Login\x12\x1a.patient.auth.LoginRequest\x1a\x1b.patient.auth.LoginResponseB\x1eZ\x1cshared/proto/patient;patientb\x06proto3"
 

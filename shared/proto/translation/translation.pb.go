@@ -82,11 +82,17 @@ func (x *TranslateRequest) GetSourceLang() string {
 }
 
 type TranslateResponse struct {
-	state          protoimpl.MessageState `protogen:"open.v1"`
-	TranslatedText string                 `protobuf:"bytes,1,opt,name=translated_text,json=translatedText,proto3" json:"translated_text,omitempty"`
-	DetectedLang   string                 `protobuf:"bytes,2,opt,name=detected_lang,json=detectedLang,proto3" json:"detected_lang,omitempty"`
-	unknownFields  protoimpl.UnknownFields
-	sizeCache      protoimpl.SizeCache
+	state                        protoimpl.MessageState `protogen:"open.v1"`
+	TranslatedText               string                 `protobuf:"bytes,1,opt,name=translated_text,json=translatedText,proto3" json:"translated_text,omitempty"`
+	DetectedLang                 string                 `protobuf:"bytes,2,opt,name=detected_lang,json=detectedLang,proto3" json:"detected_lang,omitempty"`
+	SourceLanguage               string                 `protobuf:"bytes,3,opt,name=source_language,json=sourceLanguage,proto3" json:"source_language,omitempty"`
+	TargetLanguage               string                 `protobuf:"bytes,4,opt,name=target_language,json=targetLanguage,proto3" json:"target_language,omitempty"`
+	ConfidenceScore              float32                `protobuf:"fixed32,5,opt,name=confidence_score,json=confidenceScore,proto3" json:"confidence_score,omitempty"`
+	TranslationProvider          string                 `protobuf:"bytes,6,opt,name=translation_provider,json=translationProvider,proto3" json:"translation_provider,omitempty"`
+	MedicalTermPreservationCheck bool                   `protobuf:"varint,7,opt,name=medical_term_preservation_check,json=medicalTermPreservationCheck,proto3" json:"medical_term_preservation_check,omitempty"`
+	AdvisoryMessage              string                 `protobuf:"bytes,8,opt,name=advisory_message,json=advisoryMessage,proto3" json:"advisory_message,omitempty"`
+	unknownFields                protoimpl.UnknownFields
+	sizeCache                    protoimpl.SizeCache
 }
 
 func (x *TranslateResponse) Reset() {
@@ -133,6 +139,48 @@ func (x *TranslateResponse) GetDetectedLang() string {
 	return ""
 }
 
+func (x *TranslateResponse) GetSourceLanguage() string {
+	if x != nil {
+		return x.SourceLanguage
+	}
+	return ""
+}
+
+func (x *TranslateResponse) GetTargetLanguage() string {
+	if x != nil {
+		return x.TargetLanguage
+	}
+	return ""
+}
+
+func (x *TranslateResponse) GetConfidenceScore() float32 {
+	if x != nil {
+		return x.ConfidenceScore
+	}
+	return 0
+}
+
+func (x *TranslateResponse) GetTranslationProvider() string {
+	if x != nil {
+		return x.TranslationProvider
+	}
+	return ""
+}
+
+func (x *TranslateResponse) GetMedicalTermPreservationCheck() bool {
+	if x != nil {
+		return x.MedicalTermPreservationCheck
+	}
+	return false
+}
+
+func (x *TranslateResponse) GetAdvisoryMessage() string {
+	if x != nil {
+		return x.AdvisoryMessage
+	}
+	return ""
+}
+
 var File_translation_translation_proto protoreflect.FileDescriptor
 
 const file_translation_translation_proto_rawDesc = "" +
@@ -143,10 +191,16 @@ const file_translation_translation_proto_rawDesc = "" +
 	"\vtarget_lang\x18\x02 \x01(\tR\n" +
 	"targetLang\x12\x1f\n" +
 	"\vsource_lang\x18\x03 \x01(\tR\n" +
-	"sourceLang\"a\n" +
+	"sourceLang\"\x83\x03\n" +
 	"\x11TranslateResponse\x12'\n" +
 	"\x0ftranslated_text\x18\x01 \x01(\tR\x0etranslatedText\x12#\n" +
-	"\rdetected_lang\x18\x02 \x01(\tR\fdetectedLang2`\n" +
+	"\rdetected_lang\x18\x02 \x01(\tR\fdetectedLang\x12'\n" +
+	"\x0fsource_language\x18\x03 \x01(\tR\x0esourceLanguage\x12'\n" +
+	"\x0ftarget_language\x18\x04 \x01(\tR\x0etargetLanguage\x12)\n" +
+	"\x10confidence_score\x18\x05 \x01(\x02R\x0fconfidenceScore\x121\n" +
+	"\x14translation_provider\x18\x06 \x01(\tR\x13translationProvider\x12E\n" +
+	"\x1fmedical_term_preservation_check\x18\a \x01(\bR\x1cmedicalTermPreservationCheck\x12)\n" +
+	"\x10advisory_message\x18\b \x01(\tR\x0fadvisoryMessage2`\n" +
 	"\x12TranslationService\x12J\n" +
 	"\tTranslate\x12\x1d.translation.TranslateRequest\x1a\x1e.translation.TranslateResponseB&Z$shared/proto/translation;translationb\x06proto3"
 

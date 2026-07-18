@@ -40,9 +40,23 @@ sequenceDiagram
             VoiceAgent->>LLM: Emergency-only instructions
             LLM-->>VoiceAgent: Brief urgent guidance
         else Needs identity verification
-            VoiceAgent->>MCP: lookup/start OTP/complete registration tools
-            MCP->>Patient: gRPC verification or registration call
-            Patient-->>MCP: patient verified or registration advanced
+            VoiceAgent->>MCP: lookup/start OTP tools (JWT binds callerPhone + sessionID)
+            MCP->>Patient: StartExistingPhoneVerification + voice_session_id
+            Patient->>Patient: Redis voice:otp_wait + outbound OTP SMS
+            alt DTMF keypad
+                Caller->>LiveKit: DTMF digits
+                LiveKit->>VoiceAgent: sip_dtmf_received
+                VoiceAgent->>MCP: verify_existing_phone_otp (channel=dtmf)
+            else Inbound SMS reply
+                Caller->>Notify: POST /sms
+                Notify->>Patient: ProcessInboundVoiceSms
+                Patient->>Patient: Redis voice:verified
+                VoiceAgent->>MCP: consume_voice_verification (poll)
+            else Spoken or GetDtmfTask
+                VoiceAgent->>MCP: verify_existing_phone_otp (channel=spoken)
+            end
+            MCP->>Patient: gRPC verification
+            Patient-->>MCP: patient verified
             MCP-->>VoiceAgent: tool result
             VoiceAgent->>VoiceAgent: mint patient JWT with records:read
             VoiceAgent->>MCP: notify_call_lifecycle call.started
@@ -101,9 +115,101 @@ sequenceDiagram
     Web-->>Staff: render patient summary
 ```
 
+## Bridged Patient-Staff Interpretation
+
+```mermaid
+sequenceDiagram
+    participant Patient as Patient Phone
+    participant PatientApp as Patient Web/Mobile
+    participant LiveKit as LiveKit Room
+    participant Gateway as API Gateway
+    participant PatientSvc as Patient Service
+    participant Redis as Redis
+    participant Staff as Hospital Staff
+    participant StaffWeb as Hospital Web
+    participant Agent as Voice Agent
+    participant Relay as Interpretation Relay
+    participant Translate as Translation Service
+    participant AWS as Amazon Translate
+    participant Audit as Audit Service
+
+    Patient->>Gateway: POST /patient/calls/bridge-transfer
+    Gateway->>PatientSvc: RequestBridgedCallTransfer
+    PatientSvc->>Redis: store session + participant prefs
+    PatientSvc->>Audit: CALL_TRANSFER_REQUESTED
+    Gateway-->>PatientApp: session payload + patient LiveKit token
+
+    Staff->>StaffWeb: Open bridge console
+    StaffWeb->>Gateway: GET /hospital/calls/bridge-sessions?status=transfer_requested
+    Gateway->>PatientSvc: ListBridgedCallSessions
+    PatientSvc->>Redis: scan voice:bridge:* for hospital
+    Gateway-->>StaffWeb: pending transfer list
+    StaffWeb->>Gateway: POST /hospital/calls/bridge-connect
+    Gateway->>PatientSvc: ConnectBridgedCall
+    PatientSvc->>Redis: update session status=connected + refresh staff JWT
+    PatientSvc->>Audit: CALL_TRANSFER_CONNECTED
+    Gateway-->>StaffWeb: session payload + staff LiveKit join token
+    StaffWeb->>LiveKit: join room with staff token
+    PatientApp->>LiveKit: join room data-only with patient token
+    Agent->>LiveKit: detect staff join, enter interpreter mode
+    Agent->>LiveKit: unsubscribe SIP patient from raw staff audio track
+
+    loop Preference changes
+        Patient->>Gateway: PUT /patient/calls/bridge-translation
+        StaffWeb->>Gateway: PUT /hospital/calls/bridge-translation
+        Gateway->>PatientSvc: UpdateBridgedCallTranslation
+        PatientSvc->>Redis: store per-party prefs
+        PatientSvc->>Audit: INTERPRETATION_PREFERENCES_UPDATED
+    end
+
+    loop Doctor speaks
+        StaffWeb->>LiveKit: publish clinician audio
+        LiveKit->>Agent: clinician audio track
+        Agent->>Relay: POST /internal/interpretation/segment participant=staff
+        Relay->>Redis: resolve patient/staff prefs by session_id
+        Relay->>Translate: Translate(text, source_lang, target_lang) with forwarded actor JWT
+        Translate->>AWS: TranslateText
+        AWS-->>Translate: translated text
+        Translate-->>Relay: translated segment
+        Relay->>Audit: INTERPRETATION_SEGMENT_PROCESSED
+        Agent->>LiveKit: publish TTS in patient language
+        Agent->>LiveKit: publish zorba.interpretation caption participant=staff
+        LiveKit-->>Patient: hears translated TTS only
+        LiveKit-->>StaffWeb: sees staff caption, skips local translated audio playback
+        LiveKit-->>PatientApp: receives caption mirror
+    end
+
+    loop Patient speaks
+        Patient->>LiveKit: raw SIP audio
+        LiveKit->>Agent: patient audio
+        Note over Relay: voice-agent POSTs /internal/interpretation/segment (x-internal-token)
+        Relay->>Redis: resolve patient/staff prefs by session_id
+        Relay->>Translate: Translate(text, source_lang, target_lang) with forwarded actor JWT
+        Translate->>AWS: TranslateText
+        AWS-->>Translate: translated text
+        Translate-->>Relay: translated segment
+        Relay->>Audit: INTERPRETATION_SEGMENT_PROCESSED
+        Agent->>LiveKit: publish zorba.interpretation caption participant=patient
+        LiveKit-->>StaffWeb: clinician reads translated caption
+        LiveKit-->>PatientApp: receives caption mirror
+    end
+
+    StaffWeb->>Gateway: POST /hospital/calls/bridge-end
+    Gateway->>PatientSvc: EndBridgedCall
+    PatientSvc->>Redis: mark ended
+    PatientSvc->>Audit: CALL_BRIDGED_ENDED
+```
+
 ## Notes
 
 - Multilingual behavior starts from SIP participant metadata when present and falls back to transcript language detection.
+- Interpreter mode suppresses the normal conversational LLM flow while the clinician is connected; patient turns are relayed for captions instead of answered by Zorba.
+- Staff audio is translated with STT -> translation -> TTS, while patient companion surfaces join the same room data-only for caption/status mirroring.
 - Emergency handling is per final transcript turn, not just room setup time.
 - Record access requires verified patient identity and a scoped patient JWT.
 - Grounded patient Q&A and staff summaries are separate flows with separate actor permissions.
+- Bridged patient-staff calls now persist a session-scoped translation model in Redis so patient and staff preferences can be updated independently during a live consult.
+- The translation backend is now provider-switched and can use Amazon Translate without the legacy local `translation-model` deployment.
+- The interpretation relay requires `x-internal-token` (`INTERNAL_SERVICE_SECRET`) and serves the producer in voice-agent-service (`INTERPRETATION_SERVICE_URL`). Passthrough rules are documented in `services/interpretation-service/README.md`.
+- Bridge ops re-stamp the calling actor's JWT in Redis (transfer/connect/preference updates) so long consults keep a fresh token; ending a bridge clears stored JWTs and shortens the key TTL.
+- The Redis session schema is shared via `shared/bridge` so patient-service (writer) and interpretation-service (reader) cannot drift.

@@ -54,7 +54,18 @@ func RegisterTranslate(s *mcp.Server, db *pgxpool.Pool, client transpb.Translati
 			return errorResult(err.Error()), nil, nil
 		}
 
-		auditComplete(ctx, db, claims, sharedaudit.EventTranslationRequested, "translate", "success", "", correlationID, nil)
-		return textResult(resp.GetTranslatedText()), nil, nil
+		meta := map[string]any{
+			"provider":         resp.GetTranslationProvider(),
+			"confidence_score": resp.GetConfidenceScore(),
+		}
+		if resp.GetMedicalTermPreservationCheck() {
+			meta["medical_term_preservation_check"] = true
+		}
+		auditComplete(ctx, db, claims, sharedaudit.EventTranslationRequested, "translate", "success", "", correlationID, meta)
+		out := resp.GetTranslatedText()
+		if resp.GetAdvisoryMessage() != "" {
+			out += "\n\n" + resp.GetAdvisoryMessage()
+		}
+		return textResult(out), nil, nil
 	})
 }

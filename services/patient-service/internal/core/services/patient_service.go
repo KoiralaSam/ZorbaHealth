@@ -101,39 +101,6 @@ func (s *PatientService) StartRegistrationWithVerification(ctx context.Context, 
 	return token, otp, nil
 }
 
-func (s *PatientService) StartExistingPhoneVerification(ctx context.Context, phone string) error {
-	normalized := normalizePhone(phone)
-	if normalized == "" {
-		return domainErrors.ErrInvalidPhoneNumberNoDigits
-	}
-
-	patient, err := s.repo.GetPatientByPhoneNumber(ctx, normalized)
-	if err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
-			return domainErrors.ErrExistingPatientNotFound
-		}
-		return err
-	}
-
-	otp, err := generateOTP(6)
-	if err != nil {
-		return domainErrors.ErrGenerateOTPFailed
-	}
-
-	otpTTL := 5 * time.Minute
-	if err := s.pendingRegistrationRepo.SetOTP(ctx, normalized, "existing:"+patient.ID.String(), otp, otpTTL); err != nil {
-		return domainErrors.ErrOTPSetFailed
-	}
-
-	if s.publisher != nil {
-		if err := s.publisher.PublishPhoneVerificationCode(ctx, normalized, patient.FullName, otp); err != nil {
-			return domainErrors.ErrPublishPatientCachedEventFailed
-		}
-	}
-
-	return nil
-}
-
 func generateOTP(digits int) (string, error) {
 	const digitset = "0123456789"
 	b := make([]byte, digits)
@@ -280,7 +247,7 @@ func (s *PatientService) LoginPatient(
 		return nil, domainErrors.ErrRegistrationRequestRequired
 	}
 
-	loginResult, err := s.authService.Login(ctx, &models.LoginRequest{
+	userID, _, err := s.authService.ValidateUserCredentials(ctx, &models.LoginRequest{
 		Email:       strings.TrimSpace(patient.Email),
 		PhoneNumber: normalizePhone(patient.PhoneNumber),
 		Password:    patient.MedicalNotes,
@@ -289,7 +256,7 @@ func (s *PatientService) LoginPatient(
 		return nil, err
 	}
 
-	patientRecord, err := s.repo.GetPatientByUserID(ctx, loginResult.UserID)
+	patientRecord, err := s.repo.GetPatientByUserID(ctx, userID)
 	if err != nil {
 		return nil, err
 	}
@@ -300,9 +267,10 @@ func (s *PatientService) LoginPatient(
 	}
 
 	return &models.PatientSessionResult{
-		PatientID:   patientRecord.ID.String(),
-		UserID:      patientRecord.UserID.String(),
-		AccessToken: session.AccessToken,
+		PatientID:    patientRecord.ID.String(),
+		UserID:       patientRecord.UserID.String(),
+		AccessToken:  session.AccessToken,
+		RefreshToken: session.RefreshToken,
 	}, nil
 }
 

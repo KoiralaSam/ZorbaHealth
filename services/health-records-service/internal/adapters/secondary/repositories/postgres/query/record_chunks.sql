@@ -73,6 +73,36 @@ WHERE patient_id = $1
   AND (
     $2 = '' OR
     $2 = 'full' OR
+    (
+      lower($2) IN ('medication', 'medications', 'meds')
+      AND (
+        fhir_resource_type IN ('MedicationRequest', 'MedicationStatement', 'Medication')
+        OR lower(chunk_text) LIKE '%medication%'
+        OR lower(chunk_text) LIKE '%medications%'
+        OR lower(chunk_text) LIKE '%prescription%'
+        OR lower(chunk_text) LIKE '%prescribed%'
+        OR lower(chunk_text) LIKE '%drug%'
+      )
+    ) OR (
+      lower($2) IN ('allergy', 'allergies')
+      AND (
+        fhir_resource_type = 'AllergyIntolerance'
+        OR lower(chunk_text) LIKE '%allergy%'
+        OR lower(chunk_text) LIKE '%allergies%'
+        OR lower(chunk_text) LIKE '%allergic%'
+        OR lower(chunk_text) LIKE '%allergen%'
+        OR lower(chunk_text) LIKE '%intolerance%'
+      )
+    ) OR (
+      lower($2) IN ('diagnosis', 'diagnoses', 'condition', 'conditions')
+      AND (
+        fhir_resource_type = 'Condition'
+        OR lower(chunk_text) LIKE '%diagnosis%'
+        OR lower(chunk_text) LIKE '%diagnoses%'
+        OR lower(chunk_text) LIKE '%condition%'
+        OR lower(chunk_text) LIKE '%problem%'
+      )
+    ) OR
     lower(chunk_text) LIKE '%' || lower($2) || '%'
   )
 ORDER BY chunk_index

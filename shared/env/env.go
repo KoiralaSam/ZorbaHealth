@@ -44,3 +44,17 @@ func GetBool(key string, fallback bool) bool {
 
 	return boolVal
 }
+
+func GetFloat(key string, fallback float64) float64 {
+	val, ok := os.LookupEnv(key)
+	if !ok {
+		return fallback
+	}
+
+	floatVal, err := strconv.ParseFloat(val, 64)
+	if err != nil {
+		return fallback
+	}
+
+	return floatVal
+}
