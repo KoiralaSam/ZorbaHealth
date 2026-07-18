@@ -6,7 +6,8 @@ progresses through identity verification. MCP remains the backend policy
 boundary for PHI access.
 """
 
-from dataclasses import dataclass
+import asyncio
+from dataclasses import dataclass, field
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
@@ -22,9 +23,12 @@ class SessionUserData:
     room_name: str = ""
     room_sid: str = ""
     session_id: str = ""
+    caller_identity: str = ""
     caller_phone: str = ""
     language: str = "en"
     patient_id_hint: str = ""
+    interpreter_mode: bool = False
+    staff_identity: str = ""
 
     # Tokens: provisional until identity is verified, then upgraded.
     provisional_token: str = ""
@@ -35,6 +39,9 @@ class SessionUserData:
 
     # Tracks the active verification path so tools know which OTP to submit.
     verification_mode: str = ""  # "existing" | ""
+    verification_correlation_id: str = ""
+    dtmf_otp_buffer: str = ""
+    verification_attempts: int = 0
 
     # Health context loaded after verification; summarised by Go.
     health_context: str = ""
@@ -56,6 +63,9 @@ class SessionUserData:
     mcp_client: "MCPClient | None" = None
     session_auth: "SessionAuth | None" = None
 
+    # Background poll for inbound-SMS OTP completion (see verification.wait_for_sms_verification).
+    otp_collection_task: asyncio.Task | None = field(default=None, repr=False)
+
     @property
     def active_token(self) -> str:
         """Return the best available token for tool API calls."""
@@ -72,3 +82,12 @@ class SessionUserData:
         self.patient_token = patient_token
         self.verification_state = "verified_patient"
         self.verification_mode = ""
+
+    def cancel_background_verification(self) -> None:
+        """Stop SMS OTP polling and other verification background work for this call."""
+        if self.verification_state == "existing_patient_otp_pending":
+            self.verification_state = "call_ended"
+        task = self.otp_collection_task
+        if task is not None and not task.done():
+            task.cancel()
+        self.otp_collection_task = None

@@ -47,3 +47,24 @@ Required environment:
 ```bash
 uv run pytest
 ```
+
+## Kubernetes / worker tuning
+
+When running `python src/agent.py start` (production worker mode), the LiveKit `AgentServer` reads:
+
+| Variable | Default | Purpose |
+|----------|---------|---------|
+| `VOICE_AGENT_NUM_IDLE_PROCESSES` | `1` | Prewarmed job processes (faster SIP answer) |
+| `VOICE_AGENT_LOAD_THRESHOLD` | `0.75` | Stop accepting jobs above this load (0–1) |
+| `VOICE_AGENT_SHUTDOWN_PROCESS_TIMEOUT` | `30` | Grace period per job process on hangup |
+| `VOICE_AGENT_INITIALIZE_PROCESS_TIMEOUT` | `45` | Time allowed for Silero VAD prewarm |
+| `VOICE_AGENT_JOB_MEMORY_WARN_MB` | `1200` | Log warning if a job process exceeds this RSS |
+| `VOICE_AGENT_JOB_MEMORY_LIMIT_MB` | `0` | Kill job process above this RSS (`0` = disabled) |
+
+Set `ENABLE_TURN_DETECTOR=false` on small clusters; the multilingual turn model adds significant CPU/RAM during calls.
+
+`VOICE_AGENT_REQUIRE_SIP_CALLER=true` (default) skips LiveKit jobs that have no SIP/phone participant so phantom room dispatches do not run the LLM greeting (~3k tokens). Set to `false` only for local `agent.py dev` without SIP.
+
+SIP **trunk probe** rooms (`call-_trunk_*`, identity `sip_trunk_*`) are always skipped—they are not patient calls but still dispatch the agent and previously triggered the greeting LLM.
+
+Health checks: `GET /health` on `VOICE_AGENT_HTTP_ADDR` (default `:8090`).

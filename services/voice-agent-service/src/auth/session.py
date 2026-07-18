@@ -26,14 +26,21 @@ class SessionAuth:
         self._issuer = issuer
         self._token_ttl_seconds = token_ttl_seconds
 
-    def mint_provisional_token(self, session_id: str) -> str:
+    def mint_provisional_token(self, session_id: str, caller_phone: str = "") -> str:
         return self.mint_patient_token(
             patient_id=f"session:{session_id}",
             session_id=session_id,
             scopes=["location:read"],
+            caller_phone=caller_phone,
         )
 
-    def mint_patient_token(self, patient_id: str, session_id: str, scopes: list[str]) -> str:
+    def mint_patient_token(
+        self,
+        patient_id: str,
+        session_id: str,
+        scopes: list[str],
+        caller_phone: str = "",
+    ) -> str:
         now = int(time.time())
         payload = {
             "actorType": "patient",
@@ -44,6 +51,9 @@ class SessionAuth:
             "iat": now,
             "exp": now + self._token_ttl_seconds,
         }
+        digits = "".join(c for c in caller_phone if c.isdigit())
+        if digits:
+            payload["callerPhone"] = digits
         return jwt.encode(payload, self._patient_jwt_secret, algorithm="HS256")
 
     def verify_patient_token(self, token: str) -> SessionClaims:
