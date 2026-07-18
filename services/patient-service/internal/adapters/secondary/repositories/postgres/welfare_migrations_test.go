@@ -10,10 +10,10 @@ import (
 func TestWelfareMigrationsAreDeterministic(t *testing.T) {
 	root := filepath.Join("..", "..", "..", "..", "..", "..", "..", "migrations")
 	// services/patient-service/internal/adapters/secondary/repositories/postgres -> repo root
-	up16 := filepath.Join(root, "000016_welfare_checks.up.sql")
-	down16 := filepath.Join(root, "000016_welfare_checks.down.sql")
-	up17 := filepath.Join(root, "000017_ensure_welfare_checks.up.sql")
-	down17 := filepath.Join(root, "000017_ensure_welfare_checks.down.sql")
+	up16 := filepath.Join(root, "000018_welfare_checks.up.sql")
+	down16 := filepath.Join(root, "000018_welfare_checks.down.sql")
+	up17 := filepath.Join(root, "000019_ensure_welfare_checks.up.sql")
+	down17 := filepath.Join(root, "000019_ensure_welfare_checks.down.sql")
 	for _, path := range []string{up16, down16, up17, down17} {
 		body, err := os.ReadFile(path)
 		if err != nil {
