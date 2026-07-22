@@ -1,0 +1,44 @@
+---
+description: Strict Kubernetes / Tilt rules for local ZorbaHealth stack
+alwaysApply: true
+---
+
+# Kubernetes / Tilt (ZorbaHealth)
+
+## Non-negotiables
+
+1. Namespace is always `dev`. Every `kubectl` command uses `-n dev`. Never use `default`.
+2. Tilt owns the local stack. Do not Helm-install into `dev` while Tilt runs.
+3. Canonical manifests: `deploy/kubernetes/development/`. Loaded via `kustomize` in `Tiltfile`.
+4. New YAML is not deployed until listed in `kustomization.yaml`.
+5. New services need `Tiltfile` wiring: `docker_build` + `k8s_resource` + deps + port forwards.
+6. Never hardcode secrets in Deployments, ConfigMaps, Dockerfiles, logs, or commits.
+   - Template: `secrets.example.yaml` · Live: `secrets.yaml` (gitignored)
+
+## Config vs secrets
+
+| Value type | Object | Name / key |
+|---|---|---|
+| Non-secret config | ConfigMap | `app-config` |
+| App secrets | Secret | `app-secrets` |
+| Postgres bootstrap | Secret | `postgres-secret` |
+| RabbitMQ | Secret | `rabbitmq-credentials` → key `uri` |
+| LiveKit | Secret | `livekit-credentials` → `apiKey`, `apiSecret`, `sipTrunkId` |
+| Mail / VoIP.ms | Secret | `mailtrap-secrets` / `voipms-credentials` |
+
+Forbidden: `app-secrets`/`RABBITMQ_URI`. Correct: `rabbitmq-credentials`/`uri`.
+Before adding env, copy exact `name`+`key` from a sibling Deployment. Do not invent refs.
+
+## Networking
+
+- Pod→pod: K8s Service DNS (`auth-service:9092`), never `localhost` for another service.
+- `containerPort` must match the process bind port.
+- LiveKit is **outside** the cluster (`deploy/docker/livekit/`). Pods use `host.minikube.internal`; browsers use `LIVEKIT_PUBLIC_WS_URL`.
+
+## Change checklist
+
+1. Env consumed in code via existing helpers · 2. Keys in `app-config` / `secrets.example.yaml` · 3. Deployment refs match · 4. Listed in `kustomization.yaml` · 5. `Tiltfile` image matches Deployment `image:` · 6. Dockerfile paths match CronJob `command:` · 7. Prove with `kubectl -n dev` (describe/logs), not YAML alone.
+
+## Hard bans
+
+- No resources in `default` · No mixing Helm+Tilt in `dev` · No “fix” via hardcoded credentials · No prod manifest edits for local/dev tasks unless asked · Do not claim fixed without checking the live pod.

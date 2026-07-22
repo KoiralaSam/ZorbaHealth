@@ -37,30 +37,6 @@ Open:
 - Web app: `http://localhost:3000`
 - API gateway: `http://localhost:8081`
 
-### GitHub Codespaces
-
-Create a Codespace from this repo (8-core / 16GB+ recommended; 64GB storage preferred for kind+Tilt).
-
-**Compose (lighter):**
-
-```bash
-./scripts/codespaces/prepare-env.sh
-docker compose \
-  -f deploy/docker/docker-compose.yml \
-  -f deploy/docker/docker-compose.override.codespaces.yml \
-  up --build
-```
-
-**kind + Tilt (Kubernetes in Docker):**
-
-```bash
-./scripts/codespaces/kind-up.sh
-# fill deploy/kubernetes/development/secrets.yaml
-./deploy/tilt/preflight.sh && tilt up
-```
-
-Set Ports panel visibility to **Public** for `3000` / `8081` / `8091` when using `*.app.github.dev` URLs. Full steps: [`docs/local-setup.md`](docs/local-setup.md#option-b-github-codespaces).
-
 ### Optional: Tilt + local Kubernetes
 
 ```bash

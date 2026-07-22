@@ -58,63 +58,7 @@ export DATABASE_URL='postgres://healthai:healthai@localhost:5432/healthai?sslmod
 make migrate-up
 ```
 
-### Option B: GitHub Codespaces
-
-Codespaces supports **Docker Compose** (lighter) and optional **kind + Tilt** (full local Kubernetes). The [`.devcontainer/`](../.devcontainer/) config uses the prebuilt image `ghcr.io/koiralasam/zorbahealth-devcontainer` (built by [`.github/workflows/devcontainer-ghcr.yml`](../.github/workflows/devcontainer-ghcr.yml)), plus Docker-in-Docker, Go, Node, and kubectl features.
-
-Prefer **8-core / 16GB+ RAM / 64GB storage** for Compose; for kind+Tilt prefer **8-core / 32GB+ storage**.
-
-#### B1. Docker Compose (recommended)
-
-1. On GitHub: **Code → Codespaces → Create codespace on …**.
-2. Wait for the post-create step.
-3. Start the stack:
-
-```bash
-./scripts/codespaces/prepare-env.sh
-docker compose \
-  -f deploy/docker/docker-compose.yml \
-  -f deploy/docker/docker-compose.override.codespaces.yml \
-  up --build
-```
-
-4. Apply migrations:
-
-```bash
-export DATABASE_URL='postgres://healthai:healthai@localhost:5432/healthai?sslmode=disable'
-make migrate-up
-```
-
-5. In the **Ports** panel, set **visibility to Public** for `3000`, `8081`, and `8091` when opening `*.app.github.dev` URLs.
-6. Open the forwarded web URL (`https://<codespace-name>-3000.app.github.dev`).
-
-#### B2. kind + Tilt (Kubernetes in Docker)
-
-Runs a local Kubernetes cluster inside the Codespace (kind), then starts the same Tilt stack used on a laptop.
-
-```bash
-./scripts/codespaces/kind-up.sh
-# edit deploy/kubernetes/development/secrets.yaml — replace REPLACE_* values
-./deploy/tilt/preflight.sh
-tilt up
-```
-
-Open Tilt UI on forwarded port `10350`, and app ports as Tilt forwards them (`3000`, `8081`, …). Tear down with:
-
-```bash
-./scripts/codespaces/kind-down.sh
-```
-
-Do **not** run Compose and kind+Tilt at the same time (port and resource conflicts).
-
-VS Code tasks under **Terminal → Run Task…**:
-
-- `Codespaces: prepare env` / `compose up` / `migrate-up`
-- `Codespaces: kind up` / `tilt up` / `kind down`
-
-Voice/LiveKit and other provider features still need real API keys (see Troubleshooting).
-
-### Option C: Tilt on local Kubernetes
+### Option B: Tilt on local Kubernetes
 
 Requires a local cluster (Docker Desktop Kubernetes, Minikube, or kind), plus `kubectl`, `tilt`, and `migrate`.
 

@@ -1,0 +1,98 @@
+---
+description: ZorbaHealth repo architecture — layout, boundaries, hexagonal rules
+alwaysApply: true
+---
+
+# Repo architecture (ZorbaHealth)
+
+Canonical root is the repo root (`go.mod`, `Tiltfile`, `Makefile`). Do not revive the old `src/` layout.
+
+## Directory ownership
+
+| Path | Owns |
+|---|---|
+| `services/<name>/` | One microservice |
+| `web/` | Next.js frontend only |
+| `mobile/` | Expo / React Native client |
+| `proto/` | Source `.proto` contracts only |
+| `shared/` | Shared Go libs + **generated** protobuf (`shared/proto`) |
+| `migrations/` | SQL migrations |
+| `deploy/docker|kubernetes|helm/` | Images and cluster manifests |
+| `docs/` | Architecture / setup / security truth |
+| `scripts/`, `examples/`, `tools/` | Ops helpers, samples, generators |
+
+Run Go/Make/Tilt from repo root. Frontend package commands run from `web/` (or `mobile/`).
+
+## Request and event paths
+
+- **Web/mobile →** `api-gateway` (HTTP) → backend gRPC services. Clients never call internal gRPC directly.
+- **Voice →** `voice-agent-service` → `mcp-server` → gRPC backends.
+- **Async →** typed RabbitMQ events (`shared/events`, `shared/contracts`). Prefer `patient-service` as publisher for patient workflows; `notification-service` consumes and sends email/SMS.
+- **State:** Postgres = durable · Redis = short-lived · RabbitMQ = cross-service events.
+
+## Service boundaries (do not blur)
+
+- `api-gateway` — public HTTP surface only; thin; no domain ownership.
+- `auth-service` — accounts, tokens, auth state.
+- `patient-service` — patient registration/portal + scheduling / bridged calls.
+- `health-records-service` — FHIR/records, embeddings, RAG (`internal/fhir`, `internal/rag`).
+- `mcp-server` — tool gateway for voice; consent/audit wrapping; minimal safe context out.
+- `audit-service` — append-only audit + consent APIs; owns `audit` schema.
+- `notification-service` — RabbitMQ consumers + email/SMS providers + VoIP.ms webhook.
+- `location-service` — location sessions / nearest hospital.
+- `translation-service` / `interpretation-service` — translation + bridged-call relay.
+- `voice-agent-service` — LiveKit agent runtime (Python); not a Go hexagonal twin.
+- `health-provider-service` — **stub only**. Do not invent “restore source tree”; hospital/provider flows currently live elsewhere (e.g. auth/api-gateway) until a real service is built.
+
+Legacy stubs without real domain code: do not expand them casually; put logic in the owning service above.
+
+## Go service layout (hexagonal)
+
+Every Go service follows:
+
+```text
+services/<name>/
+  cmd/<name>/main.go          # wiring only
+  config/
+  internal/core/domain/       # models, errors — no I/O
+  internal/core/ports/        # inbound + outbound interfaces
+  internal/core/services/     # use-cases / orchestration
+  internal/adapters/primary/  # gRPC, HTTP, RabbitMQ consumers
+  internal/adapters/secondary/# DB, providers, publishers, clients
+```
+
+Rules:
+
+- Domain and core services depend on **ports**, never on SDKs, SQL drivers, or HTTP clients.
+- Provider SDKs live in `internal/adapters/secondary/...` (or `shared/ports/providers` contracts).
+- gRPC/HTTP adapters orchestrate; they do not embed business rules or provider SDKs.
+- Cross-service calls go through generated clients / ports — not ad-hoc HTTP to another service’s internals.
+- Shared helpers: `shared/env`, `shared/logging`, `shared/grpc`, `shared/events`, `shared/db` — prefer these over duplicating.
+
+## Contracts and codegen
+
+1. Edit `.proto` under `proto/` only.
+2. Run `make generate-proto` from repo root; commit generated `shared/proto`.
+3. Do not hand-edit generated protobuf Go.
+4. Schema changes → numbered pair under `migrations/` → regenerate sqlc when queries change.
+5. Boundary-changing work updates `docs/architecture.md` and `docs/service-map.md`.
+
+## Feature placement checklist
+
+| Feature type | Put it here |
+|---|---|
+| New public HTTP route | `api-gateway` + call owning gRPC service |
+| Patient/scheduling domain | `patient-service` core + primary gRPC adapter |
+| Email/SMS for a workflow | Publish event → `notification-service` consumer (do not SMTP from random services) |
+| Voice tool | Thin MCP tool in `mcp-server` → owning service RPC |
+| Audit / consent | `audit-service` APIs; emit catalogued event types from `shared/audit` |
+| External AI/email/SMS | Secondary adapter + config provider switch |
+
+## Hard bans
+
+- No business logic in `cmd/main.go` or pure wiring packages beyond composition.
+- No importing `internal/` of another service.
+- No editing generated `shared/proto` by hand.
+- No dumping PHI/raw FHIR into logs, MCP tool results, or LLM prompts (use citations / minimal context).
+- No new top-level `src/` tree. No putting app code under `deploy/`.
+- Do not treat docs “future work” as implemented — verify code and `docs/service-map.md` status.

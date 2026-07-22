@@ -51,7 +51,6 @@ lerna-debug.log*
 # Editor and OS
 .vscode/*
 !.vscode/extensions.json
-!.vscode/tasks.json
 .idea/
 .DS_Store
 *.suo
@@ -65,7 +64,6 @@ lerna-debug.log*
 
 # Local compose secrets (never commit)
 examples/sample-env/.env.docker
-examples/sample-env/.env.codespaces
 
 # LiveKit host sidecar credentials (copy from *.example.yaml)
 deploy/docker/livekit/livekit.yaml
