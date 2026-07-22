@@ -84,7 +84,7 @@ export const styles = StyleSheet.create({
   },
   content: {
     padding: 16,
-    paddingBottom: 96,
+    paddingBottom: 32,
   },
   stack: {
     gap: 14,
