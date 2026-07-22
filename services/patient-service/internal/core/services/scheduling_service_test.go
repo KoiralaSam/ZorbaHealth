@@ -15,7 +15,7 @@ import (
 func TestScheduleHealthStaffMeetingCreatesPendingWithoutLiveKit(t *testing.T) {
 	ids := testSchedulingIDs()
 	repo := newSchedulingRepo(ids)
-	patients := &fakePatientRepo{patient: &models.Patient{ID: ids.patientID, Email: "patient@example.com", FullName: "Pat Patient"}}
+	patients := &fakeSchedulingPatientRepo{patient: &models.Patient{ID: ids.patientID, Email: "patient@example.com", FullName: "Pat Patient"}}
 	livekit := &fakeLiveKitProvider{}
 	publisher := &fakeSchedulingPublisher{}
 	svc := NewSchedulingService(repo, patients, nil, livekit, publisher, nil)
@@ -58,7 +58,7 @@ func TestAcceptScheduledMeetingCreatesLiveKitRoomAndPublishesScheduled(t *testin
 	repo := newSchedulingRepo(ids)
 	existing := repo.pendingMeeting(ids)
 	repo.meeting = existing
-	patients := &fakePatientRepo{patient: &models.Patient{ID: ids.patientID, Email: "patient@example.com", PhoneNumber: "+15551234567", FullName: "Pat Patient"}}
+	patients := &fakeSchedulingPatientRepo{patient: &models.Patient{ID: ids.patientID, Email: "patient@example.com", PhoneNumber: "+15551234567", FullName: "Pat Patient"}}
 	livekit := &fakeLiveKitProvider{}
 	publisher := &fakeSchedulingPublisher{}
 	svc := NewSchedulingService(repo, patients, nil, livekit, publisher, nil)
@@ -91,7 +91,7 @@ func TestAcceptScheduledMeetingRejectsPatientActor(t *testing.T) {
 	repo := newSchedulingRepo(ids)
 	existing := repo.pendingMeeting(ids)
 	repo.meeting = existing
-	svc := NewSchedulingService(repo, &fakePatientRepo{}, nil, &fakeLiveKitProvider{}, &fakeSchedulingPublisher{}, nil)
+	svc := NewSchedulingService(repo, &fakeSchedulingPatientRepo{}, nil, &fakeLiveKitProvider{}, &fakeSchedulingPublisher{}, nil)
 
 	_, err := svc.AcceptScheduledMeeting(context.Background(), existing.ID.String(), models.ScheduleActor{
 		ActorType: "patient",
@@ -110,7 +110,7 @@ func TestRescheduleScheduledMeetingUpdatesTimeBeforeLiveKit(t *testing.T) {
 	repo := newSchedulingRepo(ids)
 	existing := repo.pendingMeeting(ids)
 	repo.meeting = existing
-	patients := &fakePatientRepo{patient: &models.Patient{ID: ids.patientID, Email: "patient@example.com", FullName: "Pat Patient"}}
+	patients := &fakeSchedulingPatientRepo{patient: &models.Patient{ID: ids.patientID, Email: "patient@example.com", FullName: "Pat Patient"}}
 	livekit := &fakeLiveKitProvider{}
 	svc := NewSchedulingService(repo, patients, nil, livekit, &fakeSchedulingPublisher{}, nil)
 	newStart := time.Now().UTC().Add(4 * time.Hour).Truncate(time.Second)
@@ -166,6 +166,22 @@ func (f *fakeLiveKitProvider) MintRoomJoinToken(_ context.Context, roomName, ide
 
 func (f *fakeLiveKitProvider) ResolveRoomName(_ context.Context, value string) (string, error) {
 	return value, nil
+}
+
+func (f *fakeLiveKitProvider) DialSIPParticipant(_ context.Context, in outbound.DialSIPParticipantInput) (*outbound.DialSIPParticipantResult, error) {
+	identity := in.ParticipantIdentity
+	if identity == "" {
+		identity = "staff-sip-fake"
+	}
+	return &outbound.DialSIPParticipantResult{
+		SIPCallID:           "fake-sip",
+		ParticipantID:       "fake-participant",
+		ParticipantIdentity: identity,
+	}, nil
+}
+
+func (f *fakeLiveKitProvider) RemintMeetingTokens(_ context.Context, roomName string, _ time.Duration) (string, string, error) {
+	return "remint-patient-" + roomName, "remint-staff-" + roomName, nil
 }
 
 func (f *fakeLiveKitProvider) CreateMeetingRoom(ctx context.Context, in outbound.LiveKitCreateInput) (*outbound.LiveKitCreateResult, error) {
@@ -257,6 +273,21 @@ func (r *fakeMeetingRepo) Cancel(ctx context.Context, id uuid.UUID) (*models.Sch
 	return &out, nil
 }
 
+func (r *fakeMeetingRepo) ClaimDueMeetingReminders(ctx context.Context, within time.Duration, limit int32) ([]models.ScheduledMeeting, error) {
+	return nil, nil
+}
+
+func (r *fakeMeetingRepo) MarkMeetingReminderSent(ctx context.Context, meeting *models.ScheduledMeeting) (*models.ScheduledMeeting, error) {
+	if meeting == nil {
+		return nil, domainErrors.ErrMeetingNotFound
+	}
+	out := *meeting
+	now := time.Now().UTC()
+	out.ReminderSentAt = &now
+	r.meeting = &out
+	return &out, nil
+}
+
 func (r *fakeMeetingRepo) HasActiveConsent(ctx context.Context, patientID, hospitalID uuid.UUID) (bool, error) {
 	return patientID == r.ids.patientID && hospitalID == r.ids.hospitalID, nil
 }
@@ -276,42 +307,43 @@ func (r *fakeMeetingRepo) ListSchedulableStaff(ctx context.Context, hospitalID u
 	return []models.StaffSummary{*r.staff}, nil
 }
 
-type fakePatientRepo struct {
+type fakeSchedulingPatientRepo struct {
 	patient *models.Patient
 }
 
-func (r *fakePatientRepo) CreatePatient(ctx context.Context, patient *models.Patient) (*models.Patient, error) {
+func (r *fakeSchedulingPatientRepo) CreatePatient(ctx context.Context, patient *models.Patient) (*models.Patient, error) {
 	return patient, nil
 }
-func (r *fakePatientRepo) GetPatientByID(ctx context.Context, id string) (*models.Patient, error) {
+func (r *fakeSchedulingPatientRepo) GetPatientByID(ctx context.Context, id string) (*models.Patient, error) {
 	if r.patient == nil || r.patient.ID.String() != id {
 		return nil, domainErrors.ErrExistingPatientNotFound
 	}
 	return r.patient, nil
 }
-func (r *fakePatientRepo) GetPatientByUserID(ctx context.Context, userID string) (*models.Patient, error) {
+func (r *fakeSchedulingPatientRepo) GetPatientByUserID(ctx context.Context, userID string) (*models.Patient, error) {
 	return nil, domainErrors.ErrExistingPatientNotFound
 }
-func (r *fakePatientRepo) GetPatientByPhoneNumber(ctx context.Context, phoneNumber string) (*models.Patient, error) {
+func (r *fakeSchedulingPatientRepo) GetPatientByPhoneNumber(ctx context.Context, phoneNumber string) (*models.Patient, error) {
 	return nil, domainErrors.ErrExistingPatientNotFound
 }
-func (r *fakePatientRepo) GetPatientByEmail(ctx context.Context, email string) (*models.Patient, error) {
+func (r *fakeSchedulingPatientRepo) GetPatientByEmail(ctx context.Context, email string) (*models.Patient, error) {
 	return nil, domainErrors.ErrExistingPatientNotFound
 }
-func (r *fakePatientRepo) GetPatientProfile(ctx context.Context, patientID string) (*models.PatientProfile, error) {
+func (r *fakeSchedulingPatientRepo) GetPatientProfile(ctx context.Context, patientID string) (*models.PatientProfile, error) {
 	return nil, domainErrors.ErrExistingPatientNotFound
 }
-func (r *fakePatientRepo) ListPatientCallSummaries(ctx context.Context, patientID string, limit, offset int32) ([]models.CallSummary, error) {
+func (r *fakeSchedulingPatientRepo) ListPatientCallSummaries(ctx context.Context, patientID string, limit, offset int32) ([]models.CallSummary, error) {
 	return nil, nil
 }
-func (r *fakePatientRepo) UpdatePatient(ctx context.Context, patient *models.Patient) error {
+func (r *fakeSchedulingPatientRepo) UpdatePatient(ctx context.Context, patient *models.Patient) error {
 	return nil
 }
-func (r *fakePatientRepo) DeletePatient(ctx context.Context, id string) error { return nil }
+func (r *fakeSchedulingPatientRepo) DeletePatient(ctx context.Context, id string) error { return nil }
 
 type fakeSchedulingPublisher struct {
 	requested *events.MeetingRequestedData
 	scheduled *events.MeetingScheduledData
+	reminder  *events.MeetingReminderData
 }
 
 func (p *fakeSchedulingPublisher) PublishMeetingRequested(ctx context.Context, data *events.MeetingRequestedData) error {
@@ -321,5 +353,10 @@ func (p *fakeSchedulingPublisher) PublishMeetingRequested(ctx context.Context, d
 
 func (p *fakeSchedulingPublisher) PublishMeetingScheduled(ctx context.Context, data *events.MeetingScheduledData) error {
 	p.scheduled = data
+	return nil
+}
+
+func (p *fakeSchedulingPublisher) PublishMeetingReminder(ctx context.Context, data *events.MeetingReminderData) error {
+	p.reminder = data
 	return nil
 }

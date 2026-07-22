@@ -289,6 +289,69 @@ func (s *NotificationService) SendMeetingScheduledNotifications(ctx context.Cont
 	return nil
 }
 
+func (s *NotificationService) SendMeetingReminderNotifications(ctx context.Context, data *events.MeetingReminderData) error {
+	if data == nil {
+		return nil
+	}
+	ctx, span := notificationTracer.Start(ctx, "notification.meeting_reminder")
+	defer span.End()
+	span.SetAttributes(attribute.String("meeting.id", data.MeetingID))
+
+	start, err := time.Parse(time.RFC3339, data.StartsAtRFC3339)
+	if err != nil {
+		span.RecordError(err)
+		return err
+	}
+
+	patientSubject := fmt.Sprintf("Reminder: your visit starts soon — %s", data.Title)
+	staffSubject := fmt.Sprintf("Reminder: patient visit starts soon — %s", data.Title)
+	patientJoinURL := meetingJoinURLForNotification(s.publicWebBase, data.JoinURL, data.LiveKitRoomName, data.PatientToken, "patient")
+	staffJoinURL := meetingJoinURLForNotification(s.publicWebBase, data.JoinURL, data.LiveKitRoomName, data.StaffToken, "staff")
+
+	if data.PatientEmail != "" {
+		patientData := map[string]string{
+			"PatientName":  data.PatientName,
+			"StaffName":    data.StaffName,
+			"StartRFC1123": start.Format(time.RFC1123),
+			"JoinURL":      patientJoinURL,
+		}
+		patientPlain, err := notificationtemplates.RenderText("meeting_reminder_patient_plain.tmpl", patientData)
+		if err != nil {
+			return err
+		}
+		patientHTML, err := notificationtemplates.RenderHTML("meeting_reminder_patient_html.tmpl", patientData)
+		if err != nil {
+			return err
+		}
+		err = s.email.Send(ctx, data.PatientEmail, data.PatientName, patientSubject, patientPlain, patientHTML)
+		if err != nil {
+			span.RecordError(err)
+		}
+	}
+
+	if data.StaffEmail != "" {
+		staffData := map[string]string{
+			"StaffName":    data.StaffName,
+			"PatientName":  data.PatientName,
+			"StartRFC1123": start.Format(time.RFC1123),
+			"JoinURL":      staffJoinURL,
+		}
+		staffPlain, err := notificationtemplates.RenderText("meeting_reminder_staff_plain.tmpl", staffData)
+		if err != nil {
+			return err
+		}
+		staffHTML, err := notificationtemplates.RenderHTML("meeting_reminder_staff_html.tmpl", staffData)
+		if err != nil {
+			return err
+		}
+		err = s.email.Send(ctx, data.StaffEmail, data.StaffName, staffSubject, staffPlain, staffHTML)
+		if err != nil {
+			span.RecordError(err)
+		}
+	}
+	return nil
+}
+
 func meetingJoinURLForNotification(webBase, storedJoinURL, roomName, token, role string) string {
 	storedJoinURL = strings.TrimSpace(storedJoinURL)
 	if storedJoinURL == "" {

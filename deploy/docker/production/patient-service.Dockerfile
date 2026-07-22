@@ -15,7 +15,8 @@ COPY shared ./shared
 # Build the application
 WORKDIR /app/services/patient-service
 RUN CGO_ENABLED=0 GOOS=linux go build -o /app/build/patient-service ./cmd/patient-service && \
-    CGO_ENABLED=0 GOOS=linux go build -o /app/build/welfare-check-dispatcher ./cmd/welfare-check-dispatcher
+    CGO_ENABLED=0 GOOS=linux go build -o /app/build/welfare-check-dispatcher ./cmd/welfare-check-dispatcher && \
+    CGO_ENABLED=0 GOOS=linux go build -o /app/build/meeting-reminder-dispatcher ./cmd/meeting-reminder-dispatcher
 
 FROM alpine:latest
 RUN apk --no-cache add ca-certificates
@@ -23,4 +24,5 @@ WORKDIR /root/
 
 COPY --from=builder /app/build/patient-service .
 COPY --from=builder /app/build/welfare-check-dispatcher ./welfare-check-dispatcher
+COPY --from=builder /app/build/meeting-reminder-dispatcher ./meeting-reminder-dispatcher
 CMD ["./patient-service"]

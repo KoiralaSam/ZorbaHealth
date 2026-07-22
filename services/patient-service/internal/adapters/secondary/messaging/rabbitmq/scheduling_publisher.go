@@ -46,3 +46,17 @@ func (p *SchedulingPublisher) PublishMeetingScheduled(ctx context.Context, data 
 		Data:    jsonData,
 	})
 }
+
+func (p *SchedulingPublisher) PublishMeetingReminder(ctx context.Context, data *events.MeetingReminderData) error {
+	if data == nil {
+		return nil
+	}
+	jsonData, err := json.Marshal(data)
+	if err != nil {
+		return err
+	}
+	return p.rabbitmq.PublishMessage(ctx, events.PatientExchange, contracts.PatientEventMeetingReminder, contracts.AmqpMessage{
+		OwnerID: data.PatientID,
+		Data:    jsonData,
+	})
+}

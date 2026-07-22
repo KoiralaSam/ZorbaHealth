@@ -27,6 +27,7 @@ const (
 	PatientEventUpdated                   = "patient.event.updated"
 	PatientEventMeetingRequested          = "patient.event.meeting_requested"
 	PatientEventMeetingScheduled          = "patient.event.meeting_scheduled"
+	PatientEventMeetingReminder           = "patient.event.meeting_reminder"
 
 	// Medical Records events (medical_record.event.*)
 	MedicalRecordEventCreated = "medical_record.event.created"

@@ -52,7 +52,8 @@ func (r *MeetingRepository) GetByID(ctx context.Context, id uuid.UUID) (*models.
 	return r.scanOne(ctx, `SELECT id, patient_id, staff_id, hospital_id, created_by_actor_type, created_by_actor_id,
 starts_at, duration_minutes, timezone, title, COALESCE(notes,''), COALESCE(join_url,''),
 status, correlation_id, COALESCE(voice_session_id,''), send_sms, channel, created_at,
-COALESCE(livekit_room_name,''), COALESCE(livekit_room_sid,''), COALESCE(patient_token,''), COALESCE(staff_token,'')
+COALESCE(livekit_room_name,''), COALESCE(livekit_room_sid,''), COALESCE(patient_token,''), COALESCE(staff_token,''),
+reminder_sent_at
 FROM scheduled_meetings WHERE id = $1`, id)
 }
 
@@ -75,7 +76,8 @@ func (r *MeetingRepository) List(ctx context.Context, filter models.ListMeetings
 SELECT id, patient_id, staff_id, hospital_id, created_by_actor_type, created_by_actor_id,
 starts_at, duration_minutes, timezone, title, COALESCE(notes,''), COALESCE(join_url,''),
 status, correlation_id, COALESCE(voice_session_id,''), send_sms, channel, created_at,
-COALESCE(livekit_room_name,''), COALESCE(livekit_room_sid,''), COALESCE(patient_token,''), COALESCE(staff_token,'')
+COALESCE(livekit_room_name,''), COALESCE(livekit_room_sid,''), COALESCE(patient_token,''), COALESCE(staff_token,''),
+reminder_sent_at
 FROM scheduled_meetings WHERE patient_id = $1 AND %s ORDER BY starts_at DESC LIMIT $2`, statusClause),
 			*filter.PatientID, limit)
 	case filter.StaffID != nil:
@@ -83,7 +85,8 @@ FROM scheduled_meetings WHERE patient_id = $1 AND %s ORDER BY starts_at DESC LIM
 SELECT id, patient_id, staff_id, hospital_id, created_by_actor_type, created_by_actor_id,
 starts_at, duration_minutes, timezone, title, COALESCE(notes,''), COALESCE(join_url,''),
 status, correlation_id, COALESCE(voice_session_id,''), send_sms, channel, created_at,
-COALESCE(livekit_room_name,''), COALESCE(livekit_room_sid,''), COALESCE(patient_token,''), COALESCE(staff_token,'')
+COALESCE(livekit_room_name,''), COALESCE(livekit_room_sid,''), COALESCE(patient_token,''), COALESCE(staff_token,''),
+reminder_sent_at
 FROM scheduled_meetings WHERE staff_id = $1 AND %s ORDER BY starts_at DESC LIMIT $2`, statusClause),
 			*filter.StaffID, limit)
 	case filter.HospitalID != nil:
@@ -91,7 +94,8 @@ FROM scheduled_meetings WHERE staff_id = $1 AND %s ORDER BY starts_at DESC LIMIT
 SELECT id, patient_id, staff_id, hospital_id, created_by_actor_type, created_by_actor_id,
 starts_at, duration_minutes, timezone, title, COALESCE(notes,''), COALESCE(join_url,''),
 status, correlation_id, COALESCE(voice_session_id,''), send_sms, channel, created_at,
-COALESCE(livekit_room_name,''), COALESCE(livekit_room_sid,''), COALESCE(patient_token,''), COALESCE(staff_token,'')
+COALESCE(livekit_room_name,''), COALESCE(livekit_room_sid,''), COALESCE(patient_token,''), COALESCE(staff_token,''),
+reminder_sent_at
 FROM scheduled_meetings WHERE hospital_id = $1 AND %s ORDER BY starts_at DESC LIMIT $2`, statusClause),
 			*filter.HospitalID, limit)
 	default:
@@ -111,7 +115,8 @@ WHERE id = $1 AND status IN ('pending', 'scheduled')
 RETURNING id, patient_id, staff_id, hospital_id, created_by_actor_type, created_by_actor_id,
 starts_at, duration_minutes, timezone, title, COALESCE(notes,''), COALESCE(join_url,''),
 status, correlation_id, COALESCE(voice_session_id,''), send_sms, channel, created_at,
-COALESCE(livekit_room_name,''), COALESCE(livekit_room_sid,''), COALESCE(patient_token,''), COALESCE(staff_token,'')`, id)
+COALESCE(livekit_room_name,''), COALESCE(livekit_room_sid,''), COALESCE(patient_token,''), COALESCE(staff_token,''),
+reminder_sent_at`, id)
 }
 
 func (r *MeetingRepository) MarkScheduled(ctx context.Context, m *models.ScheduledMeeting) (*models.ScheduledMeeting, error) {
@@ -134,7 +139,8 @@ WHERE id = $1 AND status = 'pending'
 RETURNING id, patient_id, staff_id, hospital_id, created_by_actor_type, created_by_actor_id,
 starts_at, duration_minutes, timezone, title, COALESCE(notes,''), COALESCE(join_url,''),
 status, correlation_id, COALESCE(voice_session_id,''), send_sms, channel, created_at,
-COALESCE(livekit_room_name,''), COALESCE(livekit_room_sid,''), COALESCE(patient_token,''), COALESCE(staff_token,'')`,
+COALESCE(livekit_room_name,''), COALESCE(livekit_room_sid,''), COALESCE(patient_token,''), COALESCE(staff_token,''),
+reminder_sent_at`,
 		m.ID,
 		m.StartsAt,
 		m.DurationMinutes,
@@ -145,6 +151,79 @@ COALESCE(livekit_room_name,''), COALESCE(livekit_room_sid,''), COALESCE(patient_
 		nullString(m.LiveKitRoomSID),
 		nullString(m.PatientToken),
 		nullString(m.StaffToken),
+	)
+}
+
+func (r *MeetingRepository) ClaimDueMeetingReminders(ctx context.Context, within time.Duration, limit int32) ([]models.ScheduledMeeting, error) {
+	if within <= 0 {
+		within = 15 * time.Minute
+	}
+	if limit <= 0 {
+		limit = 25
+	}
+	now := time.Now().UTC()
+	until := now.Add(within)
+	rows, err := r.db.Query(ctx, `
+WITH due AS (
+  SELECT id
+  FROM scheduled_meetings
+  WHERE status = 'scheduled'
+    AND reminder_sent_at IS NULL
+    AND starts_at > $1
+    AND starts_at <= $2
+  ORDER BY starts_at
+  LIMIT $3
+  FOR UPDATE SKIP LOCKED
+)
+UPDATE scheduled_meetings m
+SET reminder_sent_at = $1
+FROM due
+WHERE m.id = due.id
+RETURNING m.id, m.patient_id, m.staff_id, m.hospital_id, m.created_by_actor_type, m.created_by_actor_id,
+m.starts_at, m.duration_minutes, m.timezone, m.title, COALESCE(m.notes,''), COALESCE(m.join_url,''),
+m.status, m.correlation_id, COALESCE(m.voice_session_id,''), m.send_sms, m.channel, m.created_at,
+COALESCE(m.livekit_room_name,''), COALESCE(m.livekit_room_sid,''), COALESCE(m.patient_token,''), COALESCE(m.staff_token,''),
+m.reminder_sent_at`, now, until, limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	out := make([]models.ScheduledMeeting, 0)
+	for rows.Next() {
+		m, scanErr := scanMeetingRow(rows)
+		if scanErr != nil {
+			return nil, scanErr
+		}
+		out = append(out, *m)
+	}
+	return out, rows.Err()
+}
+
+func (r *MeetingRepository) MarkMeetingReminderSent(ctx context.Context, m *models.ScheduledMeeting) (*models.ScheduledMeeting, error) {
+	if m == nil {
+		return nil, domainErrors.ErrMeetingNotFound
+	}
+	now := time.Now().UTC()
+	if m.ReminderSentAt != nil {
+		now = m.ReminderSentAt.UTC()
+	}
+	return r.scanOne(ctx, `
+UPDATE scheduled_meetings
+SET join_url = $2,
+    patient_token = $3,
+    staff_token = $4,
+    reminder_sent_at = $5
+WHERE id = $1 AND status = 'scheduled'
+RETURNING id, patient_id, staff_id, hospital_id, created_by_actor_type, created_by_actor_id,
+starts_at, duration_minutes, timezone, title, COALESCE(notes,''), COALESCE(join_url,''),
+status, correlation_id, COALESCE(voice_session_id,''), send_sms, channel, created_at,
+COALESCE(livekit_room_name,''), COALESCE(livekit_room_sid,''), COALESCE(patient_token,''), COALESCE(staff_token,''),
+reminder_sent_at`,
+		m.ID,
+		nullString(m.JoinURL),
+		nullString(m.PatientToken),
+		nullString(m.StaffToken),
+		now,
 	)
 }
 
@@ -162,8 +241,12 @@ func (r *MeetingRepository) GetStaffByID(ctx context.Context, staffID uuid.UUID)
 	var s models.StaffSummary
 	var active bool
 	err := r.db.QueryRow(ctx, `
-SELECT id, hospital_id, name, role, email, active FROM hospital_staff WHERE id = $1`, staffID).
-		Scan(&s.StaffID, &s.HospitalID, &s.Name, &s.Role, &s.Email, &active)
+SELECT hs.id, hs.hospital_id, hs.name, hs.role, hs.email, hs.active,
+       COALESCE(NULLIF(TRIM(hs.phone_number), ''), NULLIF(TRIM(u.phone_number), ''), '')
+FROM hospital_staff hs
+LEFT JOIN users u ON u.id = hs.user_id
+WHERE hs.id = $1`, staffID).
+		Scan(&s.StaffID, &s.HospitalID, &s.Name, &s.Role, &s.Email, &active, &s.PhoneNumber)
 	if err != nil {
 		if err == pgx.ErrNoRows {
 			return nil, domainErrors.ErrMeetingStaffNotFound
@@ -235,6 +318,7 @@ func scanMeetingRow(row scannable) (*models.ScheduledMeeting, error) {
 		&m.JoinURL,
 		&status, &m.CorrelationID, &m.VoiceSessionID, &m.SendSMS, &channel, &m.CreatedAt,
 		&m.LiveKitRoomName, &m.LiveKitRoomSID, &m.PatientToken, &m.StaffToken,
+		&m.ReminderSentAt,
 	)
 	if err != nil {
 		return nil, err

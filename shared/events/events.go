@@ -12,6 +12,7 @@ const (
 	NotifyEmergencyEscalationQueue        = "notify_emergency_escalation"
 	NotifyMeetingRequestedQueue           = "notify_meeting_requested"
 	NotifyMeetingScheduledQueue           = "notify_meeting_scheduled"
+	NotifyMeetingReminderQueue            = "notify_meeting_reminder"
 
 	// CallsExchange is the topic exchange for call lifecycle events.
 	CallsExchange = "zorba.calls"
@@ -54,6 +55,10 @@ var NotificationServicePatientQueueBindings = []QueueBinding{
 	{
 		QueueName:   NotifyMeetingScheduledQueue,
 		RoutingKeys: []string{contracts.PatientEventMeetingScheduled},
+	},
+	{
+		QueueName:   NotifyMeetingReminderQueue,
+		RoutingKeys: []string{contracts.PatientEventMeetingReminder},
 	},
 }
 
@@ -148,6 +153,27 @@ type MeetingScheduledData struct {
 	StaffEmail      string `json:"staff_email"`
 	StaffName       string `json:"staff_name"`
 	SendSMS         bool   `json:"send_sms"`
+	LiveKitRoomName string `json:"livekit_room_name,omitempty"`
+	PatientToken    string `json:"patient_token,omitempty"`
+	StaffToken      string `json:"staff_token,omitempty"`
+}
+
+// MeetingReminderData is published ~15 minutes before a scheduled video visit.
+type MeetingReminderData struct {
+	MeetingID       string `json:"meeting_id"`
+	PatientID       string `json:"patient_id"`
+	StaffID         string `json:"staff_id"`
+	HospitalID      string `json:"hospital_id"`
+	CorrelationID   string `json:"correlation_id"`
+	StartsAtRFC3339 string `json:"starts_at"`
+	DurationMinutes int    `json:"duration_minutes"`
+	Timezone        string `json:"timezone"`
+	Title           string `json:"title"`
+	JoinURL         string `json:"join_url"`
+	PatientEmail    string `json:"patient_email"`
+	PatientName     string `json:"patient_name"`
+	StaffEmail      string `json:"staff_email"`
+	StaffName       string `json:"staff_name"`
 	LiveKitRoomName string `json:"livekit_room_name,omitempty"`
 	PatientToken    string `json:"patient_token,omitempty"`
 	StaffToken      string `json:"staff_token,omitempty"`

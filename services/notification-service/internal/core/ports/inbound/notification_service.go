@@ -16,4 +16,5 @@ type NotificationService interface {
 	ReceiveSMS(ctx context.Context, phoneNumber, message string) error
 	SendMeetingRequestedNotifications(ctx context.Context, data *events.MeetingRequestedData) error
 	SendMeetingScheduledNotifications(ctx context.Context, data *events.MeetingScheduledData) error
+	SendMeetingReminderNotifications(ctx context.Context, data *events.MeetingReminderData) error
 }
