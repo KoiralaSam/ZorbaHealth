@@ -33,4 +33,14 @@ command -v migrate >/dev/null 2>&1 || {
   exit 1
 }
 
+# If a previous run left schema_migrations dirty, clear it so up can proceed.
+version_line="$(migrate -path migrations -database "${DATABASE_URL}" version 2>&1 || true)"
+if grep -qi 'dirty' <<<"$version_line"; then
+  ver="$(grep -Eo '[0-9]+' <<<"$version_line" | head -1 || true)"
+  if [[ -n "${ver:-}" ]]; then
+    echo "[db-migrate] Clearing dirty flag at version ${ver}"
+    migrate -path migrations -database "${DATABASE_URL}" force "${ver}"
+  fi
+fi
+
 make migrate-up

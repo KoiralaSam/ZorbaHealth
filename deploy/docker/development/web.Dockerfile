@@ -18,6 +18,10 @@ ENV NEXT_PUBLIC_LOCATION_WS_URL=${NEXT_PUBLIC_LOCATION_WS_URL}
 
 RUN npm run build
 
+ENV NODE_ENV=production
+ENV HOSTNAME=0.0.0.0
+ENV PORT=3000
+
 EXPOSE 3000
 
-CMD ["npm", "start"]
+CMD ["npm", "run", "start", "--", "--hostname", "0.0.0.0", "--port", "3000"]
