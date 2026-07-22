@@ -29,6 +29,7 @@ class SessionUserData:
     patient_id_hint: str = ""
     interpreter_mode: bool = False
     staff_identity: str = ""
+    staff_language: str = "en"
 
     # Tokens: provisional until identity is verified, then upgraded.
     provisional_token: str = ""

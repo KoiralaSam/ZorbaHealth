@@ -864,7 +864,9 @@ func PatientRequestBridgedCallTransferHandler(w http.ResponseWriter, r *http.Req
 		return
 	}
 	writeJson(w, http.StatusOK, BridgedCallSessionResponse{
-		Session: bridgedCallSessionFromProto(resp.GetSession()),
+		Session:          bridgedCallSessionFromProto(resp.GetSession()),
+		PatientRoomToken: resp.GetPatientRoomToken(),
+		LiveKitWSURL:     resp.GetLivekitWsUrl(),
 	}, nil)
 }
 
@@ -1132,7 +1134,13 @@ func HospitalConnectBridgedCallHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	defer conn.Close()
-	resp, err := client.ConnectBridgedCall(grpcclient.WithForwardedToken(r.Context(), accessToken), &schedpb.ConnectBridgedCallRequest{
+	joinMode := strings.ToLower(strings.TrimSpace(reqBody.JoinMode))
+	if joinMode == "" {
+		joinMode = "web"
+	}
+	ctx := grpcclient.WithForwardedToken(r.Context(), accessToken)
+	ctx = metadata.AppendToOutgoingContext(ctx, "x-bridge-join-mode", joinMode)
+	resp, err := client.ConnectBridgedCall(ctx, &schedpb.ConnectBridgedCallRequest{
 		SessionId:                strings.TrimSpace(reqBody.SessionID),
 		StaffId:                  claims.StaffID,
 		StaffParticipantIdentity: strings.TrimSpace(reqBody.StaffParticipantIdentity),
@@ -1457,7 +1465,11 @@ func handleGetBridgedCallSession(w http.ResponseWriter, r *http.Request, accessT
 		writeSchedulingAPIError(w, "Failed to load bridged call session", err)
 		return
 	}
-	writeJson(w, http.StatusOK, BridgedCallSessionResponse{Session: bridgedCallSessionFromProto(resp.GetSession())}, nil)
+	writeJson(w, http.StatusOK, BridgedCallSessionResponse{
+		Session:          bridgedCallSessionFromProto(resp.GetSession()),
+		PatientRoomToken: resp.GetPatientRoomToken(),
+		LiveKitWSURL:     resp.GetLivekitWsUrl(),
+	}, nil)
 }
 
 func handleUpdateBridgedCallTranslation(w http.ResponseWriter, r *http.Request, accessToken string) {

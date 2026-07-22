@@ -336,6 +336,8 @@ export interface RequestBridgedCallTransferRequest {
 export interface ConnectBridgedCallRequest {
   session_id: string;
   staff_participant_identity?: string;
+  /** web (default) joins LiveKit in-browser; phone dials the staff PSTN number via LiveKit SIP */
+  join_mode?: "web" | "phone";
 }
 
 export interface UpdateBridgedCallTranslationRequest {

@@ -3,6 +3,7 @@ package livekit
 import (
 	"context"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/KoiralaSam/ZorbaHealth/services/patient-service/internal/core/ports/outbound"
@@ -49,4 +50,20 @@ func (s *stubClient) MintRoomJoinToken(_ context.Context, roomName, identity str
 // ResolveRoomName is a no-op for the stub: dev rooms are addressed by name.
 func (s *stubClient) ResolveRoomName(_ context.Context, value string) (string, error) {
 	return value, nil
+}
+
+func (s *stubClient) DialSIPParticipant(_ context.Context, in outbound.DialSIPParticipantInput) (*outbound.DialSIPParticipantResult, error) {
+	identity := strings.TrimSpace(in.ParticipantIdentity)
+	if identity == "" {
+		identity = "staff-sip-stub"
+	}
+	return &outbound.DialSIPParticipantResult{
+		SIPCallID:           "stub-sip-" + identity,
+		ParticipantID:       "stub-participant-" + identity,
+		ParticipantIdentity: identity,
+	}, nil
+}
+
+func (s *stubClient) RemintMeetingTokens(_ context.Context, roomName string, _ time.Duration) (string, string, error) {
+	return "stub-patient-token-" + roomName, "stub-staff-token-" + roomName, nil
 }

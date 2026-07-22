@@ -159,6 +159,9 @@ message ConnectBridgedCallRequest {
   string session_id = 1;
   string staff_id = 2;
   string staff_participant_identity = 3;
+  // Reserved for join_mode (web|phone). Until protos are regenerated, the API gateway
+  // forwards join_mode via gRPC metadata x-bridge-join-mode.
+  string join_mode = 4;
 }
 
 message ConnectBridgedCallResponse {

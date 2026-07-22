@@ -76,10 +76,12 @@ def is_agent_identity(identity: str) -> bool:
 
 
 def extract_caller_phone(identity: str) -> str:
+    from phone import canonical_phone_digits
+
     identity = identity.strip()
     if identity.startswith("sip_"):
         identity = identity[len("sip_") :]
-    return "".join(ch for ch in identity if ch.isdigit())
+    return canonical_phone_digits(identity)
 
 
 def participant_language(metadata: str) -> str:
