@@ -15,7 +15,8 @@ COPY src/ ./src/
 RUN --mount=type=cache,target=/root/.cache/pip \
     pip install --no-cache-dir .
 
-RUN python -m livekit.agents download-files
+# Prefer module entrypoint (agent-script download-files is deprecated as of 1.5.10).
+RUN python -m livekit.agents download-files || python src/agent.py download-files
 
 ENV PYTHONUNBUFFERED=1
 

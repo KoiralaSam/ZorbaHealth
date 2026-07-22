@@ -273,7 +273,14 @@ server = AgentServer(
 
 
 def prewarm(proc: JobProcess) -> None:
-    proc.userdata["vad"] = silero.VAD.load()
+    # SIP/phone audio is noisy and echo-prone; defaults (min_speech=0.05s,
+    # threshold=0.5) false-trigger and cut the agent off mid-TTS.
+    proc.userdata["vad"] = silero.VAD.load(
+        min_speech_duration=0.25,
+        min_silence_duration=0.8,
+        prefix_padding_duration=0.5,
+        activation_threshold=0.65,
+    )
 
 
 server.setup_fnc = prewarm
@@ -358,12 +365,27 @@ async def zorba_session(ctx: JobContext) -> None:
         stt=_build_stt(settings),
         llm=_build_llm(settings),
         tts=_build_tts(settings),
-        # Self-hosted LiveKit (no Cloud agent-gateway): keep VAD as the default
-        # endpointing path. The multilingual turn detector is useful but expensive
-        # enough to starve small local Kubernetes nodes during SIP calls.
+        # Self-hosted LiveKit (no Cloud agent-gateway): VAD turn detection is the
+        # default endpointing path. The multilingual turn detector is useful but
+        # expensive enough to starve small local Kubernetes nodes during SIP calls.
+        #
+        # Interruption: require sustained speech so line noise / echo does not
+        # chop the agent's TTS. False interruptions resume automatically.
         turn_handling=TurnHandlingOptions(
             turn_detection=_build_turn_detector(settings),
-            interruption={"mode": "vad"},
+            endpointing={
+                "mode": "fixed",
+                "min_delay": 0.7,
+                "max_delay": 3.5,
+            },
+            interruption={
+                "mode": "vad",
+                "enabled": True,
+                "min_duration": 0.9,
+                "min_words": 1,
+                "resume_false_interruption": True,
+                "false_interruption_timeout": 1.5,
+            },
         ),
         vad=ctx.proc.userdata["vad"],
         userdata=ud,
@@ -917,17 +939,29 @@ def _build_tts(settings: cfg.Config):
 
 def _build_turn_detector(settings: cfg.Config):
     if not settings.enable_turn_detector:
-        logger.info("multilingual turn detector disabled; using VAD endpointing")
-        return None
+        logger.info("turn detector disabled; using VAD turn detection")
+        return "vad"
 
-    logger.info("multilingual turn detector enabled")
+    # Prefer LiveKit inference TurnDetector (replaces deprecated
+    # livekit.plugins.turn_detector.MultilingualModel).
+    try:
+        from livekit.agents.inference import TurnDetector
+
+        logger.info("inference turn detector enabled")
+        return TurnDetector(
+            api_key=settings.livekit_api_key,
+            api_secret=settings.livekit_api_secret,
+        )
+    except Exception:
+        logger.exception("inference turn detector unavailable; trying multilingual plugin")
+
     try:
         from livekit.plugins.turn_detector.multilingual import MultilingualModel
 
         return MultilingualModel()
     except Exception:
-        logger.exception("multilingual turn detector unavailable; falling back to VAD endpointing")
-        return None
+        logger.exception("multilingual turn detector unavailable; falling back to VAD")
+        return "vad"
 
 
 def _configured_value(value: str) -> bool:

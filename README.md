@@ -1,6 +1,6 @@
 # Zorba Health
 
-Zorba Health is an open-source voice-based healthcare AI platform built around Go microservices, a Next.js web app, gRPC, RabbitMQ, PostgreSQL, Redis, and voice integrations such as LiveKit and FreePBX.
+Zorba Health is an open-source voice-based healthcare AI platform built around Go microservices, a Next.js web app, gRPC, RabbitMQ, PostgreSQL, Redis, and voice integrations such as LiveKit and LiveKit SIP.
 
 ## What is in this repository
 
@@ -110,14 +110,13 @@ Some parts of the architecture described in the long-term roadmap are still futu
 
 ## Voice and telephony note
 
-Voice and SIP infrastructure are not fully contained inside the local development stack. The expected production architecture includes:
+LiveKit (rooms) and LiveKit SIP (PSTN bridge) run as a **host Docker sidecar** for local development — see [`deploy/docker/livekit/`](deploy/docker/livekit/). FreePBX is not required; a VoIP.ms DID can route voice straight to LiveKit SIP.
 
-- FreePBX for telephony
 - LiveKit for real-time audio sessions
-- LiveKit SIP for SIP-to-room bridging
-- `voice-agent-service` for the active LiveKit Agents voice runtime and webhook handling
+- LiveKit SIP for SIP-to-room bridging and dispatch rules
+- `voice-agent-service` for the LiveKit Agents runtime and webhook handling
 
-Those components are typically operated on separate infrastructure and integrated with the services in this repository.
+Production may still run LiveKit on separate infrastructure; the Compose sidecar is the supported local path alongside Tilt/minikube.
 
 ## Community files
 

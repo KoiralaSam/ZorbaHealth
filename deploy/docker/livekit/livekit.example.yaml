@@ -1,0 +1,32 @@
+# LiveKit server config for the host Docker sidecar stack.
+# Copy to livekit.yaml and set a real API key/secret pair:
+#   cp livekit.example.yaml livekit.yaml
+# Generate credentials with: docker run --rm livekit/livekit-server generate-keys
+# API key/secret must match deploy/kubernetes/development/secrets.yaml (livekit-credentials)
+# and sip.yaml in this folder. livekit.yaml is gitignored — never commit real keys.
+#
+# Server uses host networking so ICE can advertise the VM's real NICs
+# (GCP private 10.x + public IP). Minikube pods cannot hairpin to the
+# public IP; they need the private IP candidate.
+port: 7880
+bind_addresses:
+  - ""
+
+redis:
+  address: 127.0.0.1:6389
+
+rtc:
+  tcp_port: 7881
+  port_range_start: 50000
+  port_range_end: 50100
+  use_external_ip: true
+  # Also advertise private NIC so minikube agents can ICE without GCP hairpin.
+  advertise_internal_ip: true
+  # STUN self-ping often fails on GCE NAT; still keep the discovered public IP.
+  skip_external_ip_validation: true
+
+keys:
+  REPLACE_WITH_LIVEKIT_API_KEY: REPLACE_WITH_LIVEKIT_API_SECRET
+
+logging:
+  level: info

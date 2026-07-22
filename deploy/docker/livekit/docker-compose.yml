@@ -1,0 +1,47 @@
+# LiveKit server + SIP on the host (not in k8s).
+# Host networking is required so WebRTC ICE advertises the VM's real IPs —
+# minikube pods cannot reach LiveKit via the GCP public IP (no hairpin NAT).
+#
+# Start: ./deploy/tilt/livekit-up.sh   (or docker compose up -d)
+# Docs:  deploy/docker/livekit/README.md
+services:
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    network_mode: host
+    # Avoid clash with Tilt's localhost:6379 port-forward to in-cluster Redis.
+    command: ["redis-server", "--port", "6389"]
+    volumes:
+      - livekit_redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "-h", "127.0.0.1", "-p", "6389", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  livekit-server:
+    image: livekit/livekit-server:latest
+    restart: unless-stopped
+    network_mode: host
+    command: ["--config", "/etc/livekit.yaml"]
+    volumes:
+      - ./livekit.yaml:/etc/livekit.yaml:ro
+    depends_on:
+      redis:
+        condition: service_healthy
+
+  livekit-sip:
+    image: livekit/sip:latest
+    restart: unless-stopped
+    network_mode: host
+    volumes:
+      # Image default: --config=/sip/config.yaml
+      - ./sip.yaml:/sip/config.yaml:ro
+    depends_on:
+      redis:
+        condition: service_healthy
+      livekit-server:
+        condition: service_started
+
+volumes:
+  livekit_redis_data:

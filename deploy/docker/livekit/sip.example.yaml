@@ -1,0 +1,20 @@
+# LiveKit SIP bridge — shares Redis + API keys with livekit-server.
+# Copy to sip.yaml and use the same key/secret as livekit.yaml:
+#   cp sip.example.yaml sip.yaml
+# sip.yaml is gitignored — never commit real keys.
+# Uses host networking (see docker-compose.yml) so SIP/RTP bind on the VM.
+api_key: REPLACE_WITH_LIVEKIT_API_KEY
+api_secret: REPLACE_WITH_LIVEKIT_API_SECRET
+ws_url: ws://127.0.0.1:7880
+
+redis:
+  address: 127.0.0.1:6389
+
+sip_port: 5060
+rtp_port: 10000-10100
+
+# Public IP in SDP for VoIP.ms RTP.
+use_external_ip: true
+
+logging:
+  level: info

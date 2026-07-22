@@ -4,6 +4,7 @@ load('ext://restart_process', 'docker_build_with_restart')
 # Tilt owns the full local Kubernetes stack (namespace dev):
 #   deploy/kubernetes/development/  — infra + all services
 #   deploy/tilt/migrate-up.sh         — DB migrations via localhost:5432 port-forward
+#   deploy/tilt/livekit-up.sh         — host Docker LiveKit + SIP + trunk/dispatch
 #
 # Primary OSS path (no cluster): Docker Compose / Codespaces — see docs/local-setup.md
 #
@@ -52,6 +53,19 @@ k8s_resource(
   labels='infra',
 )
 k8s_resource('jaeger', port_forwards='16686:16686', labels='infra')
+
+# LiveKit + SIP on host Docker (not in-cluster). Starts compose and provisions
+# inbound trunk + agent dispatch rule (see deploy/tilt/livekit-up.sh).
+local_resource(
+  'livekit-docker',
+  './deploy/tilt/livekit-up.sh',
+  deps=[
+    './deploy/docker/livekit',
+    './deploy/tilt/livekit-up.sh',
+  ],
+  labels='infra',
+  auto_init=True,
+)
 
 local_resource(
   'db-migrate',
@@ -104,7 +118,7 @@ docker_build(
   platform=_docker_platform,
 )
 
-k8s_resource('patient-service', port_forwards=8083, resource_deps=app_deps, labels="services")
+k8s_resource('patient-service', port_forwards=8083, resource_deps=app_deps + ['livekit-docker'], labels="services")
 k8s_resource(
   'welfare-check-dispatcher',
   resource_deps=app_deps + ['patient-service', 'auth-service', 'audit-service'],
@@ -253,7 +267,7 @@ docker_build(
 k8s_resource(
   'voice-agent-service',
   port_forwards='8090:8090',
-  resource_deps=app_deps + ['mcp-server'],
+  resource_deps=app_deps + ['mcp-server', 'livekit-docker'],
   labels="services",
 )
 ### End of Voice Agent Service ###

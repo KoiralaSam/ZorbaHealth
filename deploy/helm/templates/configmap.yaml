@@ -10,9 +10,10 @@ data:
   PATIENT_SERVICE_GRPC_ADDR: "patient-service:9093"
   AUTH_SERVICE_HTTP_ADDR: ":8082"
   AUTH_SERVICE_GRPC_ADDR: "auth-service:9092"
-  LIVEKIT_WS_URL: "ws://34.198.147.82:7880"
-  LIVEKIT_URL: "ws://34.198.147.82:7880"
-  LIVEKIT_PUBLIC_WS_URL: "ws://34.198.147.82:7880"
+  # LiveKit host Docker sidecar (deploy/docker/livekit/); update PUBLIC URL to host IP.
+  LIVEKIT_WS_URL: "ws://host.minikube.internal:7880"
+  LIVEKIT_URL: "ws://host.minikube.internal:7880"
+  LIVEKIT_PUBLIC_WS_URL: "ws://35.255.46.92:7880"
   MCP_HTTP_ADDR: ":8092"
   HEALTH_RECORDS_SERVICE_GRPC_ADDR: "health-records-service:50054"
   ANALYTICS_SERVICE_GRPC_ADDR: "analytics-service:50054"

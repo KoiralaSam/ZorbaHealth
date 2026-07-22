@@ -67,6 +67,10 @@ lerna-debug.log*
 examples/sample-env/.env.docker
 examples/sample-env/.env.codespaces
 
+# LiveKit host sidecar credentials (copy from *.example.yaml)
+deploy/docker/livekit/livekit.yaml
+deploy/docker/livekit/sip.yaml
+
 # LaTeX intermediates (keep main.pdf)
 docs/research/latex/*.aux
 docs/research/latex/*.log

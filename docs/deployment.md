@@ -48,9 +48,7 @@ These should be treated as a base for environment-specific adaptation.
 
 ## External infrastructure
 
-The following components are expected to run outside the repository-managed local stack:
+- **LiveKit + LiveKit SIP** for local/dev: host Docker Compose sidecar at [`deploy/docker/livekit/`](../deploy/docker/livekit/) (not in-cluster). `tilt up` runs [`deploy/tilt/livekit-up.sh`](../deploy/tilt/livekit-up.sh) automatically (compose + trunk + dispatch rule). GCP firewall and VoIP.ms DID routing remain manual — see that folder’s README.
+- Cloud or self-hosted AI providers (STT/TTS/LLM)
 
-- FreePBX
-- LiveKit
-- LiveKit SIP
-- cloud or self-hosted AI providers
+FreePBX is not required: VoIP.ms DIDs can trunk directly to LiveKit SIP.

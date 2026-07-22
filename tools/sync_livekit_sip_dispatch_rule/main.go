@@ -13,13 +13,14 @@ import (
 	lklivekit "github.com/livekit/protocol/livekit"
 )
 
-// Usage:
+// Usage (host Docker LiveKit sidecar — deploy/docker/livekit/):
 //   go run ./tools/sync_livekit_sip_dispatch_rule \
-//     -livekit-url http://34.198.147.82:7880 \
+//     -livekit-url http://localhost:7880 \
 //     -api-key ... -api-secret ... \
 //     -webhook-url https://<your-tunnel>/webhook/livekit \
 //     -room-prefix zorba-call- \
-//     -rule-name zorba-agent-individual
+//     -rule-name zorba-agent-individual \
+//     -trunk-ids <inbound-trunk-id>
 //
 // This will delete any existing SIP dispatch rule whose attributes["agent_webhook_url"]
 // matches -webhook-url, then create a new Individual dispatch rule.
