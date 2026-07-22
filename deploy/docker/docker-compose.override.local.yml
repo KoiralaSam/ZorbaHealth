@@ -1,0 +1,36 @@
+# Local override: use .env.docker instead of placeholder .env.example
+# Usage:
+#   docker compose -f deploy/docker/docker-compose.yml \
+#     -f deploy/docker/docker-compose.override.local.yml up --build
+
+x-env: &env
+  env_file:
+    - ../../examples/sample-env/.env.docker
+
+services:
+  auth-service:
+    <<: *env
+  patient-service:
+    <<: *env
+  audit-service:
+    <<: *env
+  health-records-service:
+    <<: *env
+  location-service:
+    <<: *env
+    environment:
+      IP_GEOLOCATION_ENDPOINT_TEMPLATE: "https://ipapi.co/%s/json/"
+  translation-service:
+    <<: *env
+  notification-service:
+    <<: *env
+  mcp-server:
+    <<: *env
+  api-gateway:
+    <<: *env
+    ports: !override
+      - "18081:8081"
+  web:
+    <<: *env
+    ports: !override
+      - "3000:3000"

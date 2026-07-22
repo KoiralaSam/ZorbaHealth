@@ -1,0 +1,234 @@
+\documentclass[journal]{IEEEtran}
+\usepackage{cite}
+\usepackage{amsmath,amssymb,amsfonts}
+\usepackage{graphicx}
+\usepackage{textcomp}
+\usepackage{xcolor}
+\usepackage{booktabs}
+\usepackage{url}
+\usepackage{hyperref}
+\usepackage{tikz}
+\usetikzlibrary{arrows.meta,positioning,fit,calc}
+
+\begin{document}
+
+\title{Zorba Health: Consent-Aware Voice Healthcare AI with FHIR-Grounded RAG and an MCP Tool Gateway}
+
+\author{
+\IEEEauthorblockN{Samarpan Koirala}
+\IEEEauthorblockA{
+Independent Researcher; Maintainer, Zorba Health Open Source Project\\
+Email: samarpankoirala@gmail.com}
+}
+
+\maketitle
+
+\begin{abstract}
+Voice interfaces can broaden access to digital health support, yet conversational agents that touch clinical context introduce risks of privacy leakage, missing consent, hallucinated advice, and uncontrolled tool use.
+We present Zorba Health, an open-source microservice platform that combines a LiveKit-backed voice agent, a Model Context Protocol (MCP) tool gateway, a FHIR-compatible retrieval-augmented generation (RAG) path with citations, and an append-only audit and consent service.
+We release a synthetic evaluation corpus of 16 patients (646 filtered FHIR resources), 25 gold QA items, 22 exact and 22 paraphrase escalation utterances, and 8 consent scenarios.
+Offline type-aware lexical Recall@3 $= 1.00$.
+Exact-phrase escalation F1 $= 1.00$, but paraphrase F1 $= 0.29$ (combined F1 $= 0.71$).
+Consent-gate e2e deny/allow/regrant for health-record access passes, with a documented gap for third-party model consent.
+A live OpenAI RAG evaluation with answer-string-required scoring yields answerable accuracy $= 0.85$ (17/20), citation presence $= 1.00$, unanswerable safe refusal $= 1.00$ (5/5), mean latency $1.67$\,s (p95 $2.43$\,s).
+We argue that separating voice runtime, tool policy, clinical retrieval, and compliance logging is a practical path toward auditable healthcare agents.
+\end{abstract}
+
+\begin{IEEEkeywords}
+Healthcare AI, voice agents, FHIR, retrieval-augmented generation, Model Context Protocol, consent, audit, microservices, Synthea
+\end{IEEEkeywords}
+
+\section{Introduction}
+Telephone and voice channels remain highly accessible for patients who struggle with app-centric portals.
+Large language models (LLMs) enable natural dialogue, but na\"ive deployments can invent clinical facts, bypass consent, omit audit trails, and couple the agent directly to sensitive stores.
+The Model Context Protocol (MCP) standardizes tool exposure but cannot enforce consent or authorization at the protocol layer; implementors must build those controls~\cite{mcp2024}.
+WHO guidance on large multi-modal models for health similarly emphasizes governance and careful escalation~\cite{who2024lmm}.
+
+\textbf{Problem.}
+How can a voice healthcare assistant be engineered so that tool use, record retrieval, and AI summarization are consent-gated, auditable, grounded in patient-specific FHIR context, and reproducibly evaluable?
+
+\textbf{Contributions.}
+(1) an open-source voice healthcare microservice architecture;
+(2) a controlled MCP tool gateway that materializes the consent flows the MCP specification leaves to implementors;
+(3) a FHIR-compatible RAG pipeline with citations;
+(4) a safety, consent, and audit framework;
+(5) a reproducible synthetic evaluation package including live RAG, consent-gate, and paraphrase safety tests.
+
+\section{Related Work}
+Relational agents targeted accessible care~\cite{bickmore2010relational}, while modern medical LLMs encode clinical knowledge~\cite{singhal2023medpalm,nori2023gpt4medicine}.
+Polaris~\cite{mukherjee2024polaris} is a proprietary multi-agent voice constellation evaluated by over 1{,}100 U.S.\ licensed nurses; Zorba Health instead prioritizes an open-source, consent-gated MCP architecture without clinical-parity claims.
+HL7 FHIR R4 and Synthea~\cite{walonoski2018synthea,hl7fhirr4,mandl2016fhir} enable synthetic EHR research without PHI; MedAgentBench~\cite{jiang2025medagentbench} adds a FHIR-compliant interactive agent benchmark.
+Retrieval-augmented generation~\cite{lewis2020rag}, medical RAG benchmarks~\cite{es2023ragas,xiong2024medicalrag}, Almanac~\cite{zakka2024almanac}, and FHIR-RAG-MEDS~\cite{kabak2026fhirragmeds} quantify clinical grounding.
+Tool-using LLMs~\cite{yao2023react,schick2023toolformer}, AgentClinic~\cite{schmidgall2024agentclinic}, and HealthBench~\cite{arora2025healthbench} motivate interactive evaluation beyond static QA.
+MCP~\cite{mcp2024} standardizes tool exposure; early healthcare MCP prototypes~\cite{shehab2025agenticai,elsayed2025mcpai} document compliance layers, while Hou~\textit{et~al.}~\cite{hou2025mcplandscape} systematize MCP threats.
+HIPAA~\cite{hipaa1996} and WHO LMM guidance~\cite{who2024lmm} motivate consent and audit.
+Crisis-detection benchmarks~\cite{deng2025psycrisisbench,arnaiz2026crisis} show LLMs can reach high F1 on explicit suicidal ideation yet still fail on indirect signals---framing our paraphrase safety collapse.
+
+\section{System Architecture}
+Zorba Health comprises an API gateway, voice-agent service, MCP server, domain microservices, and a dedicated audit service, with PostgreSQL (pgvector), Redis, and RabbitMQ (Fig.~\ref{fig:arch}).
+Voice sessions do not query FHIR stores directly; tools are mediated by MCP (Fig.~\ref{fig:seq}).
+
+\begin{figure}[!t]
+\centering
+\resizebox{\columnwidth}{!}{%
+\begin{tikzpicture}[
+  font=\footnotesize,
+  box/.style={draw, rounded corners, align=center, minimum height=0.7cm, minimum width=2.0cm},
+  arr/.style={-{Latex}, thick}
+]
+\node[box] (pat) {Patient\\Web/Voice};
+\node[box, right=0.45cm of pat] (voice) {Voice Agent};
+\node[box, right=0.45cm of voice] (mcp) {MCP Gateway};
+\node[box, above right=0.25cm and 0.4cm of mcp] (audit) {Audit/Consent};
+\node[box, below right=0.25cm and 0.4cm of mcp] (hr) {Health Records\\RAG};
+\node[box, right=0.55cm of hr] (db) {Postgres\\pgvector};
+\draw[arr] (pat) -- (voice);
+\draw[arr] (voice) -- (mcp);
+\draw[arr] (mcp) -- (audit);
+\draw[arr] (mcp) -- (hr);
+\draw[arr] (hr) -- (audit);
+\draw[arr] (hr) -- (db);
+\end{tikzpicture}%
+}
+\caption{High-level architecture with MCP boundary.}
+\label{fig:arch}
+\end{figure}
+
+\begin{figure}[!t]
+\centering
+\begin{tikzpicture}[
+  font=\scriptsize,
+  every node/.style={align=center}
+]
+\node (v) {Voice};
+\node[right=1.1cm of v] (m) {MCP};
+\node[right=1.1cm of m] (a) {Audit};
+\node[right=1.1cm of a] (h) {RAG};
+\node[right=1.1cm of h] (d) {DB};
+\foreach \x in {v,m,a,h,d} \draw (\x.south) -- ++(0,-2.2);
+\draw[-{Latex}] ([yshift=-0.3cm]v.south) -- node[above]{\tiny tool} ([yshift=-0.3cm]m.south);
+\draw[-{Latex}] ([yshift=-0.7cm]m.south) -- node[above]{\tiny consent?} ([yshift=-0.7cm]a.south);
+\draw[-{Latex}] ([yshift=-1.1cm]m.south) -- node[above]{\tiny query} ([yshift=-1.1cm]h.south);
+\draw[-{Latex}] ([yshift=-1.5cm]h.south) -- node[above]{\tiny vector} ([yshift=-1.5cm]d.south);
+\draw[-{Latex}] ([yshift=-1.9cm]h.south) -- node[above]{\tiny audit} ([yshift=-1.9cm]a.south);
+\end{tikzpicture}
+\caption{Voice $\rightarrow$ MCP $\rightarrow$ consent $\rightarrow$ RAG $\rightarrow$ audit sequence.}
+\label{fig:seq}
+\end{figure}
+
+\subsection{Consent-Aware RAG}
+The pipeline validates inputs; checks \texttt{HEALTH\_RECORD\_ACCESS}; embeds the query; performs patient-scoped vector search; optionally summarizes only over retrieved chunks; audits events; returns citations.
+
+\subsection{Safety Escalation}
+A deterministic phrase classifier triggers hospital-visible escalation for emergency-like utterances.
+
+\subsection{Standards Alignment}
+Application-level consent types (\texttt{HEALTH\_RECORD\_ACCESS}, \texttt{THIRD\_PARTY\_MODEL\_PROCESSING}) are complementary to the FHIR R4 Consent resource~\cite{hl7fhirconsent}; mapping typed grants to FHIR Consent is future work.
+SMART App Launch v2.2 scopes~\cite{smartapplaunch22} authorize FHIR API clients; the MCP gateway sits above SMART-style scopes as a tool-mediation and audit boundary for agent invocations, not as a replacement for OAuth/SMART.
+
+\section{Data Collection}
+We construct a synthetic corpus under \texttt{examples/evaluation-data/} (Fig.~\ref{fig:data}).
+Table~\ref{tab:corpus} summarizes resource counts.
+Curated gold patients ($n{=}5$) expose explicit facts; Synthea exports ($n{=}10$, seed 1784242671144) are slimmed to supported FHIR types.
+Gold QA ($n{=}25$) includes unanswerable LDL probes.
+Escalation includes exact ($n{=}22$) and paraphrase ($n{=}22$) sets; consent scenarios ($n{=}8$).
+
+\begin{figure}[!t]
+\centering
+\begin{tikzpicture}[
+  font=\footnotesize,
+  box/.style={draw, rounded corners, align=center, minimum height=0.65cm, minimum width=2.0cm},
+  arr/.style={-{Latex}, thick}
+]
+\node[box] (syn) {Synthea\\seed};
+\node[box, right=0.5cm of syn] (slim) {Slim FHIR\\bundles};
+\node[box, right=0.5cm of slim] (gold) {Gold QA /\\scenarios};
+\node[box, right=0.5cm of gold] (score) {Offline +\\live scores};
+\draw[arr] (syn) -- (slim);
+\draw[arr] (slim) -- (gold);
+\draw[arr] (gold) -- (score);
+\end{tikzpicture}
+\caption{Dataset construction pipeline.}
+\label{fig:data}
+\end{figure}
+
+\begin{table}[!t]
+\centering
+\caption{Evaluation corpus resource counts (filtered).}
+\label{tab:corpus}
+\begin{tabular}{@{}lr@{}}
+\toprule
+Resource type & Count \\
+\midrule
+Patient & 16 \\
+Condition & 126 \\
+Observation & 206 \\
+MedicationRequest & 97 \\
+AllergyIntolerance & 16 \\
+Encounter & 80 \\
+DiagnosticReport & 60 \\
+DocumentReference & 20 \\
+CarePlan & 25 \\
+\midrule
+Total & 646 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\section{Experiments}
+\subsection{Setup}
+We report: (1) lexical Recall@3; (2) live OpenAI RAG with answer-string-required audit; (3) consent-gate stub e2e; (4) exact vs paraphrase safety; (5) Go unit/contract tests.
+
+\subsection{Results}
+Lexical existence oracle and type-aware Recall@3 are both $1.00$.
+Live RAG answerable accuracy is $0.85$ (17/20) with citation presence $1.00$ and safe refusal $1.00$ on 5 LDL probes (mean $1667$\,ms, p95 $2432$\,ms).
+Error analysis: allergy misses in answer text (3) and one medication answer that incorrectly included penicillin (an allergy) alongside albuterol.
+Exact escalation F1 $= 1.00$; paraphrase F1 $= 0.29$; combined F1 $= 0.71$ (Table~\ref{tab:safety}).
+Consent deny/allow/regrant for \texttt{HEALTH\_RECORD\_ACCESS} passes; third-party model consent remains a known RAG-pipeline gap.
+
+\begin{table}[!t]
+\centering
+\caption{Emergency escalation: exact vs paraphrase.}
+\label{tab:safety}
+\begin{tabular}{@{}lrrrr@{}}
+\toprule
+Split & $n$ & Prec. & Rec. & F1 \\
+\midrule
+Exact & 22 & 1.00 & 1.00 & 1.00 \\
+Paraphrase & 22 & 1.00 & 0.17 & 0.29 \\
+Combined & 44 & 1.00 & 0.55 & 0.71 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\section{Discussion and Limitations}
+Separating MCP and audit from the voice runtime creates a single policy enforcement point.
+Relative to Hou~\textit{et~al.}~\cite{hou2025mcplandscape}, the gateway mitigates unauthorized tool invocation, weak accountability, and unmediated PHI access, but does not yet address installer spoofing or cryptographic tool-manifest signing.
+Relative to Polaris~\cite{mukherjee2024polaris}, we trade proprietary constellation training for an auditable open architecture.
+Limitations include modest live-RAG gold size, paraphrase brittleness of phrase safety (motivating LLM/embedding classifiers~\cite{deng2025psycrisisbench,arnaiz2026crisis}), incomplete third-party consent enforcement, lack of clinician-rated groundedness, and absence of MedAgentBench-style interactive evaluation~\cite{jiang2025medagentbench}.
+Synthetic FHIR under-represents messy clinical narratives.
+Aligning typed consents with FHIR Consent~\cite{hl7fhirconsent} and composing MCP mediation with SMART scopes~\cite{smartapplaunch22} are interoperability priorities.
+
+\section{Conclusion}
+Zorba Health provides an open, consent-aware architecture for voice healthcare agents with FHIR-grounded RAG and MCP-mediated tools, plus a reproducible synthetic evaluation package with honest safety stress results.
+Future work includes paraphrase-robust escalation, third-party consent enforcement, FHIR Consent / SMART alignment, MedAgentBench and HealthBench-style evaluation, Synthea-scale gold labels, and clinician review.
+
+\section*{Data Availability}
+Evaluation artifacts and scripts are included in the open-source repository under \texttt{examples/evaluation-data/} and \texttt{scripts/evaluation/}.
+Synthea seed: 1784242671144.
+Draft freeze commit: \texttt{2d7429d0}.
+
+\section*{Conflict of Interest}
+The author maintains the Zorba Health open-source project and declares no competing financial interests.
+
+\section*{Ethics}
+Evaluation uses synthetic data only. No human subjects or production PHI were used. Outputs are not clinical advice.
+Framing follows WHO guidance on large multi-modal models for health~\cite{who2024lmm}.
+
+\section*{Acknowledgments}
+No external funding was received for this draft.
+
+\bibliographystyle{IEEEtran}
+\bibliography{refs}
+
+\end{document}

@@ -1,0 +1,40 @@
+{
+  "generated_at": "2026-07-16T22:58:55.454171+00:00",
+  "patients_total": 16,
+  "patients_curated": 5,
+  "patients_synthea_slim": 10,
+  "patients_demo": 1,
+  "gold_qa_items": 25,
+  "escalation_scenarios": 22,
+  "escalation_positive": 10,
+  "escalation_negative": 12,
+  "consent_scenarios": 8,
+  "resource_totals": {
+    "Patient": 16,
+    "Condition": 126,
+    "Observation": 206,
+    "MedicationRequest": 97,
+    "AllergyIntolerance": 16,
+    "Encounter": 80,
+    "DiagnosticReport": 60,
+    "DocumentReference": 20,
+    "CarePlan": 25
+  },
+  "safety_offline": {
+    "n": 22,
+    "tp": 10,
+    "fp": 0,
+    "tn": 12,
+    "fn": 0,
+    "precision": 1.0,
+    "recall": 1.0,
+    "f1": 1.0,
+    "accuracy": 1.0
+  },
+  "synthea_seed": 1784242671144,
+  "notes": [
+    "All data are synthetic; no PHI.",
+    "Gold QA targets curated patients with explicit facts.",
+    "Safety scores use the same phrase rules as voice-agent-service/src/safety.py."
+  ]
+}

@@ -35,9 +35,13 @@ deploy/helm/charts/*.tgz
 # Dependencies
 node_modules/
 mobile/.expo/
+mobile/ios/Pods/
 agent-worker
 github.com/
 services/interpretation-service/interpretation-service
+
+# Local tooling caches (never commit)
+.devtunnel-cache/
 
 # Logs
 logs/

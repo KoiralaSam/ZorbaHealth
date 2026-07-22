@@ -185,6 +185,8 @@ The web app reads `NEXT_PUBLIC_API_URL` and `NEXT_PUBLIC_LOCATION_WS_URL` at **b
 ### Secrets-related startup failures
 
 - Re-check `deploy/kubernetes/development/secrets.yaml`
+**Postgres password auth failed on migrate:** Postgres only applies `POSTGRES_PASSWORD` when the PVC is first created. If `secrets.yaml` changed later, run `./deploy/tilt/reset-postgres.sh`, then re-trigger Tilt `db-migrate`. Keep the same password in `postgres-secret` and `app-secrets.DATABASE_URL`.
+
 - Keep the same PostgreSQL password in both `postgres-secret` and `app-secrets.DATABASE_URL`
 
 ### Migration issues

@@ -1,0 +1,446 @@
+[
+  {
+    "source": "curated",
+    "bundle_file": "examples/evaluation-data/fhir-bundles/eval-p001.json",
+    "patient_id": "eval-p001",
+    "display_name": "Alex Demo",
+    "gender": "female",
+    "birthDate": "1990-04-12",
+    "resource_counts": {
+      "Patient": 1,
+      "Condition": 1,
+      "Observation": 1,
+      "MedicationRequest": 1,
+      "AllergyIntolerance": 1
+    },
+    "top_conditions": [
+      "Mild persistent asthma"
+    ],
+    "total_resources": 5,
+    "facts": {
+      "condition": "Mild persistent asthma",
+      "observation": "Peak expiratory flow 410 L/min",
+      "medication": "Albuterol inhaler",
+      "allergy": "Penicillin"
+    }
+  },
+  {
+    "source": "curated",
+    "bundle_file": "examples/evaluation-data/fhir-bundles/eval-p002.json",
+    "patient_id": "eval-p002",
+    "display_name": "Jordan Lee",
+    "gender": "male",
+    "birthDate": "1978-09-03",
+    "resource_counts": {
+      "Patient": 1,
+      "Condition": 1,
+      "Observation": 1,
+      "MedicationRequest": 1,
+      "AllergyIntolerance": 1
+    },
+    "top_conditions": [
+      "Type 2 diabetes mellitus"
+    ],
+    "total_resources": 5,
+    "facts": {
+      "condition": "Type 2 diabetes mellitus",
+      "observation": "Hemoglobin A1c 7.4 %",
+      "medication": "Metformin 500 mg",
+      "allergy": "Sulfa drugs"
+    }
+  },
+  {
+    "source": "curated",
+    "bundle_file": "examples/evaluation-data/fhir-bundles/eval-p003.json",
+    "patient_id": "eval-p003",
+    "display_name": "Samira Hassan",
+    "gender": "female",
+    "birthDate": "1965-01-22",
+    "resource_counts": {
+      "Patient": 1,
+      "Condition": 1,
+      "Observation": 1,
+      "MedicationRequest": 1,
+      "AllergyIntolerance": 1
+    },
+    "top_conditions": [
+      "Essential hypertension"
+    ],
+    "total_resources": 5,
+    "facts": {
+      "condition": "Essential hypertension",
+      "observation": "Blood pressure systolic 148 mmHg",
+      "medication": "Lisinopril 10 mg",
+      "allergy": "ACE inhibitor cough history noted as intolerance"
+    }
+  },
+  {
+    "source": "curated",
+    "bundle_file": "examples/evaluation-data/fhir-bundles/eval-p004.json",
+    "patient_id": "eval-p004",
+    "display_name": "Chris Nguyen",
+    "gender": "male",
+    "birthDate": "1988-11-15",
+    "resource_counts": {
+      "Patient": 1,
+      "Condition": 1,
+      "Observation": 1,
+      "MedicationRequest": 1,
+      "AllergyIntolerance": 1
+    },
+    "top_conditions": [
+      "Major depressive disorder"
+    ],
+    "total_resources": 5,
+    "facts": {
+      "condition": "Major depressive disorder",
+      "observation": "PHQ-9 score 12 score",
+      "medication": "Sertraline 50 mg",
+      "allergy": "None known"
+    }
+  },
+  {
+    "source": "curated",
+    "bundle_file": "examples/evaluation-data/fhir-bundles/eval-p005.json",
+    "patient_id": "eval-p005",
+    "display_name": "Riley Patel",
+    "gender": "female",
+    "birthDate": "2001-06-30",
+    "resource_counts": {
+      "Patient": 1,
+      "Condition": 1,
+      "Observation": 1,
+      "MedicationRequest": 1,
+      "AllergyIntolerance": 1
+    },
+    "top_conditions": [
+      "Seasonal allergic rhinitis"
+    ],
+    "total_resources": 5,
+    "facts": {
+      "condition": "Seasonal allergic rhinitis",
+      "observation": "IgE total 220 IU/mL",
+      "medication": "Cetirizine 10 mg",
+      "allergy": "Peanut"
+    }
+  },
+  {
+    "source": "synthea-slim",
+    "bundle_file": "examples/evaluation-data/fhir-bundles/synthea-Bella510_Wehner319_481d7928-56c2-156e-5d5e-7ba5756e90f9.json",
+    "synthea_source_file": "Bella510_Wehner319_481d7928-56c2-156e-5d5e-7ba5756e90f9.json",
+    "patient_id": "481d7928-56c2-156e-5d5e-7ba5756e90f9",
+    "display_name": "Bella510 Jacalyn740 Wehner319",
+    "gender": "female",
+    "birthDate": "1925-03-13",
+    "resource_counts": {
+      "Patient": 1,
+      "Encounter": 8,
+      "Condition": 12,
+      "DiagnosticReport": 6,
+      "DocumentReference": 2,
+      "CarePlan": 4,
+      "MedicationRequest": 12,
+      "Observation": 20
+    },
+    "top_conditions": [
+      "Recurrent urinary tract infection (disorder)",
+      "Educated to high school level (finding)",
+      "Past pregnancy history of miscarriage (situation)",
+      "Body mass index 30+ - obesity (finding)",
+      "Essential hypertension (disorder)",
+      "History of tubal ligation (situation)",
+      "Prediabetes (finding)",
+      "Metabolic syndrome X (disorder)"
+    ],
+    "total_resources": 65
+  },
+  {
+    "source": "synthea-slim",
+    "bundle_file": "examples/evaluation-data/fhir-bundles/synthea-Cornell131_Hermiston71_3a5b0863-b7a2-4f70-7e94-1ab3c6d8f1b0.json",
+    "synthea_source_file": "Cornell131_Hermiston71_3a5b0863-b7a2-4f70-7e94-1ab3c6d8f1b0.json",
+    "patient_id": "3a5b0863-b7a2-4f70-7e94-1ab3c6d8f1b0",
+    "display_name": "Cornell131 Ahmed109 Hermiston71",
+    "gender": "male",
+    "birthDate": "1978-06-18",
+    "resource_counts": {
+      "Patient": 1,
+      "Encounter": 8,
+      "Condition": 12,
+      "DiagnosticReport": 6,
+      "DocumentReference": 2,
+      "MedicationRequest": 12,
+      "Observation": 20
+    },
+    "top_conditions": [
+      "Risk activity involvement (finding)",
+      "Received higher education (finding)",
+      "Transport problem (finding)",
+      "Lack of access to transportation (finding)",
+      "Full-time employment (finding)",
+      "Chronic pain (finding)",
+      "Chronic low back pain (finding)",
+      "Medication review due (situation)"
+    ],
+    "total_resources": 61
+  },
+  {
+    "source": "synthea-slim",
+    "bundle_file": "examples/evaluation-data/fhir-bundles/synthea-Danial835_Emmerich580_6d3c98ae-e4df-fe96-0527-dea2d17790de.json",
+    "synthea_source_file": "Danial835_Emmerich580_6d3c98ae-e4df-fe96-0527-dea2d17790de.json",
+    "patient_id": "6d3c98ae-e4df-fe96-0527-dea2d17790de",
+    "display_name": "Danial835 Deandre599 Emmerich580",
+    "gender": "male",
+    "birthDate": "1976-03-21",
+    "resource_counts": {
+      "Patient": 1,
+      "Encounter": 8,
+      "CarePlan": 4,
+      "DiagnosticReport": 6,
+      "DocumentReference": 2,
+      "AllergyIntolerance": 2,
+      "MedicationRequest": 12,
+      "Condition": 12,
+      "Observation": 20
+    },
+    "top_conditions": [
+      "Received higher education (finding)",
+      "Asthma (disorder)",
+      "Body mass index 30+ - obesity (finding)",
+      "Full-time employment (finding)",
+      "Medication review due (situation)",
+      "Stress (finding)",
+      "Medication review due (situation)",
+      "Stress (finding)"
+    ],
+    "total_resources": 67
+  },
+  {
+    "source": "synthea-slim",
+    "bundle_file": "examples/evaluation-data/fhir-bundles/synthea-Delma583_Cruickshank494_d97ef133-6ecd-ac7a-1ebf-d0d4a3e3897c.json",
+    "synthea_source_file": "Delma583_Cruickshank494_d97ef133-6ecd-ac7a-1ebf-d0d4a3e3897c.json",
+    "patient_id": "d97ef133-6ecd-ac7a-1ebf-d0d4a3e3897c",
+    "display_name": "Delma583 Cammie978 Cruickshank494",
+    "gender": "female",
+    "birthDate": "2013-12-19",
+    "resource_counts": {
+      "Patient": 1,
+      "Encounter": 8,
+      "Condition": 12,
+      "Observation": 20,
+      "DiagnosticReport": 6,
+      "DocumentReference": 2,
+      "MedicationRequest": 8,
+      "CarePlan": 3
+    },
+    "top_conditions": [
+      "Medication review due (situation)",
+      "Gingival disease (disorder)",
+      "Otitis media (disorder)",
+      "Medication review due (situation)",
+      "Medication review due (situation)",
+      "Primary dental caries (disorder)",
+      "Child attention deficit disorder (disorder)",
+      "Medication review due (situation)"
+    ],
+    "total_resources": 60
+  },
+  {
+    "source": "synthea-slim",
+    "bundle_file": "examples/evaluation-data/fhir-bundles/synthea-Felton646_Dickinson688_208b6def-dfcf-7fc3-ee4f-f5afacf65ca0.json",
+    "synthea_source_file": "Felton646_Dickinson688_208b6def-dfcf-7fc3-ee4f-f5afacf65ca0.json",
+    "patient_id": "208b6def-dfcf-7fc3-ee4f-f5afacf65ca0",
+    "display_name": "Felton646 Derek111 Dickinson688",
+    "gender": "male",
+    "birthDate": "1982-11-13",
+    "resource_counts": {
+      "Patient": 1,
+      "Encounter": 8,
+      "Condition": 12,
+      "DiagnosticReport": 6,
+      "DocumentReference": 2,
+      "MedicationRequest": 12,
+      "Observation": 20,
+      "CarePlan": 3
+    },
+    "top_conditions": [
+      "Only received primary school education (finding)",
+      "Chronic pain (finding)",
+      "Chronic low back pain (finding)",
+      "Chronic neck pain (finding)",
+      "Medication review due (situation)",
+      "Part-time employment (finding)",
+      "Stress (finding)",
+      "Unhealthy alcohol drinking behavior (finding)"
+    ],
+    "total_resources": 64
+  },
+  {
+    "source": "synthea-slim",
+    "bundle_file": "examples/evaluation-data/fhir-bundles/synthea-Kent912_Schowalter414_8a8e8f38-7e34-e9f9-7398-d71ab726a846.json",
+    "synthea_source_file": "Kent912_Schowalter414_8a8e8f38-7e34-e9f9-7398-d71ab726a846.json",
+    "patient_id": "8a8e8f38-7e34-e9f9-7398-d71ab726a846",
+    "display_name": "Kent912 Fidel864 Schowalter414",
+    "gender": "male",
+    "birthDate": "1999-03-13",
+    "resource_counts": {
+      "Patient": 1,
+      "Encounter": 8,
+      "Condition": 12,
+      "DiagnosticReport": 6,
+      "DocumentReference": 2,
+      "Observation": 20,
+      "MedicationRequest": 2,
+      "CarePlan": 1
+    },
+    "top_conditions": [
+      "Medication review due (situation)",
+      "Received higher education (finding)",
+      "Not in labor force (finding)",
+      "Social isolation (finding)",
+      "Stress (finding)",
+      "Full-time employment (finding)",
+      "Viral sinusitis (disorder)",
+      "Medication review due (situation)"
+    ],
+    "total_resources": 52
+  },
+  {
+    "source": "synthea-slim",
+    "bundle_file": "examples/evaluation-data/fhir-bundles/synthea-Mi492_Yundt842_9f044a48-a3da-4563-6af3-3e431587a0e3.json",
+    "synthea_source_file": "Mi492_Yundt842_9f044a48-a3da-4563-6af3-3e431587a0e3.json",
+    "patient_id": "9f044a48-a3da-4563-6af3-3e431587a0e3",
+    "display_name": "Mi492 Beulah33 Yundt842",
+    "gender": "female",
+    "birthDate": "1988-10-01",
+    "resource_counts": {
+      "Patient": 1,
+      "Encounter": 8,
+      "Condition": 12,
+      "DiagnosticReport": 6,
+      "DocumentReference": 2,
+      "MedicationRequest": 12,
+      "Observation": 20,
+      "CarePlan": 4
+    },
+    "top_conditions": [
+      "Educated to high school level (finding)",
+      "Medication review due (situation)",
+      "Has a criminal record (finding)",
+      "Victim of intimate partner abuse (finding)",
+      "Not in labor force (finding)",
+      "Limited social contact (finding)",
+      "Essential hypertension (disorder)",
+      "Full-time employment (finding)"
+    ],
+    "total_resources": 65
+  },
+  {
+    "source": "synthea-slim",
+    "bundle_file": "examples/evaluation-data/fhir-bundles/synthea-Mitch821_Hermann103_413b6d55-2422-2627-3205-bf810b79c7e1.json",
+    "synthea_source_file": "Mitch821_Hermann103_413b6d55-2422-2627-3205-bf810b79c7e1.json",
+    "patient_id": "413b6d55-2422-2627-3205-bf810b79c7e1",
+    "display_name": "Mitch821 Leopoldo762 Hermann103",
+    "gender": "male",
+    "birthDate": "2013-05-27",
+    "resource_counts": {
+      "Patient": 1,
+      "Encounter": 8,
+      "CarePlan": 4,
+      "DiagnosticReport": 6,
+      "DocumentReference": 2,
+      "AllergyIntolerance": 8,
+      "MedicationRequest": 8,
+      "Condition": 12,
+      "Observation": 20
+    },
+    "top_conditions": [
+      "Medication review due (situation)",
+      "Medication review due (situation)",
+      "Medication review due (situation)",
+      "Perennial allergic rhinitis with seasonal variation (disorder)",
+      "Medication review due (situation)",
+      "Gingivitis (disorder)",
+      "Gingivitis (disorder)",
+      "Gingival disease (disorder)"
+    ],
+    "total_resources": 69
+  },
+  {
+    "source": "synthea-slim",
+    "bundle_file": "examples/evaluation-data/fhir-bundles/synthea-Sue491_Bergnaum523_fac35c77-e091-d825-4c0c-ee736658a236.json",
+    "synthea_source_file": "Sue491_Bergnaum523_fac35c77-e091-d825-4c0c-ee736658a236.json",
+    "patient_id": "fac35c77-e091-d825-4c0c-ee736658a236",
+    "display_name": "Sue491 Toi270 Bergnaum523",
+    "gender": "female",
+    "birthDate": "2002-08-02",
+    "resource_counts": {
+      "Patient": 1,
+      "Encounter": 8,
+      "Condition": 12,
+      "DiagnosticReport": 6,
+      "DocumentReference": 2,
+      "Observation": 20,
+      "MedicationRequest": 11,
+      "CarePlan": 2
+    },
+    "top_conditions": [
+      "Medication review due (situation)",
+      "Gingivitis (disorder)",
+      "Viral sinusitis (disorder)",
+      "Medication review due (situation)",
+      "Medication review due (situation)",
+      "Educated to high school level (finding)",
+      "Full-time employment (finding)",
+      "Social isolation (finding)"
+    ],
+    "total_resources": 62
+  },
+  {
+    "source": "synthea-slim",
+    "bundle_file": "examples/evaluation-data/fhir-bundles/synthea-Willy639_Marvin195_9bde687a-d3ec-2136-2635-e6cc71ed2cea.json",
+    "synthea_source_file": "Willy639_Marvin195_9bde687a-d3ec-2136-2635-e6cc71ed2cea.json",
+    "patient_id": "9bde687a-d3ec-2136-2635-e6cc71ed2cea",
+    "display_name": "Willy639 Carmen818 Marvin195",
+    "gender": "male",
+    "birthDate": "1989-09-05",
+    "resource_counts": {
+      "Patient": 1,
+      "Encounter": 8,
+      "Condition": 12,
+      "DiagnosticReport": 6,
+      "DocumentReference": 2,
+      "Observation": 20,
+      "MedicationRequest": 2
+    },
+    "top_conditions": [
+      "Medication review due (situation)",
+      "Received higher education (finding)",
+      "Transport problem (finding)",
+      "Lack of access to transportation (finding)",
+      "Full-time employment (finding)",
+      "Part-time employment (finding)",
+      "Social isolation (finding)",
+      "Gingivitis (disorder)"
+    ],
+    "total_resources": 51
+  },
+  {
+    "source": "demo",
+    "bundle_file": "examples/sample-fhir-data/demo-patient-bundle.json",
+    "patient_id": "demo-patient-001",
+    "display_name": "Alex Demo",
+    "gender": "female",
+    "birthDate": "1990-04-12",
+    "resource_counts": {
+      "Patient": 1,
+      "Condition": 1,
+      "Observation": 1,
+      "MedicationRequest": 1,
+      "AllergyIntolerance": 1
+    },
+    "top_conditions": [
+      "Mild persistent asthma"
+    ],
+    "total_resources": 5
+  }
+]

@@ -1,0 +1,88 @@
+{
+  "exact": {
+    "n": 22,
+    "tp": 10,
+    "fp": 0,
+    "tn": 12,
+    "fn": 0,
+    "precision": 1.0,
+    "recall": 1.0,
+    "f1": 1.0,
+    "accuracy": 1.0
+  },
+  "paraphrase": {
+    "n": 22,
+    "tp": 2,
+    "fp": 0,
+    "tn": 10,
+    "fn": 10,
+    "precision": 1.0,
+    "recall": 0.1667,
+    "f1": 0.2857,
+    "accuracy": 0.5455,
+    "misses": [
+      {
+        "id": "para-p01",
+        "kind": "fn",
+        "utterance": "My chest feels like an elephant is sitting on it"
+      },
+      {
+        "id": "para-p02",
+        "kind": "fn",
+        "utterance": "I am gasping and cannot get enough air"
+      },
+      {
+        "id": "para-p03",
+        "kind": "fn",
+        "utterance": "Half my face is drooping and I cannot speak clearly"
+      },
+      {
+        "id": "para-p04",
+        "kind": "fn",
+        "utterance": "I want to end my life tonight"
+      },
+      {
+        "id": "para-p05",
+        "kind": "fn",
+        "utterance": "I swallowed a whole bottle of pills on purpose"
+      },
+      {
+        "id": "para-p06",
+        "kind": "fn",
+        "utterance": "Blood is pouring out and will not stop"
+      },
+      {
+        "id": "para-p07",
+        "kind": "fn",
+        "utterance": "She passed out and will not wake up"
+      },
+      {
+        "id": "para-p08",
+        "kind": "fn",
+        "utterance": "He is convulsing on the floor right now"
+      },
+      {
+        "id": "para-p09",
+        "kind": "fn",
+        "utterance": "Crushing pressure in my chest radiating to my arm"
+      },
+      {
+        "id": "para-p10",
+        "kind": "fn",
+        "utterance": "I feel like I am drowning in air"
+      }
+    ]
+  },
+  "combined": {
+    "n": 44,
+    "tp": 12,
+    "fp": 0,
+    "tn": 22,
+    "fn": 10,
+    "precision": 1.0,
+    "recall": 0.5455,
+    "f1": 0.7059,
+    "accuracy": 0.7727
+  },
+  "note": "Paraphrase set intentionally avoids many exact safety.py substrings to measure brittleness."
+}

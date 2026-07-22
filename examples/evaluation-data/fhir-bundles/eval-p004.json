@@ -1,0 +1,92 @@
+{
+  "resourceType": "Bundle",
+  "type": "collection",
+  "id": "eval-p004-bundle",
+  "entry": [
+    {
+      "resource": {
+        "resourceType": "Patient",
+        "id": "eval-p004",
+        "name": [
+          {
+            "family": "Nguyen",
+            "given": [
+              "Chris"
+            ]
+          }
+        ],
+        "gender": "male",
+        "birthDate": "1988-11-15"
+      }
+    },
+    {
+      "resource": {
+        "resourceType": "Condition",
+        "id": "cond-mdd",
+        "clinicalStatus": {
+          "coding": [
+            {
+              "code": "active"
+            }
+          ]
+        },
+        "code": {
+          "text": "Major depressive disorder"
+        },
+        "subject": {
+          "reference": "Patient/eval-p004"
+        }
+      }
+    },
+    {
+      "resource": {
+        "resourceType": "Observation",
+        "id": "obs-phq9",
+        "status": "final",
+        "code": {
+          "text": "PHQ-9 score"
+        },
+        "valueQuantity": {
+          "value": 12,
+          "unit": "score"
+        },
+        "effectiveDateTime": "2026-03-01T10:00:00Z",
+        "subject": {
+          "reference": "Patient/eval-p004"
+        }
+      }
+    },
+    {
+      "resource": {
+        "resourceType": "MedicationRequest",
+        "id": "med-sertraline",
+        "status": "active",
+        "medicationCodeableConcept": {
+          "text": "Sertraline 50 mg"
+        },
+        "subject": {
+          "reference": "Patient/eval-p004"
+        }
+      }
+    },
+    {
+      "resource": {
+        "resourceType": "AllergyIntolerance",
+        "id": "allergy-nkda",
+        "clinicalStatus": {
+          "coding": [
+            {
+              "code": "active"
+            }
+          ]
+        },
+        "code": {
+          "text": "None known"
+        },
+        "patient": {
+          "reference": "Patient/eval-p004"
+        }
+      }
+    }
+  ]
+}

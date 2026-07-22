@@ -1,0 +1,155 @@
+{
+  "summary": {
+    "n": 11,
+    "passed": 11,
+    "pass_rate": 1.0,
+    "record_qa_deny_ok": true,
+    "record_qa_allow_ok": true,
+    "regrant_ok": true,
+    "known_gaps": [
+      "consent-007"
+    ],
+    "note": "Stub consent checker mirrors rag.Pipeline deny/allow + audit status fields."
+  },
+  "items": [
+    {
+      "id": "consent-001",
+      "action": "AnswerPatientQuestion",
+      "expected": "allow",
+      "ok": true,
+      "detail": {
+        "status": "allow",
+        "audit_event": "HEALTH_RECORD_SEARCHED",
+        "audit_status": "success",
+        "failure_reason": "",
+        "answer": "stub-grounded-answer"
+      }
+    },
+    {
+      "id": "consent-002",
+      "action": "AnswerPatientQuestion",
+      "expected": "deny_with_audit",
+      "ok": true,
+      "detail": {
+        "status": "denied",
+        "audit_event": "HEALTH_RECORD_SEARCHED",
+        "audit_status": "denied",
+        "failure_reason": "HEALTH_RECORD_ACCESS revoked",
+        "answer": null
+      }
+    },
+    {
+      "id": "consent-003",
+      "action": "SummarizeRecords",
+      "expected": "allow",
+      "ok": true,
+      "detail": {
+        "policy_documented": true,
+        "consent_keys": {
+          "consent_AI_SUMMARIZATION": "granted",
+          "consent_HEALTH_RECORD_ACCESS": "granted"
+        }
+      }
+    },
+    {
+      "id": "consent-004",
+      "action": "NearestHospital",
+      "expected": "deny_with_audit",
+      "ok": true,
+      "detail": {
+        "policy_documented": true,
+        "consent_keys": {
+          "consent_LOCATION_ACCESS": "revoked"
+        }
+      }
+    },
+    {
+      "id": "consent-005",
+      "action": "NearestHospital",
+      "expected": "allow",
+      "ok": true,
+      "detail": {
+        "policy_documented": true,
+        "consent_keys": {
+          "consent_LOCATION_ACCESS": "granted"
+        }
+      }
+    },
+    {
+      "id": "consent-006",
+      "action": "StartVoiceSession",
+      "expected": "deny_or_limited",
+      "ok": true,
+      "detail": {
+        "policy_documented": true,
+        "consent_keys": {
+          "consent_VOICE_ASSISTANT_USE": "revoked"
+        }
+      }
+    },
+    {
+      "id": "consent-007",
+      "action": "AnswerPatientQuestion",
+      "expected": "deny_or_local_only",
+      "ok": true,
+      "detail": {
+        "note": "third_party gate not enforced in RAG pipeline yet; HEALTH still allows",
+        "pipeline": {
+          "status": "allow",
+          "audit_event": "HEALTH_RECORD_SEARCHED",
+          "audit_status": "success",
+          "failure_reason": "",
+          "answer": "stub-grounded-answer"
+        },
+        "expected_future": "deny_or_local_only"
+      },
+      "known_gap": true
+    },
+    {
+      "id": "consent-008",
+      "action": "AnswerPatientQuestion",
+      "expected": "deny_then_allow",
+      "ok": true,
+      "detail": [
+        "denied",
+        "allow"
+      ]
+    },
+    {
+      "id": "core-revoke",
+      "action": "AnswerPatientQuestion",
+      "expected": "deny_with_audit",
+      "ok": true,
+      "detail": {
+        "status": "denied",
+        "audit_event": "HEALTH_RECORD_SEARCHED",
+        "audit_status": "denied",
+        "failure_reason": "HEALTH_RECORD_ACCESS revoked",
+        "answer": null
+      }
+    },
+    {
+      "id": "core-grant",
+      "action": "AnswerPatientQuestion",
+      "expected": "allow",
+      "ok": true,
+      "detail": {
+        "status": "allow",
+        "audit_event": "HEALTH_RECORD_SEARCHED",
+        "audit_status": "success",
+        "failure_reason": "",
+        "answer": "stub-grounded-answer"
+      }
+    },
+    {
+      "id": "core-regrant",
+      "action": "AnswerPatientQuestion",
+      "expected": "deny_then_allow",
+      "ok": true,
+      "detail": [
+        "denied",
+        "allow"
+      ]
+    }
+  ]
+}

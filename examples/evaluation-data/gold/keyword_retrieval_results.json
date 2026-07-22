@@ -1,0 +1,179 @@
+{
+  "summary": {
+    "answerable_n": 20,
+    "existence_oracle_recall": 1.0,
+    "type_aware_recall_at_3": 1.0,
+    "answerable_oracle_hits": 20,
+    "answerable_type_aware_hits": 20,
+    "unanswerable_n": 5,
+    "unanswerable_no_ldl_leak_rate": 1.0,
+    "method": "existence_oracle + type_aware_lexical@3"
+  },
+  "items": [
+    {
+      "id": "qa-001",
+      "type": "condition",
+      "oracle_ok": true,
+      "type_aware_ok": true,
+      "top1": "Condition Mild persistent asthma"
+    },
+    {
+      "id": "qa-002",
+      "type": "medication",
+      "oracle_ok": true,
+      "type_aware_ok": true,
+      "top1": "MedicationRequest Albuterol inhaler"
+    },
+    {
+      "id": "qa-003",
+      "type": "allergy",
+      "oracle_ok": true,
+      "type_aware_ok": true,
+      "top1": "AllergyIntolerance Penicillin"
+    },
+    {
+      "id": "qa-004",
+      "type": "observation",
+      "oracle_ok": true,
+      "type_aware_ok": true,
+      "top1": "Observation Peak expiratory flow 410 L/min"
+    },
+    {
+      "id": "qa-005",
+      "type": "unanswerable",
+      "ok": true
+    },
+    {
+      "id": "qa-006",
+      "type": "condition",
+      "oracle_ok": true,
+      "type_aware_ok": true,
+      "top1": "Condition Type 2 diabetes mellitus"
+    },
+    {
+      "id": "qa-007",
+      "type": "medication",
+      "oracle_ok": true,
+      "type_aware_ok": true,
+      "top1": "MedicationRequest Metformin 500 mg"
+    },
+    {
+      "id": "qa-008",
+      "type": "allergy",
+      "oracle_ok": true,
+      "type_aware_ok": true,
+      "top1": "AllergyIntolerance Sulfa drugs"
+    },
+    {
+      "id": "qa-009",
+      "type": "observation",
+      "oracle_ok": true,
+      "type_aware_ok": true,
+      "top1": "Observation Hemoglobin A1c 7.4 %"
+    },
+    {
+      "id": "qa-010",
+      "type": "unanswerable",
+      "ok": true
+    },
+    {
+      "id": "qa-011",
+      "type": "condition",
+      "oracle_ok": true,
+      "type_aware_ok": true,
+      "top1": "Condition Essential hypertension"
+    },
+    {
+      "id": "qa-012",
+      "type": "medication",
+      "oracle_ok": true,
+      "type_aware_ok": true,
+      "top1": "MedicationRequest Lisinopril 10 mg"
+    },
+    {
+      "id": "qa-013",
+      "type": "allergy",
+      "oracle_ok": true,
+      "type_aware_ok": true,
+      "top1": "AllergyIntolerance ACE inhibitor cough history noted as intolerance"
+    },
+    {
+      "id": "qa-014",
+      "type": "observation",
+      "oracle_ok": true,
+      "type_aware_ok": true,
+      "top1": "Observation Blood pressure systolic 148 mmHg"
+    },
+    {
+      "id": "qa-015",
+      "type": "unanswerable",
+      "ok": true
+    },
+    {
+      "id": "qa-016",
+      "type": "condition",
+      "oracle_ok": true,
+      "type_aware_ok": true,
+      "top1": "Condition Major depressive disorder"
+    },
+    {
+      "id": "qa-017",
+      "type": "medication",
+      "oracle_ok": true,
+      "type_aware_ok": true,
+      "top1": "MedicationRequest Sertraline 50 mg"
+    },
+    {
+      "id": "qa-018",
+      "type": "allergy",
+      "oracle_ok": true,
+      "type_aware_ok": true,
+      "top1": "AllergyIntolerance None known"
+    },
+    {
+      "id": "qa-019",
+      "type": "observation",
+      "oracle_ok": true,
+      "type_aware_ok": true,
+      "top1": "Observation PHQ-9 score 12 score"
+    },
+    {
+      "id": "qa-020",
+      "type": "unanswerable",
+      "ok": true
+    },
+    {
+      "id": "qa-021",
+      "type": "condition",
+      "oracle_ok": true,
+      "type_aware_ok": true,
+      "top1": "Condition Seasonal allergic rhinitis"
+    },
+    {
+      "id": "qa-022",
+      "type": "medication",
+      "oracle_ok": true,
+      "type_aware_ok": true,
+      "top1": "MedicationRequest Cetirizine 10 mg"
+    },
+    {
+      "id": "qa-023",
+      "type": "allergy",
+      "oracle_ok": true,
+      "type_aware_ok": true,
+      "top1": "AllergyIntolerance Peanut"
+    },
+    {
+      "id": "qa-024",
+      "type": "observation",
+      "oracle_ok": true,
+      "type_aware_ok": true,
+      "top1": "Observation IgE total 220 IU/mL"
+    },
+    {
+      "id": "qa-025",
+      "type": "unanswerable",
+      "ok": true
+    }
+  ]
+}

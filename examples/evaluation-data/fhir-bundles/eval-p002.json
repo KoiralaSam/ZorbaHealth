@@ -1,0 +1,92 @@
+{
+  "resourceType": "Bundle",
+  "type": "collection",
+  "id": "eval-p002-bundle",
+  "entry": [
+    {
+      "resource": {
+        "resourceType": "Patient",
+        "id": "eval-p002",
+        "name": [
+          {
+            "family": "Lee",
+            "given": [
+              "Jordan"
+            ]
+          }
+        ],
+        "gender": "male",
+        "birthDate": "1978-09-03"
+      }
+    },
+    {
+      "resource": {
+        "resourceType": "Condition",
+        "id": "cond-t2dm",
+        "clinicalStatus": {
+          "coding": [
+            {
+              "code": "active"
+            }
+          ]
+        },
+        "code": {
+          "text": "Type 2 diabetes mellitus"
+        },
+        "subject": {
+          "reference": "Patient/eval-p002"
+        }
+      }
+    },
+    {
+      "resource": {
+        "resourceType": "Observation",
+        "id": "obs-a1c",
+        "status": "final",
+        "code": {
+          "text": "Hemoglobin A1c"
+        },
+        "valueQuantity": {
+          "value": 7.4,
+          "unit": "%"
+        },
+        "effectiveDateTime": "2026-03-01T10:00:00Z",
+        "subject": {
+          "reference": "Patient/eval-p002"
+        }
+      }
+    },
+    {
+      "resource": {
+        "resourceType": "MedicationRequest",
+        "id": "med-metformin",
+        "status": "active",
+        "medicationCodeableConcept": {
+          "text": "Metformin 500 mg"
+        },
+        "subject": {
+          "reference": "Patient/eval-p002"
+        }
+      }
+    },
+    {
+      "resource": {
+        "resourceType": "AllergyIntolerance",
+        "id": "allergy-sulfa",
+        "clinicalStatus": {
+          "coding": [
+            {
+              "code": "active"
+            }
+          ]
+        },
+        "code": {
+          "text": "Sulfa drugs"
+        },
+        "patient": {
+          "reference": "Patient/eval-p002"
+        }
+      }
+    }
+  ]
+}

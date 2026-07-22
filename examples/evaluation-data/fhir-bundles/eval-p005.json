@@ -1,0 +1,92 @@
+{
+  "resourceType": "Bundle",
+  "type": "collection",
+  "id": "eval-p005-bundle",
+  "entry": [
+    {
+      "resource": {
+        "resourceType": "Patient",
+        "id": "eval-p005",
+        "name": [
+          {
+            "family": "Patel",
+            "given": [
+              "Riley"
+            ]
+          }
+        ],
+        "gender": "female",
+        "birthDate": "2001-06-30"
+      }
+    },
+    {
+      "resource": {
+        "resourceType": "Condition",
+        "id": "cond-rhinitis",
+        "clinicalStatus": {
+          "coding": [
+            {
+              "code": "active"
+            }
+          ]
+        },
+        "code": {
+          "text": "Seasonal allergic rhinitis"
+        },
+        "subject": {
+          "reference": "Patient/eval-p005"
+        }
+      }
+    },
+    {
+      "resource": {
+        "resourceType": "Observation",
+        "id": "obs-ige",
+        "status": "final",
+        "code": {
+          "text": "IgE total"
+        },
+        "valueQuantity": {
+          "value": 220,
+          "unit": "IU/mL"
+        },
+        "effectiveDateTime": "2026-03-01T10:00:00Z",
+        "subject": {
+          "reference": "Patient/eval-p005"
+        }
+      }
+    },
+    {
+      "resource": {
+        "resourceType": "MedicationRequest",
+        "id": "med-cetirizine",
+        "status": "active",
+        "medicationCodeableConcept": {
+          "text": "Cetirizine 10 mg"
+        },
+        "subject": {
+          "reference": "Patient/eval-p005"
+        }
+      }
+    },
+    {
+      "resource": {
+        "resourceType": "AllergyIntolerance",
+        "id": "allergy-peanut",
+        "clinicalStatus": {
+          "coding": [
+            {
+              "code": "active"
+            }
+          ]
+        },
+        "code": {
+          "text": "Peanut"
+        },
+        "patient": {
+          "reference": "Patient/eval-p005"
+        }
+      }
+    }
+  ]
+}

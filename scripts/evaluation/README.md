@@ -1,36 +1,33 @@
 # Evaluation Scripts
 
-This directory is reserved for reproducible evaluation tooling tied to the current product roadmap.
+Journal-oriented evaluation tooling for Zorba Health (IEEE Access draft).
 
-## Near-term scenarios
+## Corpus
 
-Before the full journal harness is built, contributors should be able to evaluate:
+Built artifacts live in `examples/evaluation-data/` (see `DATASET_CARD.md`).
 
-- patient portal login and dashboard load
-- consent mutation success and denial paths
-- patient record question answering
-- hospital summary generation for a consented patient
-- emergency escalation visibility in the hospital inbox
-- nearest-hospital lookup using both online and fallback paths
+```bash
+python3 scripts/evaluation/build_eval_corpus.py
+python3 scripts/evaluation/score_keyword_retrieval.py
+python3 scripts/evaluation/audit_live_rag_results.py
+python3 scripts/evaluation/score_consent_e2e.py
+python3 scripts/evaluation/score_safety_paraphrase.py
 
-## Recommended first scripts
+# Live OpenAI RAG (needs OPENAI_API_KEY + local Postgres)
+export DATABASE_URL='postgres://healthai:healthai@localhost:5432/healthai?sslmode=disable'
+go run ./services/health-records-service/cmd/eval-live-rag \
+  -gold examples/evaluation-data/gold/gold_qa.jsonl \
+  -out examples/evaluation-data/gold/live_rag_results.json
+python3 scripts/evaluation/audit_live_rag_results.py
+```
 
-1. `patient-portal-smoke`
-   - log in as the demo patient
-   - load profile, consents, calls, and audit history
+## Key outputs
 
-2. `consent-gating-check`
-   - revoke `HEALTH_RECORD_ACCESS`
-   - verify patient record answer requests fail cleanly
-   - grant it again and verify success
+| Script | Output |
+| --- | --- |
+| `score_keyword_retrieval.py` | `gold/keyword_retrieval_results.json` |
+| `audit_live_rag_results.py` | `gold/live_rag_results_audited.json` |
+| `score_consent_e2e.py` | `gold/consent_e2e_results.json` |
+| `score_safety_paraphrase.py` | `gold/safety_paraphrase_results.json` + paraphrase jsonl |
 
-3. `hospital-escalation-smoke`
-   - log in as hospital staff
-   - verify incident list returns at least one seeded escalation
-   - verify patient audit lookup respects consent
-
-4. `nearest-hospital-smoke`
-   - call the location path with known coordinates
-   - verify a hospital name and directions URL are returned
-
-See `docs/q1-journal-evaluation-plan.md` for the broader measurement narrative.
+See `docs/research/ieee-zorbahealth-draft.md` and `docs/research/latex/main.pdf`.

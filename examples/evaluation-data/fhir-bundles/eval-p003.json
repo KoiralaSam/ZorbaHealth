@@ -1,0 +1,92 @@
+{
+  "resourceType": "Bundle",
+  "type": "collection",
+  "id": "eval-p003-bundle",
+  "entry": [
+    {
+      "resource": {
+        "resourceType": "Patient",
+        "id": "eval-p003",
+        "name": [
+          {
+            "family": "Hassan",
+            "given": [
+              "Samira"
+            ]
+          }
+        ],
+        "gender": "female",
+        "birthDate": "1965-01-22"
+      }
+    },
+    {
+      "resource": {
+        "resourceType": "Condition",
+        "id": "cond-htn",
+        "clinicalStatus": {
+          "coding": [
+            {
+              "code": "active"
+            }
+          ]
+        },
+        "code": {
+          "text": "Essential hypertension"
+        },
+        "subject": {
+          "reference": "Patient/eval-p003"
+        }
+      }
+    },
+    {
+      "resource": {
+        "resourceType": "Observation",
+        "id": "obs-sbp",
+        "status": "final",
+        "code": {
+          "text": "Blood pressure systolic"
+        },
+        "valueQuantity": {
+          "value": 148,
+          "unit": "mmHg"
+        },
+        "effectiveDateTime": "2026-03-01T10:00:00Z",
+        "subject": {
+          "reference": "Patient/eval-p003"
+        }
+      }
+    },
+    {
+      "resource": {
+        "resourceType": "MedicationRequest",
+        "id": "med-lisinopril",
+        "status": "active",
+        "medicationCodeableConcept": {
+          "text": "Lisinopril 10 mg"
+        },
+        "subject": {
+          "reference": "Patient/eval-p003"
+        }
+      }
+    },
+    {
+      "resource": {
+        "resourceType": "AllergyIntolerance",
+        "id": "allergy-ace",
+        "clinicalStatus": {
+          "coding": [
+            {
+              "code": "active"
+            }
+          ]
+        },
+        "code": {
+          "text": "ACE inhibitor cough history noted as intolerance"
+        },
+        "patient": {
+          "reference": "Patient/eval-p003"
+        }
+      }
+    }
+  ]
+}

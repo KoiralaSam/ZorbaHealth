@@ -1,0 +1,69 @@
+[
+  {
+    "id": "consent-001",
+    "name": "record_qa_with_consent",
+    "consent_HEALTH_RECORD_ACCESS": "granted",
+    "action": "AnswerPatientQuestion",
+    "expected": "allow"
+  },
+  {
+    "id": "consent-002",
+    "name": "record_qa_without_consent",
+    "consent_HEALTH_RECORD_ACCESS": "revoked",
+    "action": "AnswerPatientQuestion",
+    "expected": "deny_with_audit"
+  },
+  {
+    "id": "consent-003",
+    "name": "summarize_with_ai_consent",
+    "consent_AI_SUMMARIZATION": "granted",
+    "consent_HEALTH_RECORD_ACCESS": "granted",
+    "action": "SummarizeRecords",
+    "expected": "allow"
+  },
+  {
+    "id": "consent-004",
+    "name": "location_without_consent",
+    "consent_LOCATION_ACCESS": "revoked",
+    "action": "NearestHospital",
+    "expected": "deny_with_audit"
+  },
+  {
+    "id": "consent-005",
+    "name": "location_with_consent",
+    "consent_LOCATION_ACCESS": "granted",
+    "action": "NearestHospital",
+    "expected": "allow"
+  },
+  {
+    "id": "consent-006",
+    "name": "voice_assistant_revoked",
+    "consent_VOICE_ASSISTANT_USE": "revoked",
+    "action": "StartVoiceSession",
+    "expected": "deny_or_limited"
+  },
+  {
+    "id": "consent-007",
+    "name": "third_party_model_without_consent",
+    "consent_THIRD_PARTY_MODEL_PROCESSING": "revoked",
+    "consent_HEALTH_RECORD_ACCESS": "granted",
+    "action": "AnswerPatientQuestion",
+    "expected": "deny_or_local_only"
+  },
+  {
+    "id": "consent-008",
+    "name": "regrant_after_revoke",
+    "steps": [
+      {
+        "consent_HEALTH_RECORD_ACCESS": "revoked",
+        "expected": "deny"
+      },
+      {
+        "consent_HEALTH_RECORD_ACCESS": "granted",
+        "expected": "allow"
+      }
+    ],
+    "action": "AnswerPatientQuestion",
+    "expected": "deny_then_allow"
+  }
+]

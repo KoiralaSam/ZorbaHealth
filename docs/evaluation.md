@@ -21,7 +21,12 @@ Phase 1 adds:
 - sample request patterns
 - a journal evaluation planning document
 
-Later phases are expected to add executable evaluation scripts and datasets.
+The research package now also includes:
+
+- synthetic evaluation corpus under `examples/evaluation-data/`
+- corpus builders/scorers under `scripts/evaluation/`
+- IEEE Access draft + PDF under `docs/research/`
+- reproducibility freeze: `docs/research/REPRODUCIBILITY.json`
 
 ## Current feature-aligned deliverables
 
