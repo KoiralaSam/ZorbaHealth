@@ -15,12 +15,16 @@ func boundVoicePhone(claims *sharedauth.Claims, requested string) (string, error
 		if phone != "" && !sharedauth.PhonesMatch(phone, claims.CallerPhone) {
 			return "", errPhoneMismatch
 		}
-		return claims.CallerPhone, nil
+		return sharedauth.CanonicalPhoneDigits(claims.CallerPhone), nil
 	}
 	if phone == "" {
 		return "", errPhoneRequired
 	}
-	return sharedauth.NormalizePhoneDigits(phone), nil
+	canonical := sharedauth.CanonicalPhoneDigits(phone)
+	if canonical == "" {
+		return "", errPhoneRequired
+	}
+	return canonical, nil
 }
 
 func voiceAuditMeta(claims *sharedauth.Claims, channel string, verificationCorrelationID string) map[string]any {

@@ -12,6 +12,7 @@ import (
 	domainerrors "github.com/KoiralaSam/ZorbaHealth/services/auth-service/internal/core/domain/errors"
 	"github.com/KoiralaSam/ZorbaHealth/services/auth-service/internal/core/domain/models"
 	"github.com/KoiralaSam/ZorbaHealth/services/auth-service/internal/core/ports/outbound"
+	"github.com/KoiralaSam/ZorbaHealth/shared/auth"
 	"github.com/KoiralaSam/ZorbaHealth/shared/env"
 )
 
@@ -41,8 +42,16 @@ func refreshTokenTTL() time.Duration {
 // RegisterUser creates a user with hashed password and returns the user (with ID). Used by RegisterPatient / RegisterHealthProvider.
 func (s *AuthService) RegisterUser(ctx context.Context, email, phoneNumber, password, role string) (*models.User, error) {
 	email = strings.TrimSpace(strings.ToLower(email))
-	if email == "" && strings.TrimSpace(phoneNumber) == "" {
+	phoneNumber = strings.TrimSpace(phoneNumber)
+	if email == "" && phoneNumber == "" {
 		return nil, errors.New("email or phone number required")
+	}
+	if phoneNumber != "" {
+		canonical, err := auth.ValidatePhoneForStorage(phoneNumber)
+		if err != nil {
+			return nil, err
+		}
+		phoneNumber = canonical
 	}
 	if role == "" {
 		role = "patient"
@@ -53,7 +62,7 @@ func (s *AuthService) RegisterUser(ctx context.Context, email, phoneNumber, pass
 	}
 	user := &models.User{
 		Email:        email,
-		PhoneNumber:  strings.TrimSpace(phoneNumber),
+		PhoneNumber:  phoneNumber,
 		PasswordHash: string(hash),
 		Role:         role,
 	}
@@ -66,6 +75,13 @@ func (s *AuthService) RegisterHospital(ctx context.Context, hospitalName, licens
 	staffName = strings.TrimSpace(staffName)
 	staffEmail = strings.TrimSpace(strings.ToLower(staffEmail))
 	staffPhone = strings.TrimSpace(staffPhone)
+	if staffPhone != "" {
+		canonical, err := auth.ValidatePhoneForStorage(staffPhone)
+		if err != nil {
+			return nil, err
+		}
+		staffPhone = canonical
+	}
 	staffRole = normalizeStaffRole(staffRole)
 	if hospitalName == "" || licenseNo == "" || staffName == "" || staffEmail == "" || password == "" {
 		return nil, errors.New("hospital_name, license_no, staff_name, email, and password are required")
@@ -90,6 +106,13 @@ func (s *AuthService) RegisterHospitalStaff(ctx context.Context, hospitalID, sta
 	staffName = strings.TrimSpace(staffName)
 	staffEmail = strings.TrimSpace(strings.ToLower(staffEmail))
 	staffPhone = strings.TrimSpace(staffPhone)
+	if staffPhone != "" {
+		canonical, err := auth.ValidatePhoneForStorage(staffPhone)
+		if err != nil {
+			return nil, err
+		}
+		staffPhone = canonical
+	}
 	staffRole = normalizeStaffRole(staffRole)
 	if hospitalID == "" || staffName == "" || staffEmail == "" || password == "" {
 		return nil, errors.New("hospital_id, staff_name, email, and password are required")
@@ -292,7 +315,11 @@ func (s *AuthService) lookupUser(ctx context.Context, email, phoneNumber string)
 		return s.userRepo.GetUserByEmail(ctx, strings.TrimSpace(strings.ToLower(email)))
 	}
 	if phoneNumber != "" {
-		return s.userRepo.GetUserByPhoneNumber(ctx, strings.TrimSpace(phoneNumber))
+		canonical := auth.CanonicalPhoneDigits(phoneNumber)
+		if canonical == "" {
+			return nil, errors.New("invalid credentials")
+		}
+		return s.userRepo.GetUserByPhoneNumber(ctx, canonical)
 	}
 	return nil, errors.New("email or phone number required")
 }

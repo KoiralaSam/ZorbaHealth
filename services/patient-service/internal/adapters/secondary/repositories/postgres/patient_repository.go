@@ -76,12 +76,18 @@ func (r *PatientRepository) GetPatientByUserID(ctx context.Context, userID strin
 	return r.toDomainPatient(&dbPatient), nil
 }
 
-// GetPatientByPhoneNumber retrieves a patient by phone number
+// GetPatientByPhoneNumber retrieves a patient by canonical phone number.
+// Also accepts a legacy 10-digit NANP row when looking up the 11-digit form.
 func (r *PatientRepository) GetPatientByPhoneNumber(ctx context.Context, phoneNumber string) (*models.Patient, error) {
 	rows, err := r.db.Query(ctx, `
 		SELECT id, user_id, phone_number, email, full_name, date_of_birth, medical_notes, created_at, updated_at
 		FROM patients
 		WHERE regexp_replace(phone_number, '[^0-9]', '', 'g') = $1
+		   OR (
+		        length($1) = 11
+		        AND left($1, 1) = '1'
+		        AND regexp_replace(phone_number, '[^0-9]', '', 'g') = right($1, 10)
+		      )
 		LIMIT 2
 	`, phoneNumber)
 	if err != nil {

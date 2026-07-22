@@ -9,6 +9,7 @@ import (
 type Patient struct {
 	ID           uuid.UUID
 	UserID       uuid.UUID
+	// PhoneNumber is digits-only E.164 without '+'. NANP numbers are always 11 digits with leading country code 1.
 	PhoneNumber  string
 	Email        string
 	FullName     string    `json:"full_name"`

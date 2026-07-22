@@ -163,7 +163,8 @@ func (q *Queries) GetUserByID(ctx context.Context, id pgtype.UUID) (User, error)
 
 const getUserByPhoneNumber = `-- name: GetUserByPhoneNumber :one
 SELECT id, email, phone_number, password_hash, role, created_at FROM users
-WHERE phone_number = $1 LIMIT 1
+WHERE regexp_replace(COALESCE(phone_number, ''), '[^0-9]', '', 'g') = $1
+LIMIT 1
 `
 
 func (q *Queries) GetUserByPhoneNumber(ctx context.Context, phoneNumber pgtype.Text) (User, error) {

@@ -18,7 +18,7 @@ func (s *PatientService) appendVoiceAudit(
 	success bool,
 	failureReason string,
 ) {
-	if s.auditClient == nil {
+	if s.audit == nil {
 		return
 	}
 	if metadata == nil {
@@ -35,7 +35,7 @@ func (s *PatientService) appendVoiceAudit(
 	if actorID == "voice:" {
 		actorID = "voice:unknown"
 	}
-	_, _ = s.auditClient.AppendAuditEvent(ctx, &auditpb.AppendAuditEventRequest{
+	_, _ = s.audit.AppendAuditEvent(ctx, &auditpb.AppendAuditEventRequest{
 		Event: &auditpb.AuditEvent{
 			EventId:       uuid.NewString(),
 			EventType:     eventType,

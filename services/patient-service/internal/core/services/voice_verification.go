@@ -216,7 +216,7 @@ func (s *PatientService) ConsumeVoiceVerification(ctx context.Context, voiceSess
 	return true, pid, nil
 }
 
-// BindCallerPhone returns normalized phone for MCP binding checks.
+// BindCallerPhone returns the canonical storage phone for MCP binding checks.
 func BindCallerPhone(phone string) string {
-	return sharedauth.NormalizePhoneDigits(phone)
+	return sharedauth.CanonicalPhoneDigits(phone)
 }
