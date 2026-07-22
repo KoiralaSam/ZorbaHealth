@@ -19,7 +19,8 @@ WHERE email = $1 LIMIT 1;
 
 -- name: GetUserByPhoneNumber :one
 SELECT * FROM users
-WHERE phone_number = $1 LIMIT 1;
+WHERE regexp_replace(COALESCE(phone_number, ''), '[^0-9]', '', 'g') = $1
+LIMIT 1;
 
 -- name: UpdateUserPassword :one
 UPDATE users

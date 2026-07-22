@@ -8,6 +8,7 @@ import (
 
 	"github.com/KoiralaSam/ZorbaHealth/services/patient-service/internal/core/domain/models"
 	"github.com/KoiralaSam/ZorbaHealth/services/patient-service/internal/core/ports/outbound"
+	sharedauth "github.com/KoiralaSam/ZorbaHealth/shared/auth"
 	"github.com/KoiralaSam/ZorbaHealth/shared/env"
 	"github.com/redis/go-redis/v9"
 )
@@ -67,13 +68,7 @@ type otpEntry struct {
 }
 
 func normalizePhone(phone string) string {
-	var b []byte
-	for _, r := range phone {
-		if r >= '0' && r <= '9' {
-			b = append(b, byte(r))
-		}
-	}
-	return string(b)
+	return sharedauth.CanonicalPhoneDigits(phone)
 }
 
 func (r *PendingRegistrationRepository) SetOTP(ctx context.Context, phone string, token string, code string, ttl time.Duration) error {

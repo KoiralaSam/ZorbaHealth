@@ -4,7 +4,7 @@ import "errors"
 
 var (
 	ErrRegistrationRequestRequired = errors.New("registration request is required")
-	ErrInvalidPhoneNumber          = errors.New("invalid phone number: must be 10–15 digits, optional leading +")
+	ErrInvalidPhoneNumber          = errors.New("invalid phone number: must be 10–15 digits (optional leading +); NANP stored as 11 digits with country code 1")
 	ErrDateOfBirthRequired         = errors.New("date of birth is required")
 	ErrDateOfBirthInFuture         = errors.New("date of birth cannot be in the future")
 
@@ -65,5 +65,7 @@ var (
 	ErrBridgedCallAlreadyEnded       = errors.New("bridged call session already ended")
 	ErrBridgedCallInvalidParticipant = errors.New("bridged call participant must be patient or staff")
 	ErrBridgedCallInvalidMode        = errors.New("translation mode must be auto or manual")
+	ErrBridgedCallInvalidJoinMode    = errors.New("join_mode must be web or phone")
+	ErrBridgedCallStaffPhoneRequired = errors.New("staff phone number is required to join by phone")
 	ErrBridgedCallStoreUnavailable   = errors.New("bridged call session store is unavailable")
 )

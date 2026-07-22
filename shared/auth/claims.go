@@ -106,7 +106,7 @@ func VerifyToken(tokenStr string) (*Claims, error) {
 			ActorType:   parsed.ActorType,
 			PatientID:   parsed.PatientID,
 			SessionID:   parsed.SessionID,
-			CallerPhone: NormalizePhoneDigits(parsed.CallerPhone),
+			CallerPhone: CanonicalPhoneDigits(parsed.CallerPhone),
 			Scopes:      parsed.Scopes,
 		}, nil
 	case ActorStaff:

@@ -3,9 +3,7 @@ package services
 import (
 	"context"
 	"crypto/rand"
-	"errors"
 	"fmt"
-	"regexp"
 	"strings"
 	"time"
 
@@ -13,16 +11,13 @@ import (
 	"github.com/KoiralaSam/ZorbaHealth/services/patient-service/internal/core/domain/models"
 	"github.com/KoiralaSam/ZorbaHealth/services/patient-service/internal/core/ports/outbound"
 	sharedaudit "github.com/KoiralaSam/ZorbaHealth/shared/audit"
+	sharedauth "github.com/KoiralaSam/ZorbaHealth/shared/auth"
 	sharedenv "github.com/KoiralaSam/ZorbaHealth/shared/env"
 	auditpb "github.com/KoiralaSam/ZorbaHealth/shared/proto/audit"
 	"github.com/google/uuid"
-	"github.com/jackc/pgx/v5"
 	"google.golang.org/protobuf/types/known/structpb"
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
-
-// E.164-ish: optional +, then 10–15 digits.
-var phoneRegex = regexp.MustCompile(`^\+?[0-9]{10,15}$`)
 
 type PatientService struct {
 	repo                    outbound.PatientRepository
@@ -58,10 +53,11 @@ func (s *PatientService) StartRegistrationWithVerification(ctx context.Context, 
 	if req == nil {
 		return "", "", domainErrors.ErrRegistrationRequestRequired
 	}
-	if !phoneRegex.MatchString(req.PhoneNumber) {
+	canonical, err := sharedauth.ValidatePhoneForStorage(req.PhoneNumber)
+	if err != nil {
 		return "", "", domainErrors.ErrInvalidPhoneNumber
 	}
-	req.PhoneNumber = normalizePhone(req.PhoneNumber)
+	req.PhoneNumber = canonical
 	if req.DateOfBirth.IsZero() {
 		return "", "", domainErrors.ErrDateOfBirthRequired
 	}
@@ -621,15 +617,9 @@ func (s *PatientService) appendWelfareAudit(ctx context.Context, eventType strin
 	})
 }
 
-// normalizePhone returns digits only (E.164 without +) for consistent lookup.
+// normalizePhone returns the canonical digits-only E.164 form (NANP: 11 digits with leading 1).
 func normalizePhone(phone string) string {
-	var b strings.Builder
-	for _, r := range phone {
-		if r >= '0' && r <= '9' {
-			b.WriteRune(r)
-		}
-	}
-	return b.String()
+	return sharedauth.CanonicalPhoneDigits(phone)
 }
 
 func (s *PatientService) GetPatientByPhoneNumber(

@@ -7,6 +7,7 @@ import "time"
 type User struct {
 	ID           string
 	Email        string
+	// PhoneNumber is digits-only E.164 without '+'. NANP numbers are always 11 digits with leading country code 1.
 	PhoneNumber  string
 	PasswordHash string
 	Role         string

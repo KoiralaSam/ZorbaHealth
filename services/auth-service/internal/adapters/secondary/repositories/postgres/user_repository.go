@@ -71,10 +71,10 @@ func (r *UserRepository) RegisterHospitalWithStaff(ctx context.Context, req doma
 
 	var staffID uuid.UUID
 	if err := tx.QueryRow(ctx, `
-		INSERT INTO hospital_staff (hospital_id, user_id, email, password_hash, name, role, active)
-		VALUES ($1, $2, $3, $4, $5, $6, true)
+		INSERT INTO hospital_staff (hospital_id, user_id, email, password_hash, name, role, active, phone_number)
+		VALUES ($1, $2, $3, $4, $5, $6, true, $7)
 		RETURNING id
-	`, hospitalID, userID, req.StaffEmail, req.PasswordHash, req.StaffName, req.StaffRole).Scan(&staffID); err != nil {
+	`, hospitalID, userID, req.StaffEmail, req.PasswordHash, req.StaffName, req.StaffRole, nullableText(req.StaffPhone)).Scan(&staffID); err != nil {
 		return nil, err
 	}
 
@@ -120,10 +120,10 @@ func (r *UserRepository) RegisterStaff(ctx context.Context, req domain.HospitalS
 
 	var staffID uuid.UUID
 	if err := tx.QueryRow(ctx, `
-		INSERT INTO hospital_staff (hospital_id, user_id, email, password_hash, name, role, active)
-		VALUES ($1, $2, $3, $4, $5, $6, true)
+		INSERT INTO hospital_staff (hospital_id, user_id, email, password_hash, name, role, active, phone_number)
+		VALUES ($1, $2, $3, $4, $5, $6, true, $7)
 		RETURNING id
-	`, hospitalID, userID, req.StaffEmail, req.PasswordHash, req.StaffName, req.StaffRole).Scan(&staffID); err != nil {
+	`, hospitalID, userID, req.StaffEmail, req.PasswordHash, req.StaffName, req.StaffRole, nullableText(req.StaffPhone)).Scan(&staffID); err != nil {
 		return nil, err
 	}
 

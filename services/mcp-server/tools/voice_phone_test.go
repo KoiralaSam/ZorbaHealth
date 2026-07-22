@@ -17,6 +17,11 @@ func TestBoundVoicePhoneUsesCallerClaim(t *testing.T) {
 	if err != nil || phone != "15551234567" {
 		t.Fatalf("got phone=%q err=%v", phone, err)
 	}
+	// 10-digit NANP must match the stored/claim 11-digit form.
+	phone, err = boundVoicePhone(claims, "5551234567")
+	if err != nil || phone != "15551234567" {
+		t.Fatalf("nanp alias got phone=%q err=%v", phone, err)
+	}
 }
 
 func TestValidateOTPFormat(t *testing.T) {
