@@ -158,6 +158,12 @@ func main() {
 			cancel()
 		}
 	}()
+	go func() {
+		if err := meetingConsumer.ListenReminders(); err != nil {
+			log.Printf("Failed to listen for meeting reminder messages: %v", err)
+			cancel()
+		}
+	}()
 
 	<-ctx.Done()
 	log.Println("Shutting down notification service")

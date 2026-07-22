@@ -305,6 +305,73 @@ func (s *SchedulingService) ListScheduledMeetings(ctx context.Context, filter mo
 	return s.meetings.List(ctx, filter)
 }
 
+func (s *SchedulingService) DispatchDueMeetingReminders(ctx context.Context, limit int32) (int, error) {
+	ctx, span := schedulingTracer.Start(ctx, "scheduling.meeting_reminder.dispatch")
+	defer span.End()
+	if s.meetings == nil || s.livekit == nil || s.publisher == nil || s.patients == nil {
+		return 0, domainErrors.ErrMeetingLiveKitUnavailable
+	}
+	meetings, err := s.meetings.ClaimDueMeetingReminders(ctx, 15*time.Minute, limit)
+	if err != nil {
+		return 0, err
+	}
+	sent := 0
+	for _, meeting := range meetings {
+		staff, staffErr := s.meetings.GetStaffByID(ctx, meeting.StaffID)
+		if staffErr != nil {
+			span.RecordError(staffErr)
+			continue
+		}
+		patient, patientErr := s.patients.GetPatientByID(ctx, meeting.PatientID.String())
+		if patientErr != nil {
+			span.RecordError(patientErr)
+			continue
+		}
+		validFor := time.Until(meeting.StartsAt.Add(time.Duration(meeting.DurationMinutes)*time.Minute + time.Hour))
+		if validFor < 2*time.Hour {
+			validFor = 2 * time.Hour
+		}
+		patientToken, staffToken, remintErr := s.livekit.RemintMeetingTokens(ctx, meeting.LiveKitRoomName, validFor)
+		if remintErr != nil {
+			span.RecordError(remintErr)
+			continue
+		}
+		meeting.PatientToken = patientToken
+		meeting.StaffToken = staffToken
+		updated, markErr := s.meetings.MarkMeetingReminderSent(ctx, &meeting)
+		if markErr != nil {
+			span.RecordError(markErr)
+			continue
+		}
+		notify := &events.MeetingReminderData{
+			MeetingID:       updated.ID.String(),
+			PatientID:       updated.PatientID.String(),
+			StaffID:         updated.StaffID.String(),
+			HospitalID:      updated.HospitalID.String(),
+			CorrelationID:   updated.CorrelationID.String(),
+			StartsAtRFC3339: updated.StartsAt.Format(time.RFC3339),
+			DurationMinutes: int(updated.DurationMinutes),
+			Timezone:        updated.Timezone,
+			Title:           updated.Title,
+			JoinURL:         updated.JoinURL,
+			PatientEmail:    patient.Email,
+			PatientName:     patient.FullName,
+			StaffEmail:      staff.Email,
+			StaffName:       staff.Name,
+			LiveKitRoomName: updated.LiveKitRoomName,
+			PatientToken:    updated.PatientToken,
+			StaffToken:      updated.StaffToken,
+		}
+		if pubErr := s.publisher.PublishMeetingReminder(ctx, notify); pubErr != nil {
+			span.RecordError(pubErr)
+			continue
+		}
+		sent++
+	}
+	span.SetAttributes(attribute.Int("meeting.reminders_sent", sent))
+	return sent, nil
+}
+
 func (s *SchedulingService) CancelScheduledMeeting(ctx context.Context, meetingID string, actor models.ScheduleActor, reason string) (*models.ScheduledMeeting, error) {
 	id, err := uuid.Parse(meetingID)
 	if err != nil {

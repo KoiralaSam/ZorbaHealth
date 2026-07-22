@@ -58,3 +58,22 @@ func (c *MeetingConsumer) ListenRequested() error {
 		return nil
 	})
 }
+
+func (c *MeetingConsumer) ListenReminders() error {
+	return c.rabbitmq.ConsumeMessages(events.NotifyMeetingReminderQueue, func(ctx context.Context, message amqp.Delivery) error {
+		var envelope contracts.AmqpMessage
+		if err := json.Unmarshal(message.Body, &envelope); err != nil {
+			logging.Error("meeting reminder event decode failed", err)
+			return err
+		}
+		var payload events.MeetingReminderData
+		if err := json.Unmarshal(envelope.Data, &payload); err != nil {
+			logging.Error("meeting reminder payload decode failed", err)
+			return err
+		}
+		if err := c.svc.SendMeetingReminderNotifications(ctx, &payload); err != nil {
+			logging.Error("meeting reminder notifications failed", err)
+		}
+		return nil
+	})
+}

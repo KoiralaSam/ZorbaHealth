@@ -119,6 +119,25 @@ services:
       auth-service:
         condition: service_started
 
+  meeting-reminder-dispatcher:
+    build:
+      context: ../..
+      dockerfile: deploy/docker/development/patient-service.Dockerfile
+    command: ["./build/meeting-reminder-dispatcher"]
+    env_file:
+      - ../../examples/sample-env/.env.example
+    environment:
+      MEETING_REMINDER_DISPATCH_LOOP_SECONDS: "60"
+      MEETING_REMINDER_DISPATCH_LIMIT: "25"
+      LIVEKIT_USE_STUB: "${LIVEKIT_USE_STUB:-false}"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+      patient-service:
+        condition: service_started
+
   audit-service:
     build:
       context: ../..
