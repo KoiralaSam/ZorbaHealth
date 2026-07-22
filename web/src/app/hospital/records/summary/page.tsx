@@ -69,6 +69,7 @@ import {
   XCircle,
 } from "lucide-react";
 import { formatDateTime, formatEventType, formatTimeOnly, meaningfulDate } from "../../../../lib/format";
+import { resolveIANATimezone } from "../../../../lib/timezone";
 
 const focusOptions = [
   { value: "full", label: "Full Summary" },
@@ -191,7 +192,7 @@ function HospitalPatientSummaryPageContent() {
     patient_id: "",
     starts_at: "",
     duration_minutes: 30,
-    timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC",
+    timezone: resolveIANATimezone(),
     title: "",
     notes: "",
   });
@@ -304,6 +305,14 @@ function HospitalPatientSummaryPageContent() {
   useEffect(() => {
     void loadPendingBridges();
   }, [loadPendingBridges]);
+
+  useEffect(() => {
+    if (!accessToken) return;
+    const timer = window.setInterval(() => {
+      void loadPendingBridges(true);
+    }, 8_000);
+    return () => window.clearInterval(timer);
+  }, [accessToken, loadPendingBridges]);
 
   const loadPatients = useCallback(
     async (query: string, force = false) => {
@@ -493,7 +502,7 @@ function HospitalPatientSummaryPageContent() {
     }
   };
 
-  const connectBridgedCall = async (sessionIdOverride?: string) => {
+  const connectBridgedCall = async (sessionIdOverride?: string, joinMode: "web" | "phone" = "web") => {
     const sessionId = (sessionIdOverride ?? bridgedForm.session_id).trim();
     if (!accessToken || !sessionId) return;
     setError("");
@@ -503,6 +512,7 @@ function HospitalPatientSummaryPageContent() {
       const payload: ConnectBridgedCallRequest = {
         session_id: sessionId,
         staff_participant_identity: bridgedForm.staff_participant_identity.trim() || undefined,
+        join_mode: joinMode,
       };
       const response = await apiFetch("hospital", APIEndpoints.HOSPITAL_BRIDGED_CALL_CONNECT, {
         method: "POST",
@@ -518,6 +528,10 @@ function HospitalPatientSummaryPageContent() {
       setBridgeCaptions([]);
       clearApiCache("hospital");
       void loadPendingBridges(true);
+      if (joinMode === "phone") {
+        setError("");
+        return;
+      }
       const token = data.data?.staff_room_token;
       const wsUrl = data.data?.livekit_ws_url;
       if (token && wsUrl) {
@@ -613,6 +627,10 @@ function HospitalPatientSummaryPageContent() {
   const handleScheduleMeeting = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!accessToken) return;
+    const timezone = resolveIANATimezone(scheduleForm.timezone);
+    if (timezone !== scheduleForm.timezone) {
+      setScheduleForm((prev) => ({ ...prev, timezone }));
+    }
     setSubmittingSchedule(true);
     try {
       const response = await apiFetch("hospital", APIEndpoints.HOSPITAL_MEETINGS, {
@@ -622,7 +640,7 @@ function HospitalPatientSummaryPageContent() {
           patient_id: scheduleForm.patient_id.trim(),
           starts_at: new Date(scheduleForm.starts_at).toISOString(),
           duration_minutes: scheduleForm.duration_minutes,
-          timezone: scheduleForm.timezone,
+          timezone,
           title: scheduleForm.title || undefined,
           notes: scheduleForm.notes || undefined,
         }),
@@ -830,7 +848,7 @@ function HospitalPatientSummaryPageContent() {
                 </p>
                 <div className="mt-5 rounded-2xl border border-slate-200 bg-slate-50/70 p-4">
                   <div className="flex items-center justify-between">
-                    <p className="text-sm font-black text-slate-900">Pending transfers</p>
+                    <p className="text-sm font-black text-slate-900">Incoming bridged calls</p>
                     <Button
                       type="button"
                       variant="outline"
@@ -845,33 +863,59 @@ function HospitalPatientSummaryPageContent() {
                       No patients are waiting for a bridged consult right now.
                     </p>
                   ) : (
-                    <ul className="mt-3 space-y-2">
+                    <ul className="mt-3 space-y-3">
                       {pendingBridges.map((session) => (
                         <li
                           key={session.session_id}
-                          className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-indigo-100 bg-white px-3 py-2 text-sm"
+                          className="rounded-2xl border-2 border-amber-300 bg-amber-50 px-4 py-3 text-sm shadow-sm animate-pulse"
                         >
-                          <div>
-                            <p className="font-bold text-slate-900">{session.session_id}</p>
-                            <p className="text-xs text-slate-500">
-                              Patient {session.patient_id || "unknown"}
-                              {session.transfer_reason ? ` — ${session.transfer_reason}` : ""}
-                            </p>
+                          <div className="flex flex-wrap items-start justify-between gap-3">
+                            <div>
+                              <p className="text-xs font-black uppercase tracking-wide text-amber-800">
+                                Ringing — patient requesting staff
+                              </p>
+                              <p className="mt-1 font-bold text-slate-900">{session.session_id}</p>
+                              <p className="text-xs text-slate-600">
+                                Patient {session.patient_id || "unknown"}
+                                {session.transfer_reason ? ` — ${session.transfer_reason}` : ""}
+                              </p>
+                              <p className="mt-2 text-xs text-slate-500">
+                                Set your listen language below, then accept in browser or by phone.
+                              </p>
+                            </div>
+                            <div className="flex flex-wrap gap-2">
+                              <Button
+                                type="button"
+                                variant="healthcare"
+                                size="sm"
+                                onClick={() => {
+                                  setBridgedForm((current) => ({
+                                    ...current,
+                                    session_id: session.session_id || "",
+                                    translation_enabled: true,
+                                  }));
+                                  void connectBridgedCall(session.session_id, "web");
+                                }}
+                              >
+                                Accept (Web)
+                              </Button>
+                              <Button
+                                type="button"
+                                variant="outline"
+                                size="sm"
+                                onClick={() => {
+                                  setBridgedForm((current) => ({
+                                    ...current,
+                                    session_id: session.session_id || "",
+                                    translation_enabled: true,
+                                  }));
+                                  void connectBridgedCall(session.session_id, "phone");
+                                }}
+                              >
+                                Accept (Phone)
+                              </Button>
+                            </div>
                           </div>
-                          <Button
-                            type="button"
-                            variant="healthcare"
-                            size="sm"
-                            onClick={() => {
-                              setBridgedForm((current) => ({
-                                ...current,
-                                session_id: session.session_id || "",
-                              }));
-                              void connectBridgedCall(session.session_id);
-                            }}
-                          >
-                            Connect
-                          </Button>
                         </li>
                       ))}
                     </ul>
@@ -939,8 +983,11 @@ function HospitalPatientSummaryPageContent() {
                   </button>
                 </div>
                 <div className="mt-5 flex flex-wrap gap-3">
-                  <Button type="button" variant="healthcare" onClick={() => void connectBridgedCall()}>
-                    Connect Call
+                  <Button type="button" variant="healthcare" onClick={() => void connectBridgedCall(undefined, "web")}>
+                    Connect (Web)
+                  </Button>
+                  <Button type="button" variant="outline" onClick={() => void connectBridgedCall(undefined, "phone")}>
+                    Connect (Phone)
                   </Button>
                   <Button type="button" variant="outline" onClick={() => void refreshBridgedSession()}>
                     Refresh Session
@@ -1417,10 +1464,11 @@ function MeetingPanel({
             />
           </div>
           <div className="space-y-2">
-            <label className="text-xs font-black uppercase tracking-wide text-slate-500">Timezone</label>
+            <label className="text-xs font-black uppercase tracking-wide text-slate-500">Timezone (IANA)</label>
             <input
               value={scheduleForm.timezone}
               onChange={(e) => setScheduleForm((prev) => ({ ...prev, timezone: e.target.value }))}
+              placeholder="America/Chicago"
               className="h-10 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-700 outline-none focus:border-indigo-400 focus:ring-4 focus:ring-indigo-100"
               required
             />
@@ -1859,17 +1907,15 @@ function MeetingCard({
 }) {
   const [startsAt, setStartsAt] = useState(toDateTimeLocalValue(meeting.starts_at));
   const [duration, setDuration] = useState(String(meeting.duration_minutes || 30));
-  const [timezone, setTimezone] = useState(
-    meeting.timezone || Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC",
+  const [timezone, setTimezone] = useState(() =>
+    resolveIANATimezone(meeting.timezone),
   );
   const [title, setTitle] = useState(meeting.title || "Zorba Health video visit");
 
   useEffect(() => {
     setStartsAt(toDateTimeLocalValue(meeting.starts_at));
     setDuration(String(meeting.duration_minutes || 30));
-    setTimezone(
-      meeting.timezone || Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC",
-    );
+    setTimezone(resolveIANATimezone(meeting.timezone));
     setTitle(meeting.title || "Zorba Health video visit");
   }, [meeting.duration_minutes, meeting.starts_at, meeting.timezone, meeting.title]);
 
@@ -1883,7 +1929,7 @@ function MeetingCard({
     onReschedule({
       starts_at: dateTimeLocalToRFC3339(startsAt),
       duration_minutes: Number(duration) || 30,
-      timezone,
+      timezone: resolveIANATimezone(timezone),
       title,
     });
   };
@@ -1989,11 +2035,12 @@ function MeetingCard({
           </div>
           <div className="space-y-2">
             <label className="text-xs font-black uppercase tracking-wide text-slate-500">
-              Timezone
+              Timezone (IANA)
             </label>
             <input
               value={timezone}
               onChange={(event) => setTimezone(event.target.value)}
+              placeholder="America/Chicago"
               className="h-10 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-700 outline-none focus:border-indigo-400 focus:ring-4 focus:ring-indigo-100"
               required
             />

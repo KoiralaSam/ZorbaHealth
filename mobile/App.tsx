@@ -22,12 +22,15 @@ import {
   Platform,
   Pressable,
   RefreshControl,
-  SafeAreaView,
   ScrollView,
   Text,
   TextInput,
   View,
 } from "react-native";
+import {
+  SafeAreaProvider,
+  SafeAreaView,
+} from "react-native-safe-area-context";
 import {
   EmptyText,
   Feedback,
@@ -42,6 +45,7 @@ import {
   TabBar,
   TextButton,
 } from "./src/components/primitives";
+import { resolveIANATimezone } from "./src/timezone";
 import { styles } from "./src/theme/styles";
 
 const API_URL = process.env.EXPO_PUBLIC_API_URL ?? "http://localhost:8081";
@@ -49,7 +53,15 @@ const LOCATION_WS_URL =
   process.env.EXPO_PUBLIC_LOCATION_WS_URL ?? defaultLocationWSURL(API_URL);
 const LOCATION_WS_RECONNECT_MS = 3000;
 
-registerGlobals();
+// Expo Go doesn't ship the @livekit/react-native-webrtc native module; only a
+// development build does. Degrade gracefully so the rest of the app still runs.
+try {
+  registerGlobals();
+} catch {
+  console.warn(
+    "LiveKit WebRTC native module unavailable (Expo Go?). Voice/video calls are disabled; build a dev client (eas build --profile development --platform android) for calls.",
+  );
+}
 
 function defaultLocationWSURL(apiURL: string) {
   try {
@@ -97,6 +109,7 @@ const endpoints = {
   patientAudit: "/api/v1/patient/audit",
   patientMeetings: "/api/v1/patient/meetings",
   patientSchedulableStaff: "/api/v1/patient/schedulable-staff",
+  patientWelfareChecks: "/api/v1/patient/welfare-checks",
   hospitalLogin: "/api/v1/auth/hospital/login",
   hospitalRefresh: "/api/v1/auth/hospital/refresh",
   hospitalLogout: "/api/v1/auth/hospital/logout",
@@ -106,6 +119,7 @@ const endpoints = {
   hospitalPatientAudit: "/api/v1/hospital/patient/audit",
   hospitalBridgedCallConnect: "/api/v1/hospital/calls/bridge-connect",
   hospitalBridgedCallSession: "/api/v1/hospital/calls/bridge-session",
+  hospitalBridgedCallSessions: "/api/v1/hospital/calls/bridge-sessions",
   hospitalBridgedCallTranslation: "/api/v1/hospital/calls/bridge-translation",
   hospitalBridgedCallEnd: "/api/v1/hospital/calls/bridge-end",
   hospitalMeetings: "/api/v1/hospital/meetings",
@@ -121,6 +135,7 @@ type PatientTab =
   | "records"
   | "calls"
   | "meetings"
+  | "welfare"
   | "audit"
   | "location";
 type HospitalTab =
@@ -255,6 +270,7 @@ type BridgedCallSession = {
 type BridgedCallSessionResponseData = {
   session?: BridgedCallSession;
   patient_room_token?: string;
+  staff_room_token?: string;
   livekit_ws_url?: string;
 };
 type InterpretationSegmentMessage = {
@@ -296,6 +312,106 @@ type Incident = {
 function bridgeCaptionLabel(participant?: string) {
   return participant === "staff" ? "Clinician" : "Patient";
 }
+
+function parseMeetingJoinURL(joinURL: string): { server: string; room: string; token: string } | null {
+  const raw = (joinURL || "").trim();
+  if (!raw) return null;
+  try {
+    const url = new URL(raw);
+    const server = (url.searchParams.get("server") || "").trim();
+    const room = (url.searchParams.get("room") || "").trim();
+    const token = (url.searchParams.get("token") || "").trim();
+    if (server && token) {
+      return { server, room, token };
+    }
+    if (raw.startsWith("ws://") || raw.startsWith("wss://")) {
+      const wsToken = (url.searchParams.get("token") || "").trim();
+      if (wsToken) {
+        return {
+          server: `${url.protocol}//${url.host}${url.pathname}`.replace(/\/$/, ""),
+          room,
+          token: wsToken,
+        };
+      }
+    }
+  } catch {
+    return null;
+  }
+  return null;
+}
+
+function MeetingVideoRoom({
+  joinURL,
+  onClose,
+}: {
+  joinURL: string;
+  onClose: () => void;
+}) {
+  const [status, setStatus] = useState("Connecting…");
+  const [error, setError] = useState("");
+  const roomRef = useRef<Room | null>(null);
+
+  useEffect(() => {
+    const parsed = parseMeetingJoinURL(joinURL);
+    if (!parsed) {
+      setError("This meeting link is missing LiveKit join details. Open it in the browser instead.");
+      setStatus("");
+      return;
+    }
+    const room = new Room({ adaptiveStream: true, dynacast: true });
+    roomRef.current = room;
+    room.on(RoomEvent.Disconnected, () => setStatus("Disconnected"));
+    let cancelled = false;
+    (async () => {
+      try {
+        await room.connect(parsed.server, parsed.token);
+        if (cancelled) return;
+        setStatus(parsed.room ? `Connected — ${parsed.room}` : "Connected");
+        await room.localParticipant.setCameraEnabled(true).catch(() => undefined);
+        await room.localParticipant.setMicrophoneEnabled(true).catch(() => undefined);
+      } catch (err) {
+        if (!cancelled) {
+          setError(err instanceof Error ? err.message : "Unable to join the video visit.");
+          setStatus("");
+        }
+      }
+    })();
+    return () => {
+      cancelled = true;
+      void room.disconnect();
+      roomRef.current = null;
+    };
+  }, [joinURL]);
+
+  return (
+    <Section title="Video visit">
+      {status ? <Text style={styles.meta}>{status}</Text> : null}
+      <Feedback error={error} />
+      <Text style={styles.cardBody}>
+        Camera and microphone are enabled for this LiveKit visit. Stay on this screen until the visit ends.
+      </Text>
+      <View style={styles.inlineActions}>
+        <IconButton
+          icon="call-outline"
+          label="Leave"
+          onPress={() => {
+            void roomRef.current?.disconnect();
+            onClose();
+          }}
+          tone="neutral"
+        />
+        {error ? (
+          <IconButton
+            icon="open-outline"
+            label="Open in browser"
+            onPress={() => Linking.openURL(joinURL)}
+            tone="accent"
+          />
+        ) : null}
+      </View>
+    </Section>
+  );
+}
 type HospitalPatient = {
   patient_id?: string;
   full_name?: string;
@@ -325,6 +441,36 @@ type PatientSchedulableStaffMember = {
   role: string;
   email: string;
 };
+
+type WelfareCheckReason =
+  | "medication_reminder"
+  | "mental_wellbeing"
+  | "daily_checkup"
+  | "symptom_follow_up"
+  | "care_plan_reminder"
+  | "other";
+
+type PatientWelfareCheck = {
+  id: string;
+  patient_id?: string;
+  scheduled_at?: string;
+  timezone?: string;
+  reason_code?: WelfareCheckReason | string;
+  reason_detail?: string;
+  status?: string;
+  created_at?: string;
+};
+
+const welfareReasonLabels: Record<WelfareCheckReason, string> = {
+  medication_reminder: "Medication reminder",
+  mental_wellbeing: "Mental wellbeing",
+  daily_checkup: "Daily checkup",
+  symptom_follow_up: "Symptom follow-up",
+  care_plan_reminder: "Care plan reminder",
+  other: "Other",
+};
+
+const welfareReasons = Object.keys(welfareReasonLabels) as WelfareCheckReason[];
 
 type HospitalConsentRequest = {
   id?: string;
@@ -656,43 +802,41 @@ export default function App() {
     setHospitalToken("");
   };
 
-  if (booting) {
-    return (
-      <SafeAreaView style={styles.safeArea}>
-        <View style={styles.center}>
-          <ActivityIndicator />
-          <Text style={styles.muted}>Loading secure session...</Text>
-        </View>
-      </SafeAreaView>
-    );
-  }
-
   return (
-    <SafeAreaView style={styles.safeArea}>
-      <StatusBar style="dark" />
-      <KeyboardAvoidingView
-        style={styles.shell}
-        behavior={Platform.OS === "ios" ? "padding" : undefined}
-      >
-        <Header
-          role={role}
-          onRoleChange={setRole}
-          signedIn={Boolean(patientToken || hospitalToken)}
-          onSignOut={signOut}
-        />
-        {role === "patient" ? (
-          patientToken ? (
-            <PatientPortal token={patientToken} onSignOut={signOut} />
-          ) : (
-            <PatientAuth onLogin={setPatientToken} />
-          )
-        ) : hospitalToken ? (
-          <HospitalPortal token={hospitalToken} onSignOut={signOut} />
+    <SafeAreaProvider>
+      <SafeAreaView style={styles.safeArea} edges={["top", "right", "bottom", "left"]}>
+        <StatusBar style="dark" />
+        {booting ? (
+          <View style={styles.center}>
+            <ActivityIndicator />
+            <Text style={styles.muted}>Loading secure session...</Text>
+          </View>
         ) : (
-          <HospitalAuth onLogin={setHospitalToken} />
+          <KeyboardAvoidingView
+            style={styles.shell}
+            behavior={Platform.OS === "ios" ? "padding" : undefined}
+          >
+            <Header
+              role={role}
+              onRoleChange={setRole}
+              signedIn={Boolean(patientToken || hospitalToken)}
+              onSignOut={signOut}
+            />
+            {role === "patient" ? (
+              patientToken ? (
+                <PatientPortal token={patientToken} onSignOut={signOut} />
+              ) : (
+                <PatientAuth onLogin={setPatientToken} />
+              )
+            ) : hospitalToken ? (
+              <HospitalPortal token={hospitalToken} onSignOut={signOut} />
+            ) : (
+              <HospitalAuth onLogin={setHospitalToken} />
+            )}
+          </KeyboardAvoidingView>
         )}
-      </KeyboardAvoidingView>
-    </SafeAreaView>
+      </SafeAreaView>
+    </SafeAreaProvider>
   );
 }
 
@@ -1092,6 +1236,7 @@ function PatientPortal({
   const [calls, setCalls] = useState<CallSummary[]>([]);
   const [audit, setAudit] = useState<AuditEvent[]>([]);
   const [meetings, setMeetings] = useState<HospitalMeeting[]>([]);
+  const [welfareChecks, setWelfareChecks] = useState<PatientWelfareCheck[]>([]);
   const [schedulableStaff, setSchedulableStaff] = useState<PatientSchedulableStaffMember[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -1101,13 +1246,18 @@ function PatientPortal({
   const [scheduleHospitalID, setScheduleHospitalID] = useState("");
   const [scheduleStartsAt, setScheduleStartsAt] = useState("");
   const [scheduleDuration, setScheduleDuration] = useState("30");
-  const [scheduleTimezone, setScheduleTimezone] = useState(
-    Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC",
+  const [scheduleTimezone, setScheduleTimezone] = useState(() =>
+    resolveIANATimezone(),
   );
   const [scheduleTitle, setScheduleTitle] = useState("");
   const [scheduleNotes, setScheduleNotes] = useState("");
   const [submittingSchedule, setSubmittingSchedule] = useState(false);
   const [mutatingMeetingID, setMutatingMeetingID] = useState("");
+  const [welfareScheduledAt, setWelfareScheduledAt] = useState("");
+  const [welfareReason, setWelfareReason] = useState<WelfareCheckReason>("daily_checkup");
+  const [welfareDetail, setWelfareDetail] = useState("");
+  const [creatingWelfareCheck, setCreatingWelfareCheck] = useState(false);
+  const [cancellingWelfareCheck, setCancellingWelfareCheck] = useState<string | null>(null);
 
   const load = useCallback(async (showPageLoader = true) => {
     if (showPageLoader) {
@@ -1121,7 +1271,7 @@ function PatientPortal({
         cacheTTL: MOBILE_CACHE_TTL_MS,
         forceRefresh: !showPageLoader,
       };
-      const [profileData, consentData, hospitalConsentData, callData, auditData, meetingsData] = await Promise.all(
+      const [profileData, consentData, hospitalConsentData, callData, auditData, meetingsData, welfareData] = await Promise.all(
         [
           apiRequest<PatientProfile>(endpoints.patientProfile, {
             token,
@@ -1150,6 +1300,10 @@ function PatientPortal({
             endpoints.patientMeetings,
             { token, role: "patient", ...cacheOptions },
           ),
+          apiRequest<{ welfare_checks?: PatientWelfareCheck[] }>(
+            endpoints.patientWelfareChecks,
+            { token, role: "patient", ...cacheOptions },
+          ),
         ],
       );
       setProfile(profileData);
@@ -1158,6 +1312,7 @@ function PatientPortal({
       setCalls(normalizeCalls(callData));
       setAudit(auditData.events ?? []);
       setMeetings(meetingsData.meetings ?? []);
+      setWelfareChecks(welfareData.welfare_checks ?? []);
     } catch (err) {
       const message =
         err instanceof Error ? err.message : "Unable to load patient data.";
@@ -1213,6 +1368,10 @@ function PatientPortal({
 
   const handleScheduleMeeting = async () => {
     if (!token) return;
+    const timezone = resolveIANATimezone(scheduleTimezone);
+    if (timezone !== scheduleTimezone) {
+      setScheduleTimezone(timezone);
+    }
     setSubmittingSchedule(true);
     setError("");
     try {
@@ -1227,7 +1386,7 @@ function PatientPortal({
             hospital_id: scheduleHospitalID,
             starts_at: new Date(scheduleStartsAt).toISOString(),
             duration_minutes: Number(scheduleDuration) || 30,
-            timezone: scheduleTimezone,
+            timezone,
             title: scheduleTitle || undefined,
             notes: scheduleNotes || undefined,
           },
@@ -1273,6 +1432,77 @@ function PatientPortal({
     }
   };
 
+  const handleCreateWelfareCheck = async () => {
+    if (!token || creatingWelfareCheck) return;
+    if (!welfareScheduledAt.trim()) {
+      setError("Choose a date and time for the welfare check.");
+      return;
+    }
+    const scheduledAt = new Date(welfareScheduledAt);
+    if (Number.isNaN(scheduledAt.getTime())) {
+      setError("Welfare check time must be a valid date.");
+      return;
+    }
+    const timezone = resolveIANATimezone(scheduleTimezone);
+    if (timezone !== scheduleTimezone) {
+      setScheduleTimezone(timezone);
+    }
+    setCreatingWelfareCheck(true);
+    setError("");
+    try {
+      const data = await apiRequest<{ welfare_check?: PatientWelfareCheck }>(
+        endpoints.patientWelfareChecks,
+        {
+          method: "POST",
+          token,
+          role: "patient",
+          body: {
+            scheduled_at: scheduledAt.toISOString(),
+            timezone,
+            reason_code: welfareReason,
+            reason_detail: welfareDetail.trim() || undefined,
+          },
+        },
+      );
+      if (data.welfare_check) {
+        setWelfareChecks((prev) => [data.welfare_check!, ...prev]);
+      }
+      setWelfareDetail("");
+      setWelfareScheduledAt("");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Unable to schedule welfare check.");
+    } finally {
+      setCreatingWelfareCheck(false);
+    }
+  };
+
+  const handleCancelWelfareCheck = async (id: string) => {
+    if (!token || !id) return;
+    setCancellingWelfareCheck(id);
+    setError("");
+    try {
+      const data = await apiRequest<{ welfare_check?: PatientWelfareCheck }>(
+        `${endpoints.patientWelfareChecks}/${encodeURIComponent(id)}`,
+        { method: "DELETE", token, role: "patient" },
+      );
+      if (data.welfare_check) {
+        setWelfareChecks((prev) =>
+          prev.map((item) => (item.id === id ? data.welfare_check! : item)),
+        );
+      } else {
+        setWelfareChecks((prev) =>
+          prev.map((item) =>
+            item.id === id ? { ...item, status: "cancelled" } : item,
+          ),
+        );
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Unable to cancel welfare check.");
+    } finally {
+      setCancellingWelfareCheck(null);
+    }
+  };
+
   const activeConsents = useMemo(() => {
     const map = new Map<string, ConsentRecord>();
     for (const consent of consents) {
@@ -1299,6 +1529,7 @@ function PatientPortal({
           { value: "records", label: "Ask", icon: "chatbubbles-outline" },
           { value: "calls", label: "Calls", icon: "call-outline" },
           { value: "meetings", label: "Meetings", icon: "calendar-outline" },
+          { value: "welfare", label: "Welfare", icon: "heart-outline" },
           { value: "audit", label: "Audit", icon: "reader-outline" },
           { value: "location", label: "GPS", icon: "navigate-outline" },
         ]}
@@ -1379,6 +1610,23 @@ function PatientPortal({
             onSchedule={handleScheduleMeeting}
             onCancel={handleCancelMeeting}
             onLoadSchedulableStaff={loadSchedulableStaff}
+            onRefresh={() => void load(false)}
+          />
+        ) : null}
+        {!loading && tab === "welfare" ? (
+          <PatientWelfareChecks
+            checks={welfareChecks}
+            scheduledAt={welfareScheduledAt}
+            setScheduledAt={setWelfareScheduledAt}
+            reason={welfareReason}
+            setReason={setWelfareReason}
+            detail={welfareDetail}
+            setDetail={setWelfareDetail}
+            timezone={scheduleTimezone}
+            creating={creatingWelfareCheck}
+            cancellingId={cancellingWelfareCheck}
+            onCreate={() => void handleCreateWelfareCheck()}
+            onCancel={(id) => void handleCancelWelfareCheck(id)}
             onRefresh={() => void load(false)}
           />
         ) : null}
@@ -2453,6 +2701,116 @@ function LocationSharing({
   );
 }
 
+function PatientWelfareChecks({
+  checks,
+  scheduledAt,
+  setScheduledAt,
+  reason,
+  setReason,
+  detail,
+  setDetail,
+  timezone,
+  creating,
+  cancellingId,
+  onCreate,
+  onCancel,
+  onRefresh,
+}: {
+  checks: PatientWelfareCheck[];
+  scheduledAt: string;
+  setScheduledAt: (v: string) => void;
+  reason: WelfareCheckReason;
+  setReason: (v: WelfareCheckReason) => void;
+  detail: string;
+  setDetail: (v: string) => void;
+  timezone: string;
+  creating: boolean;
+  cancellingId: string | null;
+  onCreate: () => void;
+  onCancel: (id: string) => void;
+  onRefresh: () => void;
+}) {
+  return (
+    <View style={styles.stack}>
+      <ScreenHeading
+        title="Welfare Checks"
+        subtitle="Schedule an outbound Zorba AI phone check with the reason and details you choose."
+      />
+      <Section title="Schedule a check">
+        <Field
+          label={`When (${timezone})`}
+          value={scheduledAt}
+          onChangeText={setScheduledAt}
+          placeholder="YYYY-MM-DDTHH:MM"
+          autoCapitalize="none"
+        />
+        <Text style={styles.meta}>Reason</Text>
+        <View style={styles.inlineActions}>
+          {welfareReasons.map((code) => (
+            <IconButton
+              key={code}
+              icon={reason === code ? "checkmark-circle" : "ellipse-outline"}
+              label={welfareReasonLabels[code]}
+              onPress={() => setReason(code)}
+              tone={reason === code ? "accent" : "neutral"}
+            />
+          ))}
+        </View>
+        <Field
+          label="Details (optional)"
+          value={detail}
+          onChangeText={setDetail}
+          placeholder="Anything Zorba should mention on the call"
+        />
+        <PrimaryButton
+          icon="heart-outline"
+          label={creating ? "Scheduling..." : "Schedule welfare check"}
+          disabled={creating}
+          onPress={onCreate}
+        />
+      </Section>
+      <Section title="Upcoming & recent">
+        <IconButton icon="refresh-outline" label="Refresh" onPress={onRefresh} tone="neutral" />
+        {checks.length === 0 ? (
+          <EmptyText text="No welfare checks scheduled yet." />
+        ) : (
+          checks.map((check) => {
+            const cancelled = check.status === "cancelled";
+            const reasonLabel =
+              welfareReasonLabels[(check.reason_code as WelfareCheckReason) || "other"] ||
+              check.reason_code ||
+              "Welfare check";
+            return (
+              <View key={check.id} style={styles.card}>
+                <View style={styles.rowBetween}>
+                  <View style={styles.flex}>
+                    <Text style={styles.cardTitle}>{reasonLabel}</Text>
+                    <Text style={styles.meta}>{formatTime(check.scheduled_at)}</Text>
+                    {check.reason_detail ? (
+                      <Text style={styles.cardBody}>{check.reason_detail}</Text>
+                    ) : null}
+                  </View>
+                  <Text style={[styles.badge, cancelled ? styles.badgeWarn : null]}>
+                    {check.status || "scheduled"}
+                  </Text>
+                </View>
+                {!cancelled && check.status !== "completed" && check.status !== "missed" ? (
+                  <IconButton
+                    icon="close-outline"
+                    label={cancellingId === check.id ? "Cancelling..." : "Cancel"}
+                    onPress={() => onCancel(check.id)}
+                    tone="neutral"
+                  />
+                ) : null}
+              </View>
+            );
+          })
+        )}
+      </Section>
+    </View>
+  );
+}
+
 function PatientMeetings({
   token,
   meetings,
@@ -2511,10 +2869,17 @@ function PatientMeetings({
   onRefresh: () => void;
 }) {
   const [error, setError] = useState("");
+  const [activeJoinURL, setActiveJoinURL] = useState<string | null>(null);
   const activeConsents = useMemo(
     () => hospitalConsents.filter((hc) => !hc.revoked_at),
     [hospitalConsents],
   );
+
+  if (activeJoinURL) {
+    return (
+      <MeetingVideoRoom joinURL={activeJoinURL} onClose={() => setActiveJoinURL(null)} />
+    );
+  }
 
   return (
     <View style={styles.stack}>
@@ -2627,10 +2992,11 @@ function PatientMeetings({
             keyboardType="number-pad"
           />
           <Field
-            label="Timezone"
+            label="Timezone (IANA)"
             value={scheduleTimezone}
             onChangeText={setScheduleTimezone}
-            placeholder="UTC"
+            placeholder="America/Chicago"
+            autoCapitalize="none"
           />
           <Field
             label="Title"
@@ -2684,7 +3050,7 @@ function PatientMeetings({
                     <IconButton
                       icon="videocam-outline"
                       label="Join"
-                      onPress={() => Linking.openURL(meeting.join_url as string)}
+                      onPress={() => setActiveJoinURL(meeting.join_url as string)}
                       tone="accent"
                     />
                   ) : null}
@@ -2731,8 +3097,8 @@ function HospitalPortal({
   const [hospSchedulePatientID, setHospSchedulePatientID] = useState("");
   const [hospScheduleStartsAt, setHospScheduleStartsAt] = useState("");
   const [hospScheduleDuration, setHospScheduleDuration] = useState("30");
-  const [hospScheduleTimezone, setHospScheduleTimezone] = useState(
-    Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC",
+  const [hospScheduleTimezone, setHospScheduleTimezone] = useState(() =>
+    resolveIANATimezone(),
   );
   const [hospScheduleTitle, setHospScheduleTitle] = useState("");
   const [hospScheduleNotes, setHospScheduleNotes] = useState("");
@@ -2809,6 +3175,10 @@ function HospitalPortal({
   }, [onSignOut, token]);
 
   const handleHospitalSchedule = async () => {
+    const timezone = resolveIANATimezone(hospScheduleTimezone);
+    if (timezone !== hospScheduleTimezone) {
+      setHospScheduleTimezone(timezone);
+    }
     setSubmittingHospSchedule(true);
     try {
       const data = await apiRequest<{ meeting?: HospitalMeeting }>(
@@ -2821,7 +3191,7 @@ function HospitalPortal({
             patient_id: hospSchedulePatientID.trim(),
             starts_at: new Date(hospScheduleStartsAt).toISOString(),
             duration_minutes: Number(hospScheduleDuration) || 30,
-            timezone: hospScheduleTimezone,
+            timezone,
             title: hospScheduleTitle || undefined,
             notes: hospScheduleNotes || undefined,
           },
@@ -2912,19 +3282,22 @@ function HospitalPortal({
         }
       >
         {tab === "home" ? (
-          <HospitalHome
-            patients={patients}
-            loading={loadingPatients}
-            onSearch={loadPatients}
-            onSummary={(lookup) => {
-              setPatientLookup(lookup);
-              setTab("summary");
-            }}
-            onAudit={(lookup) => {
-              setPatientLookup(lookup);
-              setTab("audit");
-            }}
-          />
+          <View style={styles.stack}>
+            <HospitalIncomingBridges token={token} />
+            <HospitalHome
+              patients={patients}
+              loading={loadingPatients}
+              onSearch={loadPatients}
+              onSummary={(lookup) => {
+                setPatientLookup(lookup);
+                setTab("summary");
+              }}
+              onAudit={(lookup) => {
+                setPatientLookup(lookup);
+                setTab("audit");
+              }}
+            />
+          </View>
         ) : null}
         {tab === "summary" ? (
           <HospitalSummary
@@ -2986,6 +3359,180 @@ function HospitalPortal({
         ) : null}
       </ScrollView>
     </View>
+  );
+}
+
+function HospitalIncomingBridges({ token }: { token: string }) {
+  const [pending, setPending] = useState<BridgedCallSession[]>([]);
+  const [languageCode, setLanguageCode] = useState("en");
+  const [busySession, setBusySession] = useState<string | null>(null);
+  const [notice, setNotice] = useState("");
+  const [error, setError] = useState("");
+  const [bridgeRoomState, setBridgeRoomState] = useState<"disconnected" | "connecting" | "connected">("disconnected");
+  const bridgeRoomRef = useRef<Room | null>(null);
+
+  const disconnectBridgeRoom = useCallback(async () => {
+    const room = bridgeRoomRef.current;
+    bridgeRoomRef.current = null;
+    setBridgeRoomState("disconnected");
+    if (room) {
+      try {
+        await room.disconnect();
+      } catch {
+        // Best-effort teardown.
+      }
+    }
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      void disconnectBridgeRoom();
+    };
+  }, [disconnectBridgeRoom]);
+
+  const loadPending = useCallback(async () => {
+    try {
+      const data = await apiRequest<{ sessions?: BridgedCallSession[] }>(
+        `${endpoints.hospitalBridgedCallSessions}?status=transfer_requested`,
+        { token, role: "hospital" },
+      );
+      setPending(data.sessions ?? []);
+    } catch {
+      // Best-effort polling.
+    }
+  }, [token]);
+
+  useEffect(() => {
+    void loadPending();
+    const timer = setInterval(() => {
+      void loadPending();
+    }, 8000);
+    return () => clearInterval(timer);
+  }, [loadPending]);
+
+  const joinBridgeRoom = useCallback(
+    async (wsUrl: string, roomToken: string) => {
+      await disconnectBridgeRoom();
+      const room = new Room();
+      bridgeRoomRef.current = room;
+      setBridgeRoomState("connecting");
+      room.on(RoomEvent.Disconnected, () => {
+        if (bridgeRoomRef.current === room) {
+          bridgeRoomRef.current = null;
+          setBridgeRoomState("disconnected");
+        }
+      });
+      try {
+        await room.connect(wsUrl, roomToken);
+        await room.localParticipant.setMicrophoneEnabled(true).catch(() => undefined);
+        setBridgeRoomState("connected");
+      } catch (err) {
+        setError(err instanceof Error ? err.message : "Unable to join LiveKit room.");
+        await disconnectBridgeRoom();
+      }
+    },
+    [disconnectBridgeRoom],
+  );
+
+  const acceptCall = useCallback(
+    async (sessionId: string, joinMode: "web" | "phone") => {
+      setBusySession(sessionId);
+      setError("");
+      setNotice("");
+      try {
+        await apiRequest<{ session?: BridgedCallSession }>(
+          endpoints.hospitalBridgedCallTranslation,
+          {
+            method: "PUT",
+            token,
+            role: "hospital",
+            body: {
+              session_id: sessionId,
+              participant: "staff",
+              translation: {
+                enabled: true,
+                language_mode: "manual",
+                language_code: languageCode.trim() || "en",
+              },
+            },
+          },
+        ).catch(() => undefined);
+        const data = await apiRequest<BridgedCallSessionResponseData>(
+          endpoints.hospitalBridgedCallConnect,
+          {
+            method: "POST",
+            token,
+            role: "hospital",
+            body: {
+              session_id: sessionId,
+              join_mode: joinMode,
+            },
+          },
+        );
+        setNotice(
+          joinMode === "phone"
+            ? "Dialing your staff phone into the patient call..."
+            : "Joined the bridged call in-app.",
+        );
+        void loadPending();
+        if (joinMode === "web" && data.staff_room_token && data.livekit_ws_url) {
+          await joinBridgeRoom(data.livekit_ws_url, data.staff_room_token);
+        }
+      } catch (err) {
+        setError(err instanceof Error ? err.message : "Unable to accept bridged call.");
+      } finally {
+        setBusySession(null);
+      }
+    },
+    [joinBridgeRoom, languageCode, loadPending, token],
+  );
+
+  return (
+    <Section title="Incoming bridged calls">
+      <Text style={styles.cardBody}>
+        When a patient presses 0 or requests staff during a Zorba call, accept here. Choose phone to dial your staff line via LiveKit SIP, or web to join in-app with interpretation.
+      </Text>
+      <Field
+        label="Your language"
+        value={languageCode}
+        onChangeText={setLanguageCode}
+        autoCapitalize="none"
+        placeholder="en"
+      />
+      <Feedback error={error} notice={notice} />
+      {bridgeRoomState !== "disconnected" ? (
+        <Text style={styles.meta}>Live room: {bridgeRoomState}</Text>
+      ) : null}
+      {pending.length === 0 ? (
+        <EmptyText text="No patients waiting for a bridged consult." />
+      ) : (
+        pending.map((session) => (
+          <View key={session.session_id} style={[styles.card, { borderColor: "#f59e0b", borderWidth: 2 }]}>
+            <Text style={styles.badge}>Ringing</Text>
+            <Text style={styles.cardTitle}>{session.session_id}</Text>
+            <Text style={styles.cardBody}>
+              Patient {session.patient_id || "unknown"}
+              {session.transfer_reason ? ` — ${session.transfer_reason}` : ""}
+            </Text>
+            <View style={styles.inlineActions}>
+              <IconButton
+                icon="laptop-outline"
+                label={busySession === session.session_id ? "Connecting..." : "Accept (Web)"}
+                onPress={() => void acceptCall(session.session_id, "web")}
+                tone="accent"
+              />
+              <IconButton
+                icon="call-outline"
+                label="Accept (Phone)"
+                onPress={() => void acceptCall(session.session_id, "phone")}
+                tone="neutral"
+              />
+            </View>
+          </View>
+        ))
+      )}
+      <IconButton icon="refresh-outline" label="Refresh" onPress={() => void loadPending()} tone="neutral" />
+    </Section>
   );
 }
 
@@ -3233,6 +3780,7 @@ function HospitalMeetings({
 }) {
   const [mutating, setMutating] = useState("");
   const [error, setError] = useState("");
+  const [activeJoinURL, setActiveJoinURL] = useState<string | null>(null);
 
   const mergeMeeting = (meeting?: HospitalMeeting) => {
     if (!meeting?.id) return;
@@ -3268,6 +3816,12 @@ function HospitalMeetings({
       setMutating("");
     }
   };
+
+  if (activeJoinURL) {
+    return (
+      <MeetingVideoRoom joinURL={activeJoinURL} onClose={() => setActiveJoinURL(null)} />
+    );
+  }
 
   return (
     <View style={styles.stack}>
@@ -3313,9 +3867,11 @@ function HospitalMeetings({
             keyboardType="number-pad"
           />
           <Field
-            label="Timezone"
+            label="Timezone (IANA)"
             value={scheduleTimezone || "UTC"}
             onChangeText={(v) => setScheduleTimezone?.(v)}
+            placeholder="America/Chicago"
+            autoCapitalize="none"
           />
           <Field
             label="Title"
@@ -3378,7 +3934,7 @@ function HospitalMeetings({
                     <IconButton
                       icon="videocam-outline"
                       label="Join"
-                      onPress={() => Linking.openURL(meeting.join_url as string)}
+                      onPress={() => setActiveJoinURL(meeting.join_url as string)}
                       tone="neutral"
                     />
                   ) : null}
