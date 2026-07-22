@@ -6,7 +6,7 @@ load('ext://restart_process', 'docker_build_with_restart')
 #   deploy/tilt/migrate-up.sh         — DB migrations via localhost:5432 port-forward
 #   deploy/tilt/livekit-up.sh         — host Docker LiveKit + SIP + trunk/dispatch
 #
-# Primary OSS path (no cluster): Docker Compose / Codespaces — see docs/local-setup.md
+# Primary OSS path (no cluster): Docker Compose — see docs/local-setup.md
 #
 # Local k8s day-to-day:
 #   ./deploy/tilt/preflight.sh && tilt up

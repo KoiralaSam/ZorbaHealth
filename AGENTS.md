@@ -13,20 +13,12 @@ Rules:
 
 ## Local development
 
-**Primary path: Docker Compose** (also used by GitHub Codespaces). See [docs/local-setup.md](docs/local-setup.md).
+**Primary path: Docker Compose.** See [docs/local-setup.md](docs/local-setup.md).
 
 ```bash
-# Local
 docker compose \
   -f deploy/docker/docker-compose.yml \
   -f deploy/docker/docker-compose.override.local.yml \
-  up --build
-
-# Codespaces
-./scripts/codespaces/prepare-env.sh
-docker compose \
-  -f deploy/docker/docker-compose.yml \
-  -f deploy/docker/docker-compose.override.codespaces.yml \
   up --build
 ```
 
@@ -35,14 +27,6 @@ docker compose \
 ```bash
 cp deploy/kubernetes/development/secrets.example.yaml deploy/kubernetes/development/secrets.yaml
 # fill placeholders, then:
-./deploy/tilt/preflight.sh
-tilt up
-```
-
-On **GitHub Codespaces**, create a kind cluster first:
-
-```bash
-./scripts/codespaces/kind-up.sh
 ./deploy/tilt/preflight.sh
 tilt up
 ```

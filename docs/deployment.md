@@ -6,7 +6,7 @@ This document describes the current deployment posture.
 
 The repository supports:
 
-- **Docker Compose** for local and Codespaces full-stack startup (`deploy/docker/`)
+- **Docker Compose** for local full-stack startup (`deploy/docker/`)
 - **Tilt + local Kubernetes** for cluster-shaped development (`Tiltfile`, `deploy/kubernetes/development/`)
 - Optional **Helm** packaging under `deploy/helm/` with `deploy/helm/values/dev.yaml`
 - Development and production-oriented Dockerfiles under `deploy/docker/`
@@ -23,7 +23,7 @@ docker compose \
   up --build
 ```
 
-See [`docs/local-setup.md`](local-setup.md) for Codespaces and optional Tilt.
+See [`docs/local-setup.md`](local-setup.md) for optional Tilt.
 
 ## Optional Helm
 
