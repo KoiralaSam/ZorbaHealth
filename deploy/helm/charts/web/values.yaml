@@ -8,30 +8,34 @@ ports:
     name: http
 env:
   - name: NODE_ENV
-    value: "development"
+    value: "production"
+  - name: HOSTNAME
+    value: "0.0.0.0"
+  - name: PORT
+    value: "3000"
 resources:
   requests:
-    memory: 256Mi
-    cpu: 100m
-  limits:
     memory: 512Mi
-    cpu: 500m
+    cpu: 200m
+  limits:
+    memory: 1Gi
+    cpu: "1"
 probes:
   readinessProbe:
     httpGet:
-      path: /
+      path: /api/health
       port: http
-    initialDelaySeconds: 30
-    periodSeconds: 10
-    timeoutSeconds: 10
-    failureThreshold: 3
+    initialDelaySeconds: 10
+    periodSeconds: 5
+    timeoutSeconds: 5
+    failureThreshold: 6
   livenessProbe:
     httpGet:
-      path: /
+      path: /api/health
       port: http
-    initialDelaySeconds: 60
+    initialDelaySeconds: 30
     periodSeconds: 20
-    timeoutSeconds: 10
+    timeoutSeconds: 5
     failureThreshold: 3
 service:
   type: ClusterIP

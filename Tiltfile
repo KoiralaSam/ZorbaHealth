@@ -106,8 +106,14 @@ docker_build_with_restart(
   ],
 )
 
-k8s_resource('api-gateway', port_forwards=8081,
-             resource_deps=app_deps + ['api-gateway-compile'], labels="services")
+# Bind 0.0.0.0 so Cursor Remote SSH / laptop browsers can reach the gateway
+# (not only Tilt's default 127.0.0.1). Also forward 8081 in the Ports panel.
+k8s_resource(
+  'api-gateway',
+  port_forwards=[port_forward(8081, 8081, name='api-gateway', host='0.0.0.0')],
+  resource_deps=app_deps + ['api-gateway-compile'],
+  labels="services",
+)
 ### End of API Gateway ###
 
 ### Patient Service (HTTP Gateway) ###
@@ -146,7 +152,17 @@ docker_build(
   platform=_docker_platform,
 )
 
-k8s_resource('notification-service', port_forwards=[50056, 3001], resource_deps=app_deps, labels="services")
+# Expose SMS webhook on all interfaces so VoIP.ms can reach the GCP VM public IP
+# (open GCP firewall TCP 3001). Path: http://<VM_EXTERNAL_IP>:3001/sms?api_key=...
+k8s_resource(
+  'notification-service',
+  port_forwards=[
+    50056,
+    port_forward(3001, 3001, name='sms-webhook', host='0.0.0.0'),
+  ],
+  resource_deps=app_deps,
+  labels="services",
+)
 ### End of Notification Service ###
 
 ### Health Records Service ###
@@ -202,7 +218,10 @@ docker_build(
 
 k8s_resource(
   'location-service',
-  port_forwards=['50051:50051', '8091:8090'],
+  port_forwards=[
+    50051,
+    port_forward(8091, 8090, name='location-ws', host='0.0.0.0'),
+  ],
   resource_deps=app_deps,
   labels="services",
 )
@@ -283,7 +302,14 @@ docker_build(
   },
 )
 
-k8s_resource('web', port_forwards=3000, resource_deps=app_deps, labels="frontend")
+# Bind 0.0.0.0 so Cursor port-forward / local browser can open the Next app.
+# Forward 3000 (UI) + 8081 (API) in Cursor Ports; open http://localhost:3000
+k8s_resource(
+  'web',
+  port_forwards=[port_forward(3000, 3000, name='web', host='0.0.0.0')],
+  resource_deps=app_deps,
+  labels="frontend",
+)
 
 ### End of Web Frontend ###
 
