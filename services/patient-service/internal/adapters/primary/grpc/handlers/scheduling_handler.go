@@ -12,9 +12,28 @@ import (
 	schedpb "github.com/KoiralaSam/ZorbaHealth/shared/proto/patient/scheduling"
 	"github.com/google/uuid"
 	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
+
+const bridgeJoinModeMetadataKey = "x-bridge-join-mode"
+
+func joinModeFromContext(ctx context.Context) string {
+	md, ok := metadata.FromIncomingContext(ctx)
+	if !ok {
+		return "web"
+	}
+	values := md.Get(bridgeJoinModeMetadataKey)
+	if len(values) == 0 {
+		return "web"
+	}
+	mode := strings.ToLower(strings.TrimSpace(values[0]))
+	if mode == "" {
+		return "web"
+	}
+	return mode
+}
 
 func (h *gRPCHandler) ScheduleHealthStaffMeeting(ctx context.Context, req *schedpb.ScheduleHealthStaffMeetingRequest) (*schedpb.ScheduleHealthStaffMeetingResponse, error) {
 	claims, err := claimsFromCtx(ctx)
@@ -270,7 +289,7 @@ func (h *gRPCHandler) ConnectBridgedCall(ctx context.Context, req *schedpb.Conne
 		StaffID:    claims.StaffID,
 		HospitalID: claims.HospitalID,
 	}
-	result, err := h.scheduling.ConnectBridgedCall(ctx, strings.TrimSpace(req.GetSessionId()), actor, strings.TrimSpace(req.GetStaffParticipantIdentity()), accessToken)
+	result, err := h.scheduling.ConnectBridgedCall(ctx, strings.TrimSpace(req.GetSessionId()), actor, strings.TrimSpace(req.GetStaffParticipantIdentity()), joinModeFromContext(ctx), accessToken)
 	if err != nil {
 		return nil, mapSchedulingError(err)
 	}
@@ -534,7 +553,9 @@ func mapSchedulingError(err error) error {
 	case errors.Is(err, domainErrors.ErrBridgedCallSessionRequired),
 		errors.Is(err, domainErrors.ErrBridgedCallHospitalRequired),
 		errors.Is(err, domainErrors.ErrBridgedCallInvalidMode),
-		errors.Is(err, domainErrors.ErrBridgedCallInvalidParticipant):
+		errors.Is(err, domainErrors.ErrBridgedCallInvalidJoinMode),
+		errors.Is(err, domainErrors.ErrBridgedCallInvalidParticipant),
+		errors.Is(err, domainErrors.ErrBridgedCallStaffPhoneRequired):
 		return status.Error(codes.InvalidArgument, err.Error())
 	case errors.Is(err, domainErrors.ErrBridgedCallAlreadyEnded):
 		return status.Error(codes.FailedPrecondition, err.Error())

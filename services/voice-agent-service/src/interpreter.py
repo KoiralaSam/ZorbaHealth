@@ -2,13 +2,15 @@
 interpreter.py - bidirectional bridge interpreter runtime for doctor consults.
 
 This controller suppresses the assistant while a staff participant is present,
-relays patient/staff speech through interpretation-service, and speaks the
-doctor->patient direction back into the LiveKit room with TTS.
+relays patient/staff speech through interpretation-service, and speaks both
+directions back into the LiveKit room with TTS (staff hear translated patient
+speech; patient hears translated staff speech).
 """
 
 from __future__ import annotations
 
 import asyncio
+import json
 import logging
 import time
 from dataclasses import dataclass
@@ -43,14 +45,32 @@ def _http_base_url(value: str) -> str:
 
 
 def _language_hint(value: str, fallback: str = "en") -> str:
-    value = (value or "").strip()
+    value = (value or "").strip().lower()
     return value or fallback
+
+
+def _metadata_language(participant: rtc.RemoteParticipant, fallback: str = "en") -> str:
+    raw = (participant.metadata or "").strip()
+    if not raw:
+        return fallback
+    try:
+        payload = json.loads(raw)
+    except json.JSONDecodeError:
+        return fallback
+    if not isinstance(payload, dict):
+        return fallback
+    for key in ("language", "language_code", "preferred_language", "locale"):
+        value = str(payload.get(key) or "").strip().lower()
+        if value:
+            return value.split("-", 1)[0] or fallback
+    return fallback
 
 
 @dataclass
 class _TrackRouting:
     participant_identity: str
     track_sid: str
+    listener_identity: str
 
 
 class LiveKitRoomAdmin:
@@ -153,6 +173,7 @@ class InterpreterController:
         self._tts_lock = asyncio.Lock()
         self._closing = False
         self._staff_identity = ""
+        self._staff_language = "en"
         self._staff_task: asyncio.Task | None = None
         self._patient_task: asyncio.Task | None = None
         self._route_state: dict[str, _TrackRouting] = {}
@@ -175,12 +196,20 @@ class InterpreterController:
                 return
             if self._ud.interpreter_mode and self._staff_identity == identity:
                 await self._route_staff_audio(participant)
+                patient = self._patient_participant()
+                if patient is not None:
+                    await self._route_patient_audio(patient)
                 return
 
             await self._stop_tasks()
             self._staff_identity = identity
+            self._staff_language = _metadata_language(
+                participant,
+                fallback=_language_hint(getattr(self._ud, "staff_language", "") or "en"),
+            )
             self._ud.interpreter_mode = True
             self._ud.staff_identity = identity
+            self._ud.staff_language = self._staff_language
             await self._suppress_assistant(True)
 
             self._staff_task = asyncio.create_task(
@@ -193,11 +222,13 @@ class InterpreterController:
                     self._run_patient_stream(patient),
                     name="bridge_patient_stream",
                 )
+                await self._route_patient_audio(patient)
             await self._route_staff_audio(participant)
             logger.info(
-                "interpreter mode enabled session=%s staff=%s",
+                "interpreter mode enabled session=%s staff=%s staff_lang=%s",
                 self._ud.session_id,
                 identity,
+                self._staff_language,
             )
 
     async def exit_mode(self) -> None:
@@ -213,6 +244,7 @@ class InterpreterController:
                 self._staff_identity,
             )
             self._staff_identity = ""
+            self._staff_language = "en"
             self._ud.interpreter_mode = False
             self._ud.staff_identity = ""
 
@@ -223,11 +255,13 @@ class InterpreterController:
     ) -> None:
         if not self._ud.interpreter_mode:
             return
-        if participant.identity != self._staff_identity:
-            return
         if publication.kind != rtc.TrackKind.KIND_AUDIO:
             return
-        await self._route_staff_audio(participant)
+        if participant.identity == self._staff_identity:
+            await self._route_staff_audio(participant)
+            return
+        if participant.identity == (self._ud.caller_identity or "").strip():
+            await self._route_patient_audio(participant)
 
     def _patient_participant(self) -> rtc.RemoteParticipant | None:
         identity = (self._ud.caller_identity or "").strip()
@@ -265,44 +299,75 @@ class InterpreterController:
         if not self._room_admin.enabled:
             self._route_state.clear()
             return
-        track_sids = [item.track_sid for item in self._route_state.values() if item.track_sid]
-        if track_sids:
+        by_listener: dict[str, list[str]] = {}
+        for item in self._route_state.values():
+            if not item.track_sid or not item.listener_identity:
+                continue
+            by_listener.setdefault(item.listener_identity, []).append(item.track_sid)
+        for listener, track_sids in by_listener.items():
             try:
                 await self._room_admin.update_subscriptions(
                     room_name=self._room.name,
-                    participant_identity=self._ud.caller_identity,
+                    participant_identity=listener,
                     track_sids=track_sids,
                     subscribe=True,
                 )
             except Exception:
-                logger.exception("failed to restore raw staff subscriptions session=%s", self._ud.session_id)
+                logger.exception(
+                    "failed to restore raw audio subscriptions session=%s listener=%s",
+                    self._ud.session_id,
+                    listener,
+                )
         self._route_state.clear()
 
-    async def _route_staff_audio(self, participant: rtc.RemoteParticipant) -> None:
-        if not self._room_admin.enabled or not self._ud.caller_identity:
+    async def _mute_tracks_for_listener(
+        self,
+        *,
+        source_participant: rtc.RemoteParticipant,
+        listener_identity: str,
+    ) -> None:
+        if not self._room_admin.enabled or not listener_identity:
             return
         track_sids: list[str] = []
-        for publication in participant.track_publications.values():
+        for publication in source_participant.track_publications.values():
             if publication.kind != rtc.TrackKind.KIND_AUDIO:
                 continue
             if not publication.sid:
                 continue
             track_sids.append(publication.sid)
-            self._route_state[publication.sid] = _TrackRouting(
-                participant_identity=participant.identity,
+            self._route_state[f"{listener_identity}:{publication.sid}"] = _TrackRouting(
+                participant_identity=source_participant.identity,
                 track_sid=publication.sid,
+                listener_identity=listener_identity,
             )
         if not track_sids:
             return
         try:
             await self._room_admin.update_subscriptions(
                 room_name=self._room.name,
-                participant_identity=self._ud.caller_identity,
+                participant_identity=listener_identity,
                 track_sids=track_sids,
                 subscribe=False,
             )
         except Exception:
-            logger.exception("failed to mute raw staff audio for patient session=%s", self._ud.session_id)
+            logger.exception(
+                "failed to mute raw audio session=%s source=%s listener=%s",
+                self._ud.session_id,
+                source_participant.identity,
+                listener_identity,
+            )
+
+    async def _route_staff_audio(self, participant: rtc.RemoteParticipant) -> None:
+        await self._mute_tracks_for_listener(
+            source_participant=participant,
+            listener_identity=self._ud.caller_identity,
+        )
+
+    async def _route_patient_audio(self, participant: rtc.RemoteParticipant) -> None:
+        await self._mute_tracks_for_listener(
+            source_participant=participant,
+            listener_identity=self._staff_identity,
+        )
 
     async def _run_patient_stream(self, participant: rtc.RemoteParticipant) -> None:
         await self._run_stream(
@@ -315,7 +380,7 @@ class InterpreterController:
         await self._run_stream(
             participant=participant,
             participant_role="staff",
-            language_hint="en",
+            language_hint=_language_hint(self._staff_language, "en"),
         )
 
     async def _run_stream(
@@ -371,6 +436,17 @@ class InterpreterController:
                 pass
             await speech_stream.aclose()
 
+    async def _speak_translation(self, translated_text: str) -> None:
+        text = (translated_text or "").strip()
+        if not text:
+            return
+        async with self._tts_lock:
+            await self._session.say(
+                text,
+                allow_interruptions=False,
+                add_to_chat_ctx=False,
+            )
+
     async def _handle_final_transcript(
         self,
         *,
@@ -384,28 +460,30 @@ class InterpreterController:
                 self._ud.last_user_transcript_language = source_lang
                 if self._ud.language in {"", "en"} and source_lang not in {"", "en"}:
                     self._ud.language = source_lang
-            await self._bridge_relay.relay_segment(
+            payload = await self._bridge_relay.relay_segment(
                 text=transcript,
                 source_lang=source_lang or self._ud.language,
                 participant="patient",
-                target_hint="en",
+                target_hint=_language_hint(self._staff_language, "en"),
             )
+            if not payload:
+                return
+            target_lang = str(payload.get("target_language") or "").strip().lower()
+            if target_lang:
+                self._staff_language = target_lang.split("-", 1)[0]
+                self._ud.staff_language = self._staff_language
+            await self._speak_translation(str(payload.get("translated_text") or ""))
             return
 
+        if source_lang:
+            self._staff_language = source_lang.split("-", 1)[0] or self._staff_language
+            self._ud.staff_language = self._staff_language
         payload = await self._bridge_relay.relay_segment(
             text=transcript,
-            source_lang=source_lang,
+            source_lang=source_lang or self._staff_language,
             participant="staff",
             target_hint=_language_hint(self._ud.language),
         )
         if not payload:
             return
-        translated_text = (payload.get("translated_text") or "").strip()
-        if not translated_text:
-            return
-        async with self._tts_lock:
-            await self._session.say(
-                translated_text,
-                allow_interruptions=False,
-                add_to_chat_ctx=False,
-            )
+        await self._speak_translation(str(payload.get("translated_text") or ""))

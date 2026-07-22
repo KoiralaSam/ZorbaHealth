@@ -87,7 +87,7 @@ func TestConnectBridgedCallStoresStaffTokenAndMintsJoinToken(t *testing.T) {
 	repo := newFakeBridgeRepo(bridgeTestSession())
 	svc := bridgeTestService(repo)
 
-	result, err := svc.ConnectBridgedCall(context.Background(), "room-1", staffActor("staff-1"), "nurse-jane", "staff-jwt")
+	result, err := svc.ConnectBridgedCall(context.Background(), "room-1", staffActor("staff-1"), "nurse-jane", "web", "staff-jwt")
 	if err != nil {
 		t.Fatalf("ConnectBridgedCall: %v", err)
 	}
@@ -137,7 +137,7 @@ func TestConnectBridgedCallRejectsDifferentStaffWhenAssigned(t *testing.T) {
 	repo := newFakeBridgeRepo(session)
 	svc := bridgeTestService(repo)
 
-	_, err := svc.ConnectBridgedCall(context.Background(), "room-1", staffActor("staff-2"), "", "other-jwt")
+	_, err := svc.ConnectBridgedCall(context.Background(), "room-1", staffActor("staff-2"), "", "web", "other-jwt")
 	if err != domainErrors.ErrBridgedCallForbidden {
 		t.Fatalf("err = %v, want ErrBridgedCallForbidden", err)
 	}

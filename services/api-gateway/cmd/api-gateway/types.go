@@ -175,6 +175,7 @@ type RequestBridgedCallTransferRequest struct {
 type ConnectBridgedCallRequest struct {
 	SessionID                string `json:"session_id"`
 	StaffParticipantIdentity string `json:"staff_participant_identity,omitempty"`
+	JoinMode                 string `json:"join_mode,omitempty"` // web (default) | phone
 }
 
 type UpdateBridgedCallTranslationRequest struct {

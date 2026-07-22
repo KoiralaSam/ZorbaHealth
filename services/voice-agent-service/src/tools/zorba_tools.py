@@ -487,6 +487,49 @@ async def get_scheduling_clock(context: RunContext[SessionUserData]) -> str:
 
 
 @function_tool
+async def request_staff_transfer(
+    context: RunContext[SessionUserData],
+    hospital_id: str = "",
+    staff_id: str = "",
+    transfer_reason: str = "",
+    patient_language: str = "",
+) -> str:
+    """Connect hospital staff into this live phone call for interpreted conversation.
+
+    Use when the verified caller presses 0, asks to speak with a clinician, or needs
+    live interpretation with hospital staff on the same call. Prefer the caller's
+    detected language when patient_language is empty.
+
+    Args:
+        hospital_id: Optional hospital UUID from list_patient_hospitals. Omit when the
+            patient has exactly one consented hospital.
+        staff_id: Optional preferred staff UUID.
+        transfer_reason: Short reason for the transfer.
+        patient_language: ISO 639-1 language the patient will speak during interpretation.
+    """
+    ud = context.userdata
+    if not ud.is_verified:
+        return "Identity verification is required before I can connect hospital staff."
+    lang = (patient_language or ud.language or ud.last_user_transcript_language or "en").strip().lower()
+    try:
+        return await _client(context).call_tool(
+            "request_staff_transfer",
+            {
+                "sessionID": ud.session_id,
+                "roomSID": ud.room_sid or ud.session_id,
+                "hospitalID": hospital_id.strip(),
+                "staffID": staff_id.strip(),
+                "transferReason": transfer_reason.strip() or "patient_requested_staff",
+                "patientLanguage": lang,
+                "_auth": ud.active_token,
+            },
+        )
+    except MCPToolError as exc:
+        logger.warning("request_staff_transfer failed session=%s: %s", ud.session_id, exc)
+        return str(exc) or "I was unable to connect hospital staff right now."
+
+
+@function_tool
 async def schedule_health_staff_meeting(
     context: RunContext[SessionUserData],
     staff_id: str,
@@ -567,5 +610,6 @@ ALL_TOOLS = [
     list_patient_hospitals,
     list_schedulable_staff,
     get_scheduling_clock,
+    request_staff_transfer,
     schedule_health_staff_meeting,
 ]

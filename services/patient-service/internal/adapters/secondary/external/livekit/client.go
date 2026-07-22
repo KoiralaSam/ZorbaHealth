@@ -12,6 +12,7 @@ import (
 	sharedenv "github.com/KoiralaSam/ZorbaHealth/shared/env"
 	lkauth "github.com/livekit/protocol/auth"
 	lklivekit "github.com/livekit/protocol/livekit"
+	"google.golang.org/protobuf/types/known/durationpb"
 )
 
 const defaultRoomEmptyTimeout uint32 = 60
@@ -190,11 +191,87 @@ func (c *Client) adminToken() (string, error) {
 			RoomList:   true,
 			RoomAdmin:  true,
 		}).
+		SetSIPGrant(&lkauth.SIPGrant{Admin: true, Call: true}).
 		SetValidFor(5 * time.Minute).
 		ToJWT()
 }
 
+func (c *Client) DialSIPParticipant(ctx context.Context, in outbound.DialSIPParticipantInput) (*outbound.DialSIPParticipantResult, error) {
+	if c.apiKey == "" || c.apiSecret == "" {
+		return nil, fmt.Errorf("livekit: set LIVEKIT_API_KEY and LIVEKIT_API_SECRET on patient-service (or LIVEKIT_USE_STUB=true for dev)")
+	}
+	if c.httpBaseURL == "" {
+		return nil, fmt.Errorf("livekit: set LIVEKIT_URL or LIVEKIT_WS_URL on patient-service")
+	}
+	sipTrunkID := strings.TrimSpace(sharedenv.GetString("LIVEKIT_SIP_TRUNK_ID", ""))
+	if sipTrunkID == "" {
+		return nil, fmt.Errorf("livekit: set LIVEKIT_SIP_TRUNK_ID for staff phone dial-out")
+	}
+	roomName := strings.TrimSpace(in.RoomName)
+	phone := strings.TrimSpace(in.PhoneNumber)
+	if roomName == "" || phone == "" {
+		return nil, fmt.Errorf("livekit: room name and phone number are required for SIP dial-out")
+	}
+	identity := strings.TrimSpace(in.ParticipantIdentity)
+	if identity == "" {
+		identity = "staff-sip-" + normalizeDigits(phone)
+	}
+	token, err := c.adminToken()
+	if err != nil {
+		return nil, fmt.Errorf("livekit: admin token: %w", err)
+	}
+	sipClient := lklivekit.NewSIPProtobufClient(c.httpBaseURL, &authClient{
+		client: c.httpClient,
+		token:  token,
+	})
+	sip, err := sipClient.CreateSIPParticipant(ctx, &lklivekit.CreateSIPParticipantRequest{
+		SipTrunkId:          sipTrunkID,
+		SipCallTo:           phone,
+		RoomName:            roomName,
+		ParticipantIdentity: identity,
+		ParticipantName:     strings.TrimSpace(in.ParticipantName),
+		RingingTimeout:      durationpb.New(45 * time.Second),
+		MaxCallDuration:     durationpb.New(30 * time.Minute),
+		WaitUntilAnswered:   false,
+		PlayDialtone:        true,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("livekit: dial staff SIP participant: %w", err)
+	}
+	return &outbound.DialSIPParticipantResult{
+		SIPCallID:           sip.GetSipCallId(),
+		ParticipantID:       sip.GetParticipantId(),
+		ParticipantIdentity: sip.GetParticipantIdentity(),
+	}, nil
+}
+
 func (c *Client) participantToken(roomName, identity string, canPublish bool) (string, error) {
+	return c.participantTokenValidFor(roomName, identity, canPublish, 48*time.Hour)
+}
+
+func (c *Client) RemintMeetingTokens(_ context.Context, roomName string, validFor time.Duration) (string, string, error) {
+	if c.apiKey == "" || c.apiSecret == "" {
+		return "", "", fmt.Errorf("livekit: set LIVEKIT_API_KEY and LIVEKIT_API_SECRET on patient-service (or LIVEKIT_USE_STUB=true for dev)")
+	}
+	roomName = strings.TrimSpace(roomName)
+	if roomName == "" {
+		return "", "", fmt.Errorf("livekit: room name is required to remint meeting tokens")
+	}
+	if validFor < time.Hour {
+		validFor = time.Hour
+	}
+	patientToken, err := c.participantTokenValidFor(roomName, "patient", true, validFor)
+	if err != nil {
+		return "", "", err
+	}
+	staffToken, err := c.participantTokenValidFor(roomName, "staff", true, validFor)
+	if err != nil {
+		return "", "", err
+	}
+	return patientToken, staffToken, nil
+}
+
+func (c *Client) participantTokenValidFor(roomName, identity string, canPublish bool, validFor time.Duration) (string, error) {
 	tok := lkauth.NewAccessToken(c.apiKey, c.apiSecret)
 	tok.SetIdentity(identity + "-" + roomName)
 	tok.AddGrant(&lkauth.VideoGrant{
@@ -209,7 +286,7 @@ func (c *Client) participantToken(roomName, identity string, canPublish bool) (s
 			return &v
 		}(),
 	})
-	return tok.SetValidFor(4 * time.Hour).ToJWT()
+	return tok.SetValidFor(validFor).ToJWT()
 }
 
 func (c *Client) joinURL(roomName string) string {

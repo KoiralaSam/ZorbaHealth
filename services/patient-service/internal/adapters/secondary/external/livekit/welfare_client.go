@@ -15,7 +15,9 @@ import (
 	"google.golang.org/protobuf/types/known/durationpb"
 )
 
-type Client struct {
+// WelfareClient dispatches scheduled welfare-check SIP calls via LiveKit.
+// Distinct from Client (meeting rooms) so SIP/agent grants stay scoped here.
+type WelfareClient struct {
 	apiKey      string
 	apiSecret   string
 	wsURL       string
@@ -36,7 +38,7 @@ func NewWelfareCheckCallProvider() outbound.WelfareCheckCallProvider {
 		wsURL = strings.TrimSpace(sharedenv.GetString("LIVEKIT_URL", ""))
 	}
 	sipTrunkID := strings.TrimSpace(sharedenv.GetString("LIVEKIT_SIP_TRUNK_ID", ""))
-	return &Client{
+	return &WelfareClient{
 		apiKey:      apiKey,
 		apiSecret:   apiSecret,
 		wsURL:       wsURL,
@@ -47,7 +49,7 @@ func NewWelfareCheckCallProvider() outbound.WelfareCheckCallProvider {
 	}
 }
 
-func (c *Client) StartWelfareCheckCall(ctx context.Context, in outbound.WelfareCheckCallInput) (*outbound.WelfareCheckCallResult, error) {
+func (c *WelfareClient) StartWelfareCheckCall(ctx context.Context, in outbound.WelfareCheckCallInput) (*outbound.WelfareCheckCallResult, error) {
 	if c.apiKey == "" || c.apiSecret == "" {
 		return nil, fmt.Errorf("livekit: set LIVEKIT_API_KEY and LIVEKIT_API_SECRET")
 	}
@@ -57,7 +59,7 @@ func (c *Client) StartWelfareCheckCall(ctx context.Context, in outbound.WelfareC
 	if c.sipTrunkID == "" {
 		return nil, fmt.Errorf("livekit: set LIVEKIT_SIP_TRUNK_ID")
 	}
-	token, err := c.adminToken()
+	token, err := c.welfareAdminToken()
 	if err != nil {
 		return nil, err
 	}
@@ -156,7 +158,7 @@ func (c *Client) StartWelfareCheckCall(ctx context.Context, in outbound.WelfareC
 	}, nil
 }
 
-func (c *Client) adminToken() (string, error) {
+func (c *WelfareClient) welfareAdminToken() (string, error) {
 	return lkauth.NewAccessToken(c.apiKey, c.apiSecret).
 		SetIdentity("welfare-check-dispatcher").
 		SetVideoGrant(&lkauth.VideoGrant{RoomCreate: true, RoomList: true, RoomAdmin: true}).
@@ -164,30 +166,6 @@ func (c *Client) adminToken() (string, error) {
 		SetAgentGrant(&lkauth.AgentGrant{Admin: true}).
 		SetValidFor(5 * time.Minute).
 		ToJWT()
-}
-
-type authClient struct {
-	client *http.Client
-	token  string
-}
-
-func (a *authClient) Do(req *http.Request) (*http.Response, error) {
-	req.Header.Set("Authorization", "Bearer "+a.token)
-	return a.client.Do(req)
-}
-
-func deriveHTTPBaseURL(wsURL string) string {
-	wsURL = strings.TrimSpace(wsURL)
-	switch {
-	case strings.HasPrefix(wsURL, "ws://"):
-		return "http://" + strings.TrimPrefix(wsURL, "ws://")
-	case strings.HasPrefix(wsURL, "wss://"):
-		return "https://" + strings.TrimPrefix(wsURL, "wss://")
-	case strings.HasPrefix(wsURL, "http://"), strings.HasPrefix(wsURL, "https://"):
-		return wsURL
-	default:
-		return ""
-	}
 }
 
 func normalizeDigits(value string) string {

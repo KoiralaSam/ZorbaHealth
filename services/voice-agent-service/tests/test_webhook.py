@@ -78,3 +78,4 @@ def test_process_webhook_event_ignores_agent_identity() -> None:
     assert status == HTTPStatus.OK
     assert is_agent_identity("zorba-health-voice")
     assert extract_caller_phone("sip_+13185551212") == "13185551212"
+    assert extract_caller_phone("sip_3185551212") == "13185551212"

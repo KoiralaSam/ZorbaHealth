@@ -120,6 +120,7 @@ func main() {
 	tools.RegisterListPatientHospitals(server, db)
 	tools.RegisterListSchedulableStaff(server, db, schedulingClient)
 	tools.RegisterScheduleHealthStaffMeeting(server, db, schedulingClient)
+	tools.RegisterRequestStaffTransfer(server, db, schedulingClient)
 
 	if strings.EqualFold(sharedenv.GetString("MCP_TRANSPORT", "stdio"), "http") {
 		addr := sharedenv.GetString("MCP_HTTP_ADDR", ":8092")

@@ -53,7 +53,10 @@ class SessionAuth:
         }
         digits = "".join(c for c in caller_phone if c.isdigit())
         if digits:
-            payload["callerPhone"] = digits
+            # Keep JWT callerPhone in the same canonical form as users/patients storage.
+            from phone import canonical_phone_digits
+
+            payload["callerPhone"] = canonical_phone_digits(digits) or digits
         return jwt.encode(payload, self._patient_jwt_secret, algorithm="HS256")
 
     def verify_patient_token(self, token: str) -> SessionClaims:

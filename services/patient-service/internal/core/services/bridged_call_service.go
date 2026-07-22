@@ -98,9 +98,17 @@ func (s *SchedulingService) RequestBridgedCallTransfer(ctx context.Context, cmd 
 	return session, nil
 }
 
-func (s *SchedulingService) ConnectBridgedCall(ctx context.Context, sessionID string, actor models.ScheduleActor, participantIdentity string, accessToken string) (*models.BridgedCallConnectResult, error) {
+func (s *SchedulingService) ConnectBridgedCall(ctx context.Context, sessionID string, actor models.ScheduleActor, participantIdentity string, joinMode string, accessToken string) (*models.BridgedCallConnectResult, error) {
 	ctx, span := schedulingTracer.Start(ctx, "bridge.transfer.connect")
 	defer span.End()
+
+	joinMode = strings.ToLower(strings.TrimSpace(joinMode))
+	if joinMode == "" {
+		joinMode = "web"
+	}
+	if joinMode != "web" && joinMode != "phone" {
+		return nil, domainErrors.ErrBridgedCallInvalidJoinMode
+	}
 
 	session, err := s.GetBridgedCallSession(ctx, sessionID, actor)
 	if err != nil {
@@ -122,29 +130,64 @@ func (s *SchedulingService) ConnectBridgedCall(ctx context.Context, sessionID st
 		session.StaffID = actor.StaffID
 	}
 	refreshBridgeActorToken(session, actor, accessToken)
-	// The voice agent only enters interpreter mode for participants whose
-	// identity starts with "staff-" (is_staff_identity). Normalize here so a
-	// clinician joins as staff regardless of what the hospital console typed.
-	staffIdentity := normalizeStaffIdentity(participantIdentity, session.SessionID)
-	if participantIdentity != "" {
-		session.StaffTranslation.ParticipantIdentity = staffIdentity
-		session.StaffTranslation.UpdatedAt = now
-	}
 
 	result := &models.BridgedCallConnectResult{Session: session}
-	if actor.ActorType == sharedauth.ActorStaff && s.livekit != nil {
-		identity := staffIdentity
-		roomToken, lkErr := s.livekit.MintRoomJoinToken(ctx, s.bridgeRoomName(ctx, session), identity)
-		if lkErr != nil {
-			// Connect still succeeds as control-plane state; staff can retry
-			// the realtime join, and the relay path is unaffected.
-			span.RecordError(lkErr)
-		} else {
-			result.StaffRoomToken = roomToken.Token
-			result.LiveKitWSURL = roomToken.WSURL
-			if session.StaffTranslation.ParticipantIdentity == "" {
-				session.StaffTranslation.ParticipantIdentity = identity
-				session.StaffTranslation.UpdatedAt = now
+	roomName := s.bridgeRoomName(ctx, session)
+
+	if joinMode == "phone" {
+		if actor.StaffID == "" || s.meetings == nil || s.livekit == nil {
+			return nil, domainErrors.ErrBridgedCallStaffPhoneRequired
+		}
+		staffUUID, parseErr := uuid.Parse(actor.StaffID)
+		if parseErr != nil {
+			return nil, domainErrors.ErrMeetingStaffNotFound
+		}
+		staff, staffErr := s.meetings.GetStaffByID(ctx, staffUUID)
+		if staffErr != nil {
+			return nil, staffErr
+		}
+		phone := strings.TrimSpace(staff.PhoneNumber)
+		if phone == "" {
+			return nil, domainErrors.ErrBridgedCallStaffPhoneRequired
+		}
+		staffIdentity := normalizeStaffIdentity("staff-sip-"+actor.StaffID, session.SessionID)
+		dial, dialErr := s.livekit.DialSIPParticipant(ctx, outbound.DialSIPParticipantInput{
+			RoomName:            roomName,
+			PhoneNumber:         phone,
+			ParticipantIdentity: staffIdentity,
+			ParticipantName:     staff.Name,
+		})
+		if dialErr != nil {
+			span.RecordError(dialErr)
+			return nil, dialErr
+		}
+		if dial != nil && strings.TrimSpace(dial.ParticipantIdentity) != "" {
+			staffIdentity = dial.ParticipantIdentity
+		}
+		session.StaffTranslation.ParticipantIdentity = staffIdentity
+		session.StaffTranslation.UpdatedAt = now
+	} else {
+		// The voice agent only enters interpreter mode for participants whose
+		// identity starts with "staff-" (is_staff_identity). Normalize here so a
+		// clinician joins as staff regardless of what the hospital console typed.
+		staffIdentity := normalizeStaffIdentity(participantIdentity, session.SessionID)
+		if participantIdentity != "" || actor.ActorType == sharedauth.ActorStaff {
+			session.StaffTranslation.ParticipantIdentity = staffIdentity
+			session.StaffTranslation.UpdatedAt = now
+		}
+		if actor.ActorType == sharedauth.ActorStaff && s.livekit != nil {
+			roomToken, lkErr := s.livekit.MintRoomJoinToken(ctx, roomName, staffIdentity)
+			if lkErr != nil {
+				// Connect still succeeds as control-plane state; staff can retry
+				// the realtime join, and the relay path is unaffected.
+				span.RecordError(lkErr)
+			} else {
+				result.StaffRoomToken = roomToken.Token
+				result.LiveKitWSURL = roomToken.WSURL
+				if session.StaffTranslation.ParticipantIdentity == "" {
+					session.StaffTranslation.ParticipantIdentity = staffIdentity
+					session.StaffTranslation.UpdatedAt = now
+				}
 			}
 		}
 	}
@@ -157,12 +200,16 @@ func (s *SchedulingService) ConnectBridgedCall(ctx context.Context, sessionID st
 	if err := s.bridges.Put(ctx, session, bridgedCallSessionTTL); err != nil {
 		return nil, err
 	}
-	span.SetAttributes(attribute.String("voice.session_id", session.SessionID))
+	span.SetAttributes(
+		attribute.String("voice.session_id", session.SessionID),
+		attribute.String("bridge.join_mode", joinMode),
+	)
 	s.appendAudit(ctx, sharedaudit.EventCallTransferConnected, actor, session.PatientID, map[string]any{
 		"session_id":                 session.SessionID,
 		"room_sid":                   session.RoomSID,
 		"hospital_id":                session.HospitalID,
 		"staff_id":                   session.StaffID,
+		"join_mode":                  joinMode,
 		"staff_participant_identity": session.StaffTranslation.ParticipantIdentity,
 	}, true, "")
 	s.appendAudit(ctx, sharedaudit.EventInterpretationSessionStarted, actor, session.PatientID, map[string]any{
@@ -170,6 +217,7 @@ func (s *SchedulingService) ConnectBridgedCall(ctx context.Context, sessionID st
 		"room_sid":    session.RoomSID,
 		"hospital_id": session.HospitalID,
 		"staff_id":    session.StaffID,
+		"join_mode":   joinMode,
 	}, true, "")
 	return result, nil
 }

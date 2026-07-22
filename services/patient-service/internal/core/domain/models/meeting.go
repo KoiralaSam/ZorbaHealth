@@ -63,14 +63,16 @@ type ScheduledMeeting struct {
 	LiveKitRoomSID     string
 	PatientToken       string
 	StaffToken         string
+	ReminderSentAt     *time.Time
 }
 
 type StaffSummary struct {
-	StaffID    uuid.UUID
-	HospitalID uuid.UUID
-	Name       string
-	Role       string
-	Email      string
+	StaffID     uuid.UUID
+	HospitalID  uuid.UUID
+	Name        string
+	Role        string
+	Email       string
+	PhoneNumber string
 }
 
 type ListMeetingsFilter struct {

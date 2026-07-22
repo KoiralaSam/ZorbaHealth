@@ -124,6 +124,14 @@ _ZORBA_INSTRUCTIONS = textwrap.dedent(
       6) Call schedule_health_staff_meeting with patient_confirmed=true.
       Explain the request stays pending until hospital staff accept or reschedule it, and LiveKit
       video visit details are sent only after approval. Do not request scheduling during an active emergency escalation.
+    - Live hospital staff on this same call (interpretation bridge): after verification, if the
+      caller presses 0 on the keypad, asks to speak with hospital staff / a clinician, or needs
+      live translation with staff on the line:
+      1) Confirm they want hospital staff joined into this call.
+      2) Use list_patient_hospitals when more than one hospital may apply; otherwise omit hospital_id.
+      3) Call request_staff_transfer with patient_language set to their preferred ISO 639-1 code
+         (or the language detected on this call). Tell them to stay on the line while staff join.
+      Do not use request_staff_transfer for scheduled future video visits—use schedule_health_staff_meeting.
 
     # Video visit scheduling — permissions (required before the tool will succeed)
 
@@ -208,7 +216,8 @@ _GREETING = (
     "Greet as Zorba from Zorba Health in one or two short sentences under 120 characters. "
     "Ask how you can help. Mention general health questions and emergencies, and that you "
     "can verify their identity for personal medical records. When verifying, they may enter "
-    "the code on their phone keypad or reply by text. Do not mention registration."
+    "the code on their phone keypad or reply by text. After verification they may press 0 "
+    "to connect hospital staff on this call. Do not mention registration."
 )
 
 
@@ -216,23 +225,15 @@ def _welfare_preamble(ud: SessionUserData) -> str:
     context = ud.welfare_check_context
     if not context:
         return ""
-    reason = _display_reason(context.get("reason", "welfare check"))
-    detail = (context.get("reason_detail") or "").strip()
-    scheduled_at = (context.get("scheduled_at") or "").strip()
-    timezone = (context.get("timezone") or "").strip()
-    detail_text = f" Patient-provided detail: {detail}" if detail else ""
-    scheduled_text = ""
-    if scheduled_at:
-        scheduled_text = f" The scheduled check time is {scheduled_at}"
-        if timezone:
-            scheduled_text += f" ({timezone})"
-        scheduled_text += "."
-    return (
-        "This is a patient-scheduled welfare check. The caller is pre-authorized for this scheduled session, "
-        "and a verified patient token is already available for record access when clinically relevant. "
-        f"The selected reason is {reason}."
-        + detail_text
-        + scheduled_text
+    from prompts import build_welfare_instructions
+
+    return build_welfare_instructions(
+        reason_code=context.get("reason_code") or context.get("reason") or "other",
+        reason_detail=context.get("reason_detail") or "",
+        scheduled_at=context.get("scheduled_at") or "",
+        timezone=context.get("timezone") or "",
+        patient_name=context.get("patient_name") or "",
+        health_context=ud.health_context or "",
     )
 
 
@@ -256,7 +257,7 @@ def _safety_preamble(ud: SessionUserData) -> str:
 class ZorbaAgent(Agent):
     def __init__(self, userdata: SessionUserData) -> None:
         super().__init__(
-            instructions=_ZORBA_INSTRUCTIONS + "\n\n" + _safety_preamble(userdata),
+            instructions=_agent_instructions(userdata),
             tools=ALL_TOOLS,
         )
 
@@ -328,6 +329,7 @@ async def zorba_session(ctx: JobContext) -> None:
         ud.caller_identity = caller_identity
         ud.caller_phone = _extract_phone(caller_identity)
     ud.provisional_token = auth.mint_provisional_token(room_sid, ud.caller_phone)
+    await _load_welfare_health_context(ud, mcp_client)
 
     bridge_relay: BridgeRelay | None = None
     if settings.interpretation_service_url:
@@ -467,6 +469,27 @@ async def zorba_session(ctx: JobContext) -> None:
                 "voice.dtmf.digit_count": len(ud.dtmf_otp_buffer),
             },
         ):
+            # Verified callers may press 0 to request hospital staff on this call.
+            if (
+                digit == "0"
+                and ud.is_verified
+                and ud.verification_state != "existing_patient_otp_pending"
+                and not ud.interpreter_mode
+            ):
+                try:
+                    session.interrupt()
+                    await session.generate_reply(
+                        instructions=(
+                            "The caller pressed 0 to connect hospital staff on this call. "
+                            "Briefly confirm, then call request_staff_transfer using their "
+                            f"preferred language ({ud.language or 'en'}). Stay with them while staff join."
+                        ),
+                        allow_interruptions=False,
+                    )
+                except Exception:
+                    logger.exception("dtmf staff transfer prompt failed session=%s", ud.session_id)
+                return
+
             if ud.verification_state != "existing_patient_otp_pending":
                 return
             if digit == "*":
@@ -748,6 +771,7 @@ def _apply_welfare_metadata(ctx: JobContext, ud: SessionUserData) -> None:
         "request_id": request_id,
         "run_id": run_id,
         "patient_id": patient_id,
+        "patient_name": str(metadata.get("patient_name") or "").strip(),
         "reason": reason,
         "reason_code": reason,
         "reason_detail": str(metadata.get("reason_detail") or "").strip(),
@@ -778,6 +802,49 @@ def _finalize_welfare_session_token(ud: SessionUserData) -> None:
         scopes=["location:read", "records:read"],
     )
     ud.upgrade(ud.verified_patient_id, voice_token)
+
+
+async def _load_welfare_health_context(ud: SessionUserData, mcp_client: MCPClient) -> None:
+    """Prefetch a compact chart summary for welfare-check prompts."""
+    if not ud.welfare_check_context or not ud.is_verified:
+        return
+    reason = (
+        ud.welfare_check_context.get("reason_code")
+        or ud.welfare_check_context.get("reason")
+        or "welfare check"
+    ).strip()
+    question = (
+        f"For a scheduled welfare check about {reason}, briefly summarize the patient's "
+        "key conditions, current medications, and any recent concerns relevant to this call. "
+        "Keep the answer under 400 characters."
+    )
+    try:
+        raw = await mcp_client.call_tool(
+            "answer_health_question",
+            {
+                "question": question,
+                "topK": 5,
+                "_auth": ud.active_token,
+            },
+        )
+    except Exception:
+        logger.exception("welfare health context load failed session=%s", ud.session_id)
+        return
+    summary = (raw or "").strip()
+    if not summary:
+        return
+    try:
+        payload = json.loads(summary)
+        if isinstance(payload, dict):
+            summary = str(payload.get("answer") or summary).strip()
+    except json.JSONDecodeError:
+        pass
+    ud.health_context = summary[:800]
+    logger.info(
+        "welfare health context loaded session=%s chars=%d",
+        ud.session_id,
+        len(ud.health_context),
+    )
 
 
 async def _report_welfare_run_status(
@@ -843,7 +910,9 @@ def _looks_like_phone(identity: str) -> bool:
 
 
 def _extract_phone(identity: str) -> str:
-    return "".join(c for c in identity.removeprefix("sip_") if c.isdigit())
+    from phone import canonical_phone_digits
+
+    return canonical_phone_digits(identity.removeprefix("sip_"))
 
 
 def _build_stt(settings: cfg.Config):

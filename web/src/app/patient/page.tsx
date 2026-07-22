@@ -80,6 +80,7 @@ import {
 } from "lucide-react";
 import { Room, RoomEvent } from "livekit-client";
 import { formatDateTime, formatEventType, formatTimeOnly, meaningfulDate } from "../../lib/format";
+import { resolveIANATimezone } from "../../lib/timezone";
 
 const consentLabels: Record<string, string> = {
   VOICE_ASSISTANT_USE: "Voice assistant use",
@@ -221,7 +222,7 @@ function PatientHomePageContent() {
     staff_id: "",
     starts_at: "",
     duration_minutes: 30,
-    timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC",
+    timezone: resolveIANATimezone(),
     title: "",
     notes: "",
   });
@@ -594,9 +595,10 @@ function PatientHomePageContent() {
 
     setCreatingWelfareCheck(true);
     setError("");
+    const timezone = resolveIANATimezone();
     const payload: HTTPPatientWelfareCheckCreateRequest = {
       scheduled_at: scheduledAt.toISOString(),
-      timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC",
+      timezone,
       reason_code: welfareReason,
       reason_detail: welfareDetail.trim(),
     };
@@ -612,8 +614,9 @@ function PatientHomePageContent() {
         setError(data.error?.message || "Unable to schedule welfare check.");
         return;
       }
-      if (data.data?.welfare_check) {
-        setWelfareChecks((current) => [data.data.welfare_check!, ...current]);
+      const created = data.data?.welfare_check;
+      if (created) {
+        setWelfareChecks((current) => [created, ...current]);
       }
       clearApiCache("patient");
       setWelfareDetail("");
@@ -642,9 +645,10 @@ function PatientHomePageContent() {
         setError(data.error?.message || "Unable to cancel welfare check.");
         return;
       }
-      if (data.data?.welfare_check) {
+      const cancelled = data.data?.welfare_check;
+      if (cancelled) {
         setWelfareChecks((current) =>
-          current.map((item) => (item.id === id ? data.data.welfare_check! : item)),
+          current.map((item) => (item.id === id ? cancelled : item)),
         );
       }
       clearApiCache("patient");
@@ -726,6 +730,10 @@ function PatientHomePageContent() {
   const handleScheduleMeeting = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!accessToken) return;
+    const timezone = resolveIANATimezone(scheduleForm.timezone);
+    if (timezone !== scheduleForm.timezone) {
+      setScheduleForm((prev) => ({ ...prev, timezone }));
+    }
     setSubmittingSchedule(true);
     try {
       const payload: HTTPPatientMeetingScheduleRequest = {
@@ -733,7 +741,7 @@ function PatientHomePageContent() {
         hospital_id: scheduleForm.hospital_id,
         starts_at: new Date(scheduleForm.starts_at).toISOString(),
         duration_minutes: scheduleForm.duration_minutes,
-        timezone: scheduleForm.timezone,
+        timezone,
         title: scheduleForm.title || undefined,
         notes: scheduleForm.notes || undefined,
       };
