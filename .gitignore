@@ -59,6 +59,16 @@ lerna-debug.log*
 *.sln
 *.sw?
 
+# Local tool state and caches (non-essential — never commit)
+.cursor/
+.codex/
+.devtunnel-cache/
+.ssh/
+.expo/
+.kube/
+.minikube/
+.docker/
+
 # Cursor
 .cursorrules
 
