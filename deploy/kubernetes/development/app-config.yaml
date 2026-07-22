@@ -48,7 +48,13 @@ data:
   HTTP_ADDR: ":3000"
   VOIPMS_DID: "3185162690"
   # Public web base URL used to generate verification links in emails
-  PUBLIC_WEB_BASE_URL: "https://zorbahealth.dev"
+  PUBLIC_WEB_BASE_URL: "http://localhost:3000"
+  # Looser OTP SMS rate limits for local development
+  AUTH_OTP_SEND_LIMIT_PER_PHONE: "30"
+  AUTH_OTP_SEND_WINDOW_SEC: "3600"
+  AUTH_OTP_VERIFY_LIMIT_PER_PHONE: "50"
+  AUTH_OTP_VERIFY_LIMIT_PER_IP: "100"
+  AUTH_OTP_VERIFY_WINDOW_SEC: "900"
 
   # PostgreSQL (host/port/db name only; credentials in app-secrets)
   POSTGRES_HOST: "postgres"

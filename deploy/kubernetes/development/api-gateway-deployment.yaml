@@ -112,6 +112,31 @@ spec:
                 configMapKeyRef:
                   key: PUBLIC_WEB_BASE_URL
                   name: app-config
+            - name: AUTH_OTP_SEND_LIMIT_PER_PHONE
+              valueFrom:
+                configMapKeyRef:
+                  key: AUTH_OTP_SEND_LIMIT_PER_PHONE
+                  name: app-config
+            - name: AUTH_OTP_SEND_WINDOW_SEC
+              valueFrom:
+                configMapKeyRef:
+                  key: AUTH_OTP_SEND_WINDOW_SEC
+                  name: app-config
+            - name: AUTH_OTP_VERIFY_LIMIT_PER_PHONE
+              valueFrom:
+                configMapKeyRef:
+                  key: AUTH_OTP_VERIFY_LIMIT_PER_PHONE
+                  name: app-config
+            - name: AUTH_OTP_VERIFY_LIMIT_PER_IP
+              valueFrom:
+                configMapKeyRef:
+                  key: AUTH_OTP_VERIFY_LIMIT_PER_IP
+                  name: app-config
+            - name: AUTH_OTP_VERIFY_WINDOW_SEC
+              valueFrom:
+                configMapKeyRef:
+                  key: AUTH_OTP_VERIFY_WINDOW_SEC
+                  name: app-config
             - name: LIVEKIT_PUBLIC_WS_URL
               valueFrom:
                 configMapKeyRef:
