@@ -33,7 +33,7 @@ function PatientVerifyOTPContent() {
   const [otp, setOtp] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [isResending, setIsResending] = useState(false);
-  const [resendSecondsLeft, setResendSecondsLeft] = useState(120);
+  const [resendSecondsLeft, setResendSecondsLeft] = useState(15);
   const [registrationRequest, setRegistrationRequest] =
     useState<HTTPPatientRegisterRequest | null>(null);
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
@@ -164,7 +164,7 @@ function PatientVerifyOTPContent() {
       if (response.ok) {
         setStatusType("success");
         setStatusMessage("A new OTP has been sent to your phone number.");
-        setResendSecondsLeft(120);
+        setResendSecondsLeft(15);
       } else {
         const data = await response.json().catch(() => ({}));
         setStatusType("error");
@@ -189,7 +189,7 @@ function PatientVerifyOTPContent() {
     return `${minutes}:${seconds}`;
   }, [resendSecondsLeft]);
 
-  const countdownPercent = Math.max(0, Math.min(100, (resendSecondsLeft / 120) * 100));
+  const countdownPercent = Math.max(0, Math.min(100, (resendSecondsLeft / 15) * 100));
 
   return (
     <main className="relative min-h-screen overflow-hidden bg-slate-950 text-slate-950">
