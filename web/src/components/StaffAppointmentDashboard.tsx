@@ -307,7 +307,7 @@ export function StaffAppointmentDashboard() {
           <button
             key={t}
             type="button"
-            className={`rounded-full px-4 py-1.5 text-sm font-bold ${tab === t ? "bg-slate-900 text-white" : "bg-slate-100"}`}
+            className={`rounded-[var(--zh-radius-pill)] px-4 py-1.5 text-[length:var(--zh-body-size)] font-bold ${tab === t ? "bg-[var(--zh-surface-raised)] text-white" : "bg-[var(--zh-surface-subtle)]"}`}
             onClick={() => setTab(t)}
           >
             {t === "appointments" ? "Appointments" : t === "availability" ? "Availability" : "Book for patient"}
@@ -315,16 +315,16 @@ export function StaffAppointmentDashboard() {
         ))}
       </div>
 
-      {error ? <p className="text-sm text-rose-600">{error}</p> : null}
-      {message ? <p className="text-sm text-emerald-700">{message}</p> : null}
+      {error ? <p className="text-[length:var(--zh-body-size)] text-rose-600">{error}</p> : null}
+      {message ? <p className="text-[length:var(--zh-body-size)] text-[var(--zh-success)]">{message}</p> : null}
 
       {tab === "appointments" ? (
         <ul className="space-y-2">
           {appointments.map((a) => (
             <li
               key={a.id}
-              className={`flex items-center justify-between rounded-xl border px-3 py-2 text-sm ${
-                a.status === "cancelled" ? "border-slate-200 bg-slate-50 text-slate-500" : ""
+              className={`flex items-center justify-between rounded-[var(--zh-radius-control)] border px-3 py-2 text-[length:var(--zh-body-size)] ${
+                a.status === "cancelled" ? "border-[var(--zh-border-default)] bg-[var(--zh-surface-subtle)] text-[var(--zh-text-secondary)]" : ""
               }`}
             >
               <span>
@@ -338,7 +338,7 @@ export function StaffAppointmentDashboard() {
               ) : null}
             </li>
           ))}
-          {appointments.length === 0 ? <li className="text-slate-500">No appointments.</li> : null}
+          {appointments.length === 0 ? <li className="text-[var(--zh-text-secondary)]">No appointments.</li> : null}
         </ul>
       ) : null}
 
@@ -347,8 +347,8 @@ export function StaffAppointmentDashboard() {
           <div className="flex flex-wrap gap-2">
             <button
               type="button"
-              className={`rounded-full px-4 py-1.5 text-sm font-bold ${
-                availabilityMode === "weekly" ? "bg-slate-900 text-white" : "bg-slate-100"
+              className={`rounded-[var(--zh-radius-pill)] px-4 py-1.5 text-[length:var(--zh-body-size)] font-bold ${
+                availabilityMode === "weekly" ? "bg-[var(--zh-surface-raised)] text-white" : "bg-[var(--zh-surface-subtle)]"
               }`}
               onClick={() => setAvailabilityMode("weekly")}
             >
@@ -356,8 +356,8 @@ export function StaffAppointmentDashboard() {
             </button>
             <button
               type="button"
-              className={`rounded-full px-4 py-1.5 text-sm font-bold ${
-                availabilityMode === "timeoff" ? "bg-slate-900 text-white" : "bg-slate-100"
+              className={`rounded-[var(--zh-radius-pill)] px-4 py-1.5 text-[length:var(--zh-body-size)] font-bold ${
+                availabilityMode === "timeoff" ? "bg-[var(--zh-surface-raised)] text-white" : "bg-[var(--zh-surface-subtle)]"
               }`}
               onClick={() => setAvailabilityMode("timeoff")}
             >
@@ -367,8 +367,8 @@ export function StaffAppointmentDashboard() {
 
           {availabilityMode === "weekly" ? (
             <div className="space-y-5">
-              <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-700">
-                <p className="font-bold text-slate-900">How to set availability</p>
+              <div className="rounded-[var(--zh-radius-card)] border border-[var(--zh-border-default)] bg-[var(--zh-surface-subtle)] px-4 py-3 text-[length:var(--zh-body-size)] text-[var(--zh-text-secondary)]">
+                <p className="font-bold text-[var(--zh-text-primary)]">How to set availability</p>
                 <ol className="mt-2 list-decimal space-y-1 pl-5 font-semibold">
                   <li>Tap each day of the week you work (green = on, gray = off).</li>
                   <li>Choose the start and end time for those days.</li>
@@ -379,14 +379,14 @@ export function StaffAppointmentDashboard() {
               <div className="flex flex-wrap gap-2">
                 <button
                   type="button"
-                  className="rounded-full bg-emerald-50 px-3 py-1.5 text-xs font-bold text-emerald-800 ring-1 ring-emerald-200"
+                  className="rounded-[var(--zh-radius-pill)] bg-[var(--zh-success-surface)] px-3 py-1.5 text-[length:var(--zh-body-size)] font-bold text-[var(--zh-success)] ring-1 ring-emerald-200"
                   onClick={applyWeekdayPreset}
                 >
                   Use Mon–Fri 9:00–17:00
                 </button>
                 <button
                   type="button"
-                  className="rounded-full bg-slate-100 px-3 py-1.5 text-xs font-bold text-slate-600"
+                  className="rounded-[var(--zh-radius-pill)] bg-[var(--zh-surface-subtle)] px-3 py-1.5 text-[length:var(--zh-body-size)] font-bold text-[var(--zh-text-secondary)]"
                   onClick={() => setActiveWeekdays([])}
                 >
                   Clear days
@@ -401,10 +401,10 @@ export function StaffAppointmentDashboard() {
               />
 
               <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-                <label className="text-sm font-semibold">
+                <label className="text-[length:var(--zh-body-size)] font-semibold">
                   Start time
                   <select
-                    className="mt-1 w-full rounded-xl border px-3 py-2"
+                    className="mt-1 w-full rounded-[var(--zh-radius-control)] border px-3 py-2"
                     value={startTime}
                     onChange={(e) => setStartTime(e.target.value)}
                   >
@@ -415,10 +415,10 @@ export function StaffAppointmentDashboard() {
                     ))}
                   </select>
                 </label>
-                <label className="text-sm font-semibold">
+                <label className="text-[length:var(--zh-body-size)] font-semibold">
                   End time
                   <select
-                    className="mt-1 w-full rounded-xl border px-3 py-2"
+                    className="mt-1 w-full rounded-[var(--zh-radius-control)] border px-3 py-2"
                     value={endTime}
                     onChange={(e) => setEndTime(e.target.value)}
                   >
@@ -429,10 +429,10 @@ export function StaffAppointmentDashboard() {
                     ))}
                   </select>
                 </label>
-                <label className="text-sm font-semibold">
+                <label className="text-[length:var(--zh-body-size)] font-semibold">
                   Appointment length
                   <select
-                    className="mt-1 w-full rounded-xl border px-3 py-2"
+                    className="mt-1 w-full rounded-[var(--zh-radius-control)] border px-3 py-2"
                     value={slotMinutes}
                     onChange={(e) => setSlotMinutes(Number(e.target.value))}
                   >
@@ -443,10 +443,10 @@ export function StaffAppointmentDashboard() {
                     ))}
                   </select>
                 </label>
-                <label className="text-sm font-semibold">
+                <label className="text-[length:var(--zh-body-size)] font-semibold">
                   Timezone
                   <input
-                    className="mt-1 w-full rounded-xl border px-3 py-2"
+                    className="mt-1 w-full rounded-[var(--zh-radius-control)] border px-3 py-2"
                     value={timezone}
                     onChange={(e) => setTimezone(e.target.value)}
                   />
@@ -456,13 +456,13 @@ export function StaffAppointmentDashboard() {
               <div className="flex flex-wrap items-center gap-3">
                 <button
                   type="button"
-                  className="rounded-full bg-slate-900 px-5 py-2.5 text-sm font-bold text-white disabled:opacity-50"
+                  className="rounded-[var(--zh-radius-pill)] bg-[var(--zh-surface-raised)] px-5 py-2.5 text-[length:var(--zh-body-size)] font-bold text-white disabled:opacity-50"
                   disabled={busy || activeWeekdays.length === 0 || startTime >= endTime}
                   onClick={() => void saveAvailability()}
                 >
                   {busy ? "Saving…" : "Save weekly hours"}
                 </button>
-                <p className="text-sm font-semibold text-slate-600">
+                <p className="text-[length:var(--zh-body-size)] font-semibold text-[var(--zh-text-secondary)]">
                   {activeWeekdays.length === 0
                     ? "Select at least one working day."
                     : startTime >= endTime
@@ -474,7 +474,7 @@ export function StaffAppointmentDashboard() {
           ) : (
             <div className="grid gap-6 lg:grid-cols-2">
               <div className="space-y-3">
-                <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-950">
+                <div className="rounded-[var(--zh-radius-card)] border border-[var(--zh-caution)] bg-[var(--zh-caution-surface)] px-4 py-3 text-[length:var(--zh-body-size)] text-amber-950">
                   <p className="font-bold">Block a specific day off</p>
                   <p className="mt-1 font-semibold">
                     Pick a date on the calendar, then save. That day will not offer booking slots.
@@ -488,18 +488,18 @@ export function StaffAppointmentDashboard() {
                 />
               </div>
               <div className="space-y-3">
-                <p className="text-sm font-bold text-slate-900">
+                <p className="text-[length:var(--zh-body-size)] font-bold text-[var(--zh-text-primary)]">
                   Time off on {timeOffDate || "—"}
                 </p>
                 <input
-                  className="w-full rounded-xl border px-3 py-2 text-sm"
+                  className="w-full rounded-[var(--zh-radius-control)] border px-3 py-2 text-[length:var(--zh-body-size)]"
                   value={timeOffReason}
                   onChange={(e) => setTimeOffReason(e.target.value)}
                   placeholder="Reason (optional)"
                 />
                 <button
                   type="button"
-                  className="rounded-full bg-amber-600 px-5 py-2.5 text-sm font-bold text-white disabled:opacity-50"
+                  className="rounded-[var(--zh-radius-pill)] bg-[var(--zh-warm-highlight)] px-5 py-2.5 text-[length:var(--zh-body-size)] font-bold text-white disabled:opacity-50"
                   disabled={busy || !timeOffDate}
                   onClick={() => void addException()}
                 >
@@ -527,10 +527,10 @@ export function StaffAppointmentDashboard() {
               availableDates={availableDates}
               mode="available"
             />
-            {loadingSlots ? <p className="text-sm text-slate-500">Loading openings…</p> : null}
+            {loadingSlots ? <p className="text-[length:var(--zh-body-size)] text-[var(--zh-text-secondary)]">Loading openings…</p> : null}
           </div>
           <div className="space-y-3">
-            <p className="text-sm font-bold">Times on {selectedDate || "—"}</p>
+            <p className="text-[length:var(--zh-body-size)] font-bold">Times on {selectedDate || "—"}</p>
             <div className="flex flex-wrap gap-2">
               {slotsForDate.map((s) => {
                 const selected = selectedSlot === s.starts_at;
@@ -539,8 +539,8 @@ export function StaffAppointmentDashboard() {
                     key={s.starts_at}
                     type="button"
                     onClick={() => setSelectedSlot(s.starts_at)}
-                    className={`rounded-full px-4 py-2 text-sm font-bold ${
-                      selected ? "bg-slate-900 text-white" : "bg-emerald-50 text-emerald-900 ring-1 ring-emerald-200"
+                    className={`rounded-[var(--zh-radius-pill)] px-4 py-2 text-[length:var(--zh-body-size)] font-bold ${
+                      selected ? "bg-[var(--zh-surface-raised)] text-white" : "bg-[var(--zh-success-surface)] text-emerald-900 ring-1 ring-emerald-200"
                     }`}
                   >
                     {formatSlotTime(s.starts_at)}
@@ -548,12 +548,12 @@ export function StaffAppointmentDashboard() {
                 );
               })}
               {!loadingSlots && selectedDate && slotsForDate.length === 0 ? (
-                <p className="text-sm text-slate-500">No openings on this date.</p>
+                <p className="text-[length:var(--zh-body-size)] text-[var(--zh-text-secondary)]">No openings on this date.</p>
               ) : null}
             </div>
-            <div className="space-y-2 text-sm">
-              <p className="font-bold text-slate-800">Send confirmation</p>
-              <label className="flex items-center gap-2 font-semibold text-slate-700">
+            <div className="space-y-2 text-[length:var(--zh-body-size)]">
+              <p className="font-bold text-[var(--zh-text-primary)]">Send confirmation</p>
+              <label className="flex items-center gap-2 font-semibold text-[var(--zh-text-secondary)]">
                 <input
                   type="checkbox"
                   checked={notifyEmail}
@@ -561,7 +561,7 @@ export function StaffAppointmentDashboard() {
                 />
                 Email
               </label>
-              <label className="flex items-center gap-2 font-semibold text-slate-700">
+              <label className="flex items-center gap-2 font-semibold text-[var(--zh-text-secondary)]">
                 <input
                   type="checkbox"
                   checked={notifySMS}
@@ -572,7 +572,7 @@ export function StaffAppointmentDashboard() {
             </div>
             <button
               type="button"
-              className="rounded-full bg-slate-900 px-5 py-2 text-sm font-bold text-white disabled:opacity-50"
+              className="rounded-[var(--zh-radius-pill)] bg-[var(--zh-surface-raised)] px-5 py-2 text-[length:var(--zh-body-size)] font-bold text-white disabled:opacity-50"
               disabled={busy || !patientID || !selectedSlot}
               onClick={() => void bookForPatient()}
             >
