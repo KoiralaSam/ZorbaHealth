@@ -48,6 +48,7 @@ import {
   WelfareCheckReason,
 } from "../../contracts";
 import { apiFetch, cachedApiJSON, clearApiCache, logoutAuth, preloadApiJSON } from "../../lib/auth-client";
+import { PatientAppointmentBookingPanel } from "../../components/PatientAppointmentBookingPanel";
 import {
   findActivePatientCall,
   isCallInProgress,
@@ -57,6 +58,7 @@ import { useAuth } from "../../hooks/useAuth";
 import { usePatientLocationSession } from "../../hooks/usePatientLocationSession";
 import {
   Calendar,
+  CalendarDays,
   Camera,
   CheckCircle,
   Clock,
@@ -119,6 +121,7 @@ const navItems: SidebarItem[] = [
   { id: "records", label: "Ask Records", icon: MessageSquare },
   { id: "calls", label: "Call History", icon: Phone },
   { id: "meetings", label: "Meetings", icon: Video },
+  { id: "appointments", label: "Appointments", icon: CalendarDays },
   { id: "welfare", label: "Welfare Checks", icon: HeartPulse },
   { id: "audit", label: "Audit Trail", icon: Shield },
   { id: "gps", label: "GPS", icon: Compass },
@@ -784,10 +787,18 @@ function PatientHomePageContent() {
         body: JSON.stringify({ reason: "Cancelled by patient" }),
       });
       const data: HTTPPatientMeetingMutationResponse = await res.json();
-      if (res.ok && data.data?.meeting) {
-        setMeetings((prev) => prev.map((m) => (m.id === meetingID ? data.data!.meeting! : m)));
-        clearApiCache("patient");
+      if (!res.ok) {
+        setError(data.error?.message || "Unable to cancel meeting.");
+        return;
       }
+      clearApiCache("patient");
+      setMeetings((prev) =>
+        prev.map((m) =>
+          m.id === meetingID
+            ? data.data?.meeting ?? { ...m, status: "cancelled" }
+            : m,
+        ),
+      );
     } catch {
       setError("Network error while cancelling meeting.");
     } finally {
@@ -864,7 +875,7 @@ function PatientHomePageContent() {
                   label="Total Calls"
                   value={calls.length}
                   tone="orange"
-                  trend={profile?.voice_phone || "Voice line pending"}
+                  trend={profile?.voice_phone || "+1 (318) 516-2690"}
                 />
                 <StatCard
                   icon={HeartPulse}
@@ -915,10 +926,10 @@ function PatientHomePageContent() {
                       safety triage.
                     </p>
                     <a
-                      href={`tel:${profile?.voice_phone || "+1-800-555-0199"}`}
+                      href={`tel:${profile?.voice_phone || "+13185162690"}`}
                       className="mt-3 inline-flex h-10 items-center justify-center gap-2 rounded-xl bg-indigo-600 px-4 text-sm font-bold text-white shadow-glow"
                     >
-                      <Phone className="h-4 w-4" /> Call Zorba
+                      <Phone className="h-4 w-4" /> Call Zorba ({profile?.voice_phone || "+1 (318) 516-2690"})
                     </a>
                   </div>
                 </section>
@@ -1201,6 +1212,29 @@ function PatientHomePageContent() {
               onSchedule={(e) => void handleScheduleMeeting(e)}
               onCancel={(id) => void handleCancelMeeting(id)}
               onHospitalChange={(hospitalID) => void loadSchedulableStaff(hospitalID)}
+            />
+          ) : null}
+
+          {activeSection === "appointments" ? (
+            <PatientAppointmentBookingPanel
+              hospitals={hospitalConsents
+                .filter((c) => c.hospital_id && !c.revoked_at)
+                .map((c) => ({
+                  hospital_id: c.hospital_id!,
+                  hospital_name: c.hospital_name || c.hospital_id!,
+                }))}
+              loadStaff={async (hospitalID) => {
+                const res = await apiFetch(
+                  "patient",
+                  `${APIEndpoints.PATIENT_SCHEDULABLE_STAFF}?hospital_id=${encodeURIComponent(hospitalID)}`,
+                );
+                const data: HTTPPatientSchedulableStaffResponse = await res.json();
+                return (data.data?.staff ?? []).map((s) => ({
+                  staff_id: s.staff_id,
+                  name: s.name || s.staff_id,
+                  role: s.role || "staff",
+                }));
+              }}
             />
           ) : null}
 
@@ -2228,7 +2262,8 @@ function PatientMeetingCard({
   onCancel: () => void;
 }) {
   const status = meeting.status || "pending";
-  const accepted = status === "accepted";
+  // Backend uses "scheduled" after clinician accept (legacy "accepted" kept for older payloads).
+  const confirmed = status === "scheduled" || status === "accepted";
   const cancelled = status === "cancelled";
 
   return (
@@ -2240,13 +2275,13 @@ function PatientMeetingCard({
               className={`inline-flex items-center gap-1 rounded-[var(--zh-radius-pill)] px-2.5 py-1 text-xs font-black uppercase ${
                 cancelled
                   ? "bg-slate-100 text-slate-500"
-                  : accepted
+                  : confirmed
                     ? "bg-emerald-50 text-emerald-700"
                     : "bg-orange-50 text-orange-700"
               }`}
             >
               {cancelled ? <VideoOff className="h-3.5 w-3.5" /> : <Video className="h-3.5 w-3.5" />}
-              {status}
+              {status.replaceAll("_", " ")}
             </span>
             <span className="text-xs font-semibold text-slate-400">
               {meeting.duration_minutes || 30} min
