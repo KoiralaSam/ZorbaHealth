@@ -152,6 +152,7 @@ export function PatientPicker({
                   <button
                     type="button"
                     role="option"
+                    aria-selected={value === (patient.patient_id || "")}
                     className="flex w-full flex-col items-start gap-0.5 px-3 py-2.5 text-left hover:bg-slate-50"
                     onMouseDown={(e) => e.preventDefault()}
                     onClick={() => {
