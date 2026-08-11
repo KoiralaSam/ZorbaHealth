@@ -13,7 +13,7 @@ export default {
   		colors: {
   			background: 'hsl(var(--background))',
   			foreground: 'hsl(var(--foreground))',
-  			card: {
+        card: {
   				DEFAULT: 'hsl(var(--card))',
   				foreground: 'hsl(var(--card-foreground))'
   			},
@@ -50,15 +50,23 @@ export default {
   				'3': 'hsl(var(--chart-3))',
   				'4': 'hsl(var(--chart-4))',
   				'5': 'hsl(var(--chart-5))'
-  			}
-  		},
-  		borderRadius: {
+			},
+        surface: { page: "var(--zh-surface-page)", raised: "var(--zh-surface-raised)", subtle: "var(--zh-surface-subtle)" },
+        text: { primary: "var(--zh-text-primary)", secondary: "var(--zh-text-secondary)" },
+        clinical: { info: "var(--zh-info)", success: "var(--zh-success)", caution: "var(--zh-caution)", critical: "var(--zh-critical)", phi: "var(--zh-phi)" },
+        warm: { highlight: "var(--zh-warm-highlight)" },
+      },
+      borderRadius: {
   			lg: 'var(--radius)',
   			md: 'calc(var(--radius) - 2px)',
-  			sm: 'calc(var(--radius) - 4px)'
-  		},
+        sm: 'calc(var(--radius) - 4px)',
+        card: "var(--zh-radius-card)",
+        panel: "var(--zh-radius-panel)",
+        pill: "var(--zh-radius-pill)",
+      },
       fontFamily: {
-        sans: ["var(--font-inter)", ...defaultTheme.fontFamily.sans],
+        sans: ["var(--font-ui)", ...defaultTheme.fontFamily.sans],
+        patient: ["var(--font-patient)", ...defaultTheme.fontFamily.serif],
       },
       boxShadow: {
         clinical: "0 20px 45px -30px rgba(15, 23, 42, 0.45)",
