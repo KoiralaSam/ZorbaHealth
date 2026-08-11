@@ -1553,7 +1553,11 @@ function PatientPortal({
             profile={profile}
             calls={calls}
             audit={audit}
+            meetings={meetings}
+            hospitalConsents={hospitalConsents}
+            activeConsentCount={activeConsents.size}
             onRefresh={refresh}
+            onNavigate={(nextTab) => setTab(nextTab)}
           />
         ) : null}
         {!loading && tab === "consents" ? (
@@ -1643,68 +1647,34 @@ function PatientPortal({
 }
 
 function PatientHome({
-  profile,
-  calls,
-  audit,
-  onRefresh,
+  profile, calls, audit, meetings, hospitalConsents, activeConsentCount, onRefresh, onNavigate,
 }: {
-  profile: PatientProfile | null;
-  calls: CallSummary[];
-  audit: AuditEvent[];
-  onRefresh: () => void;
+  profile: PatientProfile | null; calls: CallSummary[]; audit: AuditEvent[]; meetings: HospitalMeeting[]; hospitalConsents: PatientHospitalConsent[]; activeConsentCount: number; onRefresh: () => void; onNavigate: (tab: PatientTab) => void;
 }) {
+  const nextMeeting = meetings.find((meeting) => meeting.status !== "cancelled") ?? null;
+  const pendingConsents = hospitalConsents.filter((consent) => consent.status === "pending").length;
+  const nextAction = nextMeeting ? "Your next visit is ready." : pendingConsents ? "Review a consent request." : "Ask a question about your records.";
   return (
     <View style={styles.stack}>
-      <View style={styles.heroPanel}>
-        <View style={styles.rowBetween}>
-          <Text style={styles.eyebrow}>Patient Home</Text>
-          <Pressable onPress={onRefresh} style={styles.refreshIcon}>
-            <Ionicons name="refresh" size={18} color="#e0e7ff" />
-          </Pressable>
-        </View>
-        <Text style={styles.largeTitle}>
-          {profile?.full_name || "Welcome Back"}
-        </Text>
-        <Text style={styles.heroCopy}>
-          Zorba Voice Care: {profile?.voice_phone || "Support line active"}
-        </Text>
-
-        <View style={styles.heroActions}>
-          <Pressable
-            onPress={() => callNumber(profile?.voice_phone)}
-            style={styles.heroCallBtn}
-          >
-            <Ionicons name="call" size={16} color="#4f46e5" />
-            <Text style={styles.heroCallBtnText}>Call Assistant</Text>
-          </Pressable>
+      <View style={styles.card}>
+        <Text style={styles.eyebrow}>Next best action</Text>
+        <Text style={styles.screenTitle}>{nextAction}</Text>
+        <Text style={styles.screenCopy}>Hi {profile?.full_name || "there"}. Your care, records, and privacy controls are in one place.</Text>
+        <View style={styles.inlineActions}>
+          <PrimaryButton icon={nextMeeting ? "videocam-outline" : pendingConsents ? "shield-checkmark-outline" : "chatbubble-ellipses-outline"} label={nextMeeting ? "Join visit" : pendingConsents ? "Review consent" : "Ask records"} onPress={() => onNavigate(nextMeeting ? "meetings" : pendingConsents ? "consents" : "records")} />
+          <IconButton icon="heart-outline" label="Emergency / welfare" onPress={() => onNavigate("welfare")} tone="neutral" />
         </View>
       </View>
-
+      <View style={styles.card}>
+        <View style={styles.rowBetween}><Text style={styles.sectionTitle}>Upcoming care</Text><TextButton label="Refresh" onPress={onRefresh} /></View>
+        {nextMeeting ? <Text style={styles.cardBody}>{nextMeeting.title || "Care visit"}
+{formatTime(nextMeeting.starts_at)} · {nextMeeting.timezone || "your local time"}</Text> : <EmptyText text="No upcoming visits. Book a time with a linked hospital." />}
+      </View>
       <View style={styles.gridTwo}>
-        <InfoCard
-          icon="person-outline"
-          title="Demographics"
-          body={`${profile?.phone_number || "No phone listed"}\n${profile?.email || "No email listed"}`}
-        />
-        <InfoCard
-          icon="document-text-outline"
-          title="Last Audit Event"
-          body={
-            audit[0]
-              ? `${titleFromCode(audit[0].event_type)}\n${formatTime(audit[0].timestamp)}`
-              : "No audit trail logs yet."
-          }
-        />
+        <Pressable style={styles.infoCard} onPress={() => onNavigate("consents")}><Text style={styles.infoCardTitle}>Privacy</Text><Text style={styles.infoCardBody}>{activeConsentCount} active consent grants</Text></Pressable>
+        <Pressable style={styles.infoCard} onPress={() => onNavigate("audit")}><Text style={styles.infoCardTitle}>Care events</Text><Text style={styles.infoCardBody}>{audit.length ? ` events logged` : "No care events yet."}</Text></Pressable>
       </View>
-
-      <Section title="Recent Calls">
-        {calls.slice(0, 2).map((call) => (
-          <CallRow key={String(call.id)} call={call} />
-        ))}
-        {calls.length === 0 ? (
-          <EmptyText text="No call logs captured yet." />
-        ) : null}
-      </Section>
+      <Section title="Recent Calls">{calls.slice(0, 2).map((call) => <CallRow key={String(call.id)} call={call} />)}{calls.length === 0 ? <EmptyText text="No call logs captured yet." /> : null}</Section>
     </View>
   );
 }
@@ -3518,13 +3488,13 @@ function HospitalIncomingBridges({ token }: { token: string }) {
               <IconButton
                 icon="laptop-outline"
                 label={busySession === session.session_id ? "Connecting..." : "Accept (Web)"}
-                onPress={() => void acceptCall(session.session_id, "web")}
+                onPress={() => void acceptCall(session.session_id || "", "web")}
                 tone="accent"
               />
               <IconButton
                 icon="call-outline"
                 label="Accept (Phone)"
-                onPress={() => void acceptCall(session.session_id, "phone")}
+                onPress={() => void acceptCall(session.session_id || "", "phone")}
                 tone="neutral"
               />
             </View>
