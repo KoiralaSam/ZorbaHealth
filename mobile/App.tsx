@@ -2899,7 +2899,7 @@ function PatientMeetings({
                     style={[
                       styles.card,
                       selected && {
-                        borderColor: "#4f46e5",
+                        borderColor: colors.primary,
                         borderWidth: 2,
                       },
                     ]}
@@ -2933,7 +2933,7 @@ function PatientMeetings({
                     style={[
                       styles.card,
                       selected && {
-                        borderColor: "#4f46e5",
+                        borderColor: colors.primary,
                         borderWidth: 2,
                       },
                     ]}
