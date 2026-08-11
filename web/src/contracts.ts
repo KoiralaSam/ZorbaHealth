@@ -34,6 +34,8 @@ export enum APIEndpoints {
   PATIENT_AUDIT = "/api/v1/patient/audit",
   PATIENT_MEETINGS = "/api/v1/patient/meetings",
   PATIENT_SCHEDULABLE_STAFF = "/api/v1/patient/schedulable-staff",
+  PATIENT_APPOINTMENTS = "/api/v1/patient/appointments",
+  PATIENT_APPOINTMENT_SLOTS = "/api/v1/patient/appointment-slots",
   HOSPITAL_REGISTER = "/api/v1/auth/hospital/register",
   HOSPITAL_PATIENT_SUMMARY = "/api/v1/hospital/records/summary",
   HOSPITAL_INCIDENTS = "/api/v1/hospital/incidents",
@@ -44,6 +46,10 @@ export enum APIEndpoints {
   HOSPITAL_BRIDGED_CALL_END = "/api/v1/hospital/calls/bridge-end",
   HOSPITAL_BRIDGED_CALL_SESSIONS = "/api/v1/hospital/calls/bridge-sessions",
   HOSPITAL_MEETINGS = "/api/v1/hospital/meetings",
+  HOSPITAL_APPOINTMENTS = "/api/v1/hospital/appointments",
+  HOSPITAL_APPOINTMENT_SLOTS = "/api/v1/hospital/appointment-slots",
+  HOSPITAL_AVAILABILITY = "/api/v1/hospital/availability",
+  HOSPITAL_AVAILABILITY_EXCEPTIONS = "/api/v1/hospital/availability/exceptions",
   HOSPITAL_CONSENT_REQUESTS = "/api/v1/hospital/consent-requests",
 }
 
