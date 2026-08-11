@@ -89,7 +89,7 @@ export function PatientPicker({
 
   return (
     <div ref={rootRef} className={`relative space-y-2 ${className}`}>
-      <label className="text-xs font-black uppercase tracking-wide text-slate-500">
+      <label className="text-[length:var(--zh-body-size)] font-black uppercase tracking-wide text-[var(--zh-text-secondary)]">
         {label}
         {required ? " *" : ""}
       </label>
@@ -97,7 +97,7 @@ export function PatientPicker({
       {value && !open ? (
         <button
           type="button"
-          className="flex w-full items-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50/70 px-3 py-2 text-left"
+          className="flex w-full items-center gap-2 rounded-[var(--zh-radius-control)] border border-[var(--zh-success)] bg-[var(--zh-success-surface)]/70 px-3 py-2 text-left"
           onClick={() => {
             onChange("");
             setSelectedPatient(null);
@@ -106,12 +106,12 @@ export function PatientPicker({
           }}
         >
           <div className="min-w-0 flex-1">
-            <p className="truncate text-sm font-bold text-slate-900">{displaySelected}</p>
-            <p className="truncate text-xs font-semibold text-slate-500">
+            <p className="truncate text-[length:var(--zh-body-size)] font-bold text-[var(--zh-text-primary)]">{displaySelected}</p>
+            <p className="truncate text-[length:var(--zh-body-size)] font-semibold text-[var(--zh-text-secondary)]">
               {selectedPatient?.email || value}
             </p>
           </div>
-          <span className="shrink-0 text-xs font-bold text-slate-600">Change</span>
+          <span className="shrink-0 text-[length:var(--zh-body-size)] font-bold text-[var(--zh-text-secondary)]">Change</span>
         </button>
       ) : (
         <input
@@ -124,7 +124,7 @@ export function PatientPicker({
             void openDropdown();
           }}
           placeholder="Search patient by name…"
-          className="h-10 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-700 outline-none focus:border-indigo-400 focus:ring-4 focus:ring-indigo-100"
+          className="h-10 w-full rounded-[var(--zh-radius-control)] border border-[var(--zh-border-default)] bg-[var(--zh-surface-raised)] px-3 text-[length:var(--zh-body-size)] font-semibold text-[var(--zh-text-secondary)] outline-none focus:border-[var(--zh-info)] focus:ring-4 focus:ring-indigo-100"
           required={required && !value}
           autoComplete="off"
           role="combobox"
@@ -137,12 +137,12 @@ export function PatientPicker({
         <div
           id="patient-picker-list"
           role="listbox"
-          className="absolute z-30 mt-1 max-h-56 w-full overflow-auto rounded-xl border border-slate-200 bg-white shadow-lg"
+          className="absolute z-30 mt-1 max-h-56 w-full overflow-auto rounded-[var(--zh-radius-control)] border border-[var(--zh-border-default)] bg-[var(--zh-surface-raised)] shadow-lg"
         >
           {loading ? (
-            <p className="px-3 py-3 text-sm font-semibold text-slate-400">Loading…</p>
+            <p className="px-3 py-3 text-[length:var(--zh-body-size)] font-semibold text-[var(--zh-text-secondary)]">Loading…</p>
           ) : filtered.length === 0 ? (
-            <p className="px-3 py-3 text-sm font-semibold text-slate-400">
+            <p className="px-3 py-3 text-[length:var(--zh-body-size)] font-semibold text-[var(--zh-text-secondary)]">
               {error || (query.trim() ? "No patients matched." : "Start typing a name…")}
             </p>
           ) : (
@@ -153,7 +153,7 @@ export function PatientPicker({
                     type="button"
                     role="option"
                     aria-selected={value === (patient.patient_id || "")}
-                    className="flex w-full flex-col items-start gap-0.5 px-3 py-2.5 text-left hover:bg-slate-50"
+                    className="flex w-full flex-col items-start gap-0.5 px-3 py-2.5 text-left hover:bg-[var(--zh-surface-subtle)]"
                     onMouseDown={(e) => e.preventDefault()}
                     onClick={() => {
                       setSelectedPatient(patient);
@@ -162,10 +162,10 @@ export function PatientPicker({
                       setQuery("");
                     }}
                   >
-                    <span className="text-sm font-bold text-slate-900">
+                    <span className="text-[length:var(--zh-body-size)] font-bold text-[var(--zh-text-primary)]">
                       {patient.full_name || "Unnamed patient"}
                     </span>
-                    <span className="text-xs font-semibold text-slate-500">
+                    <span className="text-[length:var(--zh-body-size)] font-semibold text-[var(--zh-text-secondary)]">
                       {patient.email || "No email"}
                       {patient.phone_number ? ` · ${patient.phone_number}` : ""}
                     </span>
