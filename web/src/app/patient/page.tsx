@@ -1048,7 +1048,7 @@ function PatientHomePageContent() {
                 <div className="mt-4 flex flex-wrap items-center gap-3">
                   <button
                     type="button"
-                    className={`rounded-full px-4 py-2 text-sm font-bold ${bridgedForm.translation_enabled ? "bg-indigo-600 text-white" : "bg-slate-100 text-slate-700"}`}
+                    className={`rounded-[var(--zh-radius-pill)] px-4 py-2 text-sm font-bold ${bridgedForm.translation_enabled ? "bg-indigo-600 text-white" : "bg-slate-100 text-slate-700"}`}
                     onClick={() =>
                       setBridgedForm((current) => ({
                         ...current,
@@ -1060,7 +1060,7 @@ function PatientHomePageContent() {
                   </button>
                   <button
                     type="button"
-                    className={`rounded-full px-4 py-2 text-sm font-bold ${bridgedForm.language_mode === "auto" ? "bg-emerald-600 text-white" : "bg-slate-100 text-slate-700"}`}
+                    className={`rounded-[var(--zh-radius-pill)] px-4 py-2 text-sm font-bold ${bridgedForm.language_mode === "auto" ? "bg-emerald-600 text-white" : "bg-slate-100 text-slate-700"}`}
                     onClick={() =>
                       setBridgedForm((current) => ({
                         ...current,
@@ -1240,8 +1240,8 @@ function PatientHomePageContent() {
                   Enable GPS Location
                 </Button>
               ) : (
-                <div className="mt-5 inline-flex items-center gap-2 rounded-full bg-emerald-50 px-3 py-1.5 text-xs font-black text-emerald-700 ring-1 ring-emerald-100">
-                  <span className="h-2 w-2 rounded-full bg-emerald-500" />
+                <div className="mt-5 inline-flex items-center gap-2 rounded-[var(--zh-radius-pill)] bg-emerald-50 px-3 py-1.5 text-xs font-black text-emerald-700 ring-1 ring-emerald-100">
+                  <span className="h-2 w-2 rounded-[var(--zh-radius-pill)] bg-emerald-500" />
                   Permission ready
                 </div>
               )}
@@ -1335,7 +1335,7 @@ function PeakPatientHome({
       </div>
       <div className="rounded-[var(--zh-radius-card)] border border-[var(--zh-border-default)] bg-[var(--zh-surface-subtle)] p-5 dark:border-[var(--zh-border-default)] dark:bg-[var(--zh-surface-subtle)]">
         <p className="text-[length:var(--zh-body-size)] font-bold uppercase tracking-wide text-[var(--zh-text-secondary)]">Recent care events</p>
-        {auditEvents.length === 0 ? <p className="mt-3 text-[length:var(--zh-body-size)] text-[var(--zh-text-secondary)] dark:text-[var(--zh-text-secondary)]">No care events yet.</p> : <ul className="mt-3 space-y-2">{auditEvents.slice(0, 3).map((event) => <li key={`-`} className="flex items-center justify-between gap-4 text-[length:var(--zh-body-size)]"><span className="text-[var(--zh-text-secondary)] dark:text-[var(--zh-text-primary)]">{formatEventType(event.event_type)}</span><time className="text-[length:var(--zh-body-size)] text-[var(--zh-text-secondary)]">{formatDateTime(event.timestamp, "Recently")}</time></li>)}</ul>}
+        {auditEvents.length === 0 ? <p className="mt-3 text-[length:var(--zh-body-size)] text-[var(--zh-text-secondary)] dark:text-[var(--zh-text-secondary)]">No care events yet.</p> : <ul className="mt-3 space-y-2">{auditEvents.slice(0, 3).map((event) => <li key={`${event.timestamp}-${event.event_type}`} className="flex items-center justify-between gap-4 text-[length:var(--zh-body-size)]"><span className="text-[var(--zh-text-secondary)] dark:text-[var(--zh-text-primary)]">{formatEventType(event.event_type)}</span><time className="text-[length:var(--zh-body-size)] text-[var(--zh-text-secondary)]">{formatDateTime(event.timestamp, "Recently")}</time></li>)}</ul>}
       </div>
     </section>
   );
@@ -1554,12 +1554,12 @@ function ConsentPanel({
                     type="button"
                     disabled={mutatingConsent === consentType}
                     onClick={() => mutateConsent(consentType, !active)}
-                    className={`relative h-8 w-14 rounded-full p-1 transition-all ${
+                    className={`relative h-8 w-14 rounded-[var(--zh-radius-pill)] p-1 transition-all ${
                       active ? "bg-indigo-600" : "bg-slate-300"
                     }`}
                   >
                     <span
-                      className={`block h-6 w-6 rounded-full bg-white shadow transition-transform ${
+                      className={`block h-6 w-6 rounded-[var(--zh-radius-pill)] bg-white shadow transition-transform ${
                         active ? "translate-x-6" : "translate-x-0"
                       }`}
                     />
@@ -1640,7 +1640,7 @@ function ConsentPanel({
                   {(pendingRequest.requested_permissions ?? []).map((permission) => (
                     <span
                       key={permission}
-                      className="rounded-full bg-white px-3 py-1 text-xs font-black text-indigo-700"
+                      className="rounded-[var(--zh-radius-pill)] bg-white px-3 py-1 text-xs font-black text-indigo-700"
                     >
                       {permission.replaceAll("_", " ")}
                     </span>
@@ -1769,7 +1769,7 @@ function RecordsPanel({
               {answerSources.map((source) => (
                 <span
                   key={source}
-                  className="inline-flex items-center gap-1 rounded-full bg-white/10 px-2.5 py-1 text-xs font-bold text-slate-100"
+                  className="inline-flex items-center gap-1 rounded-[var(--zh-radius-pill)] bg-white/10 px-2.5 py-1 text-xs font-bold text-slate-100"
                 >
                   <CheckCircle className="h-3 w-3 text-emerald-300" />
                   {source}
@@ -1810,7 +1810,7 @@ function CallsPanel({
                 {isLive || isActiveRow ? "Current call" : `Call #${call.id}`}
               </p>
               <span
-                className={`rounded-full px-2.5 py-1 text-xs font-black ${
+                className={`rounded-[var(--zh-radius-pill)] px-2.5 py-1 text-xs font-black ${
                   isLive || isActiveRow
                     ? "bg-emerald-100 text-emerald-800"
                     : "bg-indigo-50 text-indigo-700"
@@ -1854,7 +1854,7 @@ function AuditTimeline({
           events.map((event, index) => (
             <div key={event.event_id || index} className="flex gap-3 text-sm">
               <div className="flex flex-col items-center">
-                <div className="mt-1.5 h-2.5 w-2.5 rounded-full bg-indigo-600" />
+                <div className="mt-1.5 h-2.5 w-2.5 rounded-[var(--zh-radius-pill)] bg-indigo-600" />
                 {index !== events.length - 1 ? (
                   <div className="mt-1 h-10 w-0.5 bg-slate-100" />
                 ) : null}
@@ -2189,7 +2189,7 @@ function WelfarePanel({
                   ) : null}
                 </div>
                 <div className="flex shrink-0 items-center gap-2">
-                  <span className="rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-black uppercase text-emerald-700">
+                  <span className="rounded-[var(--zh-radius-pill)] bg-emerald-50 px-2.5 py-1 text-xs font-black uppercase text-emerald-700">
                     {status.replaceAll("_", " ")}
                   </span>
                   {cancellable ? (
@@ -2237,7 +2237,7 @@ function PatientMeetingCard({
         <div className="min-w-0">
           <div className="flex flex-wrap items-center gap-2">
             <span
-              className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-black uppercase ${
+              className={`inline-flex items-center gap-1 rounded-[var(--zh-radius-pill)] px-2.5 py-1 text-xs font-black uppercase ${
                 cancelled
                   ? "bg-slate-100 text-slate-500"
                   : accepted
@@ -2377,7 +2377,7 @@ function AuditTable({
                 </td>
                 <td className="px-5 py-4">
                   <span
-                    className={`rounded-full px-2.5 py-1 text-xs font-black ${
+                    className={`rounded-[var(--zh-radius-pill)] px-2.5 py-1 text-xs font-black ${
                       event.success_status === false
                         ? "bg-rose-50 text-rose-700"
                         : "bg-emerald-50 text-emerald-700"
