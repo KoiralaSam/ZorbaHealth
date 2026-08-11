@@ -46,6 +46,7 @@ import {
   TextButton,
 } from "./src/components/primitives";
 import { resolveIANATimezone } from "./src/timezone";
+import { colors } from "./src/theme/tokens";
 import { styles } from "./src/theme/styles";
 
 const API_URL = process.env.EXPO_PUBLIC_API_URL ?? "http://localhost:8081";
@@ -858,7 +859,7 @@ function Header({
           <Ionicons
             name={role === "patient" ? "pulse" : "medkit"}
             size={22}
-            color="#ffffff"
+            color={colors.surface}
           />
         </View>
         <View>
@@ -1093,7 +1094,7 @@ function PatientAuth({ onLogin }: { onLogin: (token: string) => void }) {
           ) : null}
           {mode === "email" ? (
             <View style={styles.emailNoticeCard}>
-              <Ionicons name="mail-unread-outline" size={24} color="#4f46e5" />
+              <Ionicons name="mail-unread-outline" size={24} color={colors.primary} />
               <View style={styles.flex}>
                 <Text style={styles.cardTitle}>
                   Email verification required
@@ -1541,8 +1542,8 @@ function PatientPortal({
           <RefreshControl
             refreshing={refreshing}
             onRefresh={refresh}
-            tintColor="#4f46e5"
-            colors={["#4f46e5"]}
+            tintColor={colors.primary}
+            colors={[colors.primary]}
           />
         }
       >
@@ -2076,7 +2077,7 @@ function HealthQuestion({ token }: { token: string }) {
                 <Ionicons
                   name="document-text-outline"
                   size={14}
-                  color="#4f46e5"
+                  color={colors.primary}
                 />
                 <Text style={styles.cardTitle}>
                   {citation.source_file || "Record Source"}
@@ -2329,8 +2330,8 @@ function CallList({
           style={[
             styles.card,
             liveSessionId
-              ? { borderColor: "#6ee7b7", backgroundColor: "#ecfdf5" }
-              : { borderColor: "#fcd34d", backgroundColor: "#fffbeb" },
+              ? { borderColor: colors.success, backgroundColor: colors.successBg }
+              : { borderColor: colors.accent, backgroundColor: colors.cautionBg },
           ]}
         >
           <Text style={styles.cardTitle}>
@@ -2660,7 +2661,7 @@ function LocationSharing({
           <Ionicons
             name={connected ? "radio-outline" : "radio-button-off-outline"}
             size={26}
-            color={connected ? "#059669" : "#64748b"}
+            color={connected ? colors.success : colors.mutedText}
           />
         </View>
         <Text style={styles.meta}>
@@ -3246,8 +3247,8 @@ function HospitalPortal({
           <RefreshControl
             refreshing={refreshing}
             onRefresh={refreshCurrentTab}
-            tintColor="#4f46e5"
-            colors={["#4f46e5"]}
+            tintColor={colors.primary}
+            colors={[colors.primary]}
           />
         }
       >
@@ -3478,7 +3479,7 @@ function HospitalIncomingBridges({ token }: { token: string }) {
         <EmptyText text="No patients waiting for a bridged consult." />
       ) : (
         pending.map((session) => (
-          <View key={session.session_id} style={[styles.card, { borderColor: "#f59e0b", borderWidth: 2 }]}>
+          <View key={session.session_id} style={[styles.card, { borderColor: colors.accent, borderWidth: 2 }]}>
             <Text style={styles.badge}>Ringing</Text>
             <Text style={styles.cardTitle}>{session.session_id}</Text>
             <Text style={styles.cardBody}>
@@ -4337,7 +4338,7 @@ function AuditList({
           <Ionicons
             name={showTypeOptions ? "chevron-up" : "chevron-down"}
             size={16}
-            color="#475569"
+            color={colors.subtleText}
           />
         </Pressable>
         {showTypeOptions ? (
@@ -4434,7 +4435,7 @@ function CallRow({ call }: { call: CallSummary }) {
     <View style={styles.card}>
       <View style={styles.rowBetween}>
         <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
-          <Ionicons name="call-outline" size={16} color="#4f46e5" />
+          <Ionicons name="call-outline" size={16} color={colors.primary} />
           <Text style={styles.cardTitle}>Call Ref #{call.id}</Text>
         </View>
         <Text style={styles.badge}>{call.status || "Completed"}</Text>
@@ -4451,7 +4452,7 @@ function CallRow({ call }: { call: CallSummary }) {
           onPress={() => Linking.openURL(call.recording_url as string)}
           style={styles.playRecordBtn}
         >
-          <Ionicons name="play" size={12} color="#4f46e5" />
+          <Ionicons name="play" size={12} color={colors.primary} />
           <Text style={styles.playRecordBtnText}>Open Audio Recording</Text>
         </Pressable>
       ) : null}
