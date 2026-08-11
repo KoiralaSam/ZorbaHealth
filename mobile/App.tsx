@@ -3254,6 +3254,7 @@ function HospitalPortal({
         {tab === "home" ? (
           <View style={styles.stack}>
             <HospitalIncomingBridges token={token} />
+            <HospitalTriage incidents={incidents} meetings={meetings} onNavigate={(nextTab) => setTab(nextTab)} />
             <HospitalHome
               patients={patients}
               loading={loadingPatients}
@@ -3503,6 +3504,20 @@ function HospitalIncomingBridges({ token }: { token: string }) {
       )}
       <IconButton icon="refresh-outline" label="Refresh" onPress={() => void loadPending()} tone="neutral" />
     </Section>
+  );
+}
+
+function HospitalTriage({ incidents, meetings, onNavigate }: { incidents: Incident[]; meetings: HospitalMeeting[]; onNavigate: (tab: HospitalTab) => void }) {
+  const activeMeetings = meetings.filter((meeting) => meeting.status !== "cancelled").length;
+  return (
+    <View style={styles.card}>
+      <Text style={styles.sectionTitle}>What needs attention now</Text>
+      <Text style={styles.cardBody}>Triage alerts, incoming bridge calls, and today's schedule in one glance.</Text>
+      <View style={styles.gridTwo}>
+        <Pressable style={styles.infoCard} onPress={() => onNavigate("incidents")}><Text style={styles.infoCardTitle}>Open incidents</Text><Text style={styles.infoCardBody}>{incidents.length}</Text></Pressable>
+        <Pressable style={styles.infoCard} onPress={() => onNavigate("meetings")}><Text style={styles.infoCardTitle}>Today's schedule</Text><Text style={styles.infoCardBody}>{activeMeetings}</Text></Pressable>
+      </View>
+    </View>
   );
 }
 
