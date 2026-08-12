@@ -236,13 +236,22 @@ func HospitalScheduleMeetingHandler(w http.ResponseWriter, r *http.Request) {
 	if hospitalID == "" {
 		hospitalID = claims.HospitalID
 	}
+	// Hospital dashboards often omit staff_id; assign to the authenticated clinician.
+	staffID := strings.TrimSpace(body.StaffID)
+	if staffID == "" {
+		staffID = strings.TrimSpace(claims.StaffID)
+	}
+	if staffID == "" {
+		writeJson(w, http.StatusBadRequest, nil, &contracts.APIError{Code: "INVALID_REQUEST_BODY", Message: "staff_id is required"})
+		return
+	}
 	corr := strings.TrimSpace(body.CorrelationID)
 	if corr == "" {
 		corr = uuid.NewString()
 	}
 	resp, err := client.ScheduleHealthStaffMeeting(grpcclient.WithForwardedToken(r.Context(), accessToken), &schedpb.ScheduleHealthStaffMeetingRequest{
 		PatientId:       strings.TrimSpace(body.PatientID),
-		StaffId:         strings.TrimSpace(body.StaffID),
+		StaffId:         staffID,
 		HospitalId:      hospitalID,
 		StartsAt:        timestamppb.New(start),
 		DurationMinutes: body.DurationMinutes,

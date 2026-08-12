@@ -596,6 +596,149 @@ async def schedule_health_staff_meeting(
         return str(exc) or "I was unable to schedule that visit right now."
 
 
+@function_tool
+async def list_available_appointment_slots(
+    context: RunContext[SessionUserData],
+    staff_id: str,
+    hospital_id: str,
+    from_rfc3339: str = "",
+    to_rfc3339: str = "",
+) -> str:
+    """List bookable appointment slots for staff at a consented hospital."""
+    ud = context.userdata
+    if not ud.is_verified:
+        return "Identity verification is required before I can list appointment slots."
+    args: dict = {
+        "staffID": staff_id.strip(),
+        "hospitalID": hospital_id.strip(),
+        "_auth": ud.active_token,
+    }
+    if from_rfc3339.strip():
+        args["from"] = from_rfc3339.strip()
+    if to_rfc3339.strip():
+        args["to"] = to_rfc3339.strip()
+    try:
+        return await _client(context).call_tool("list_available_appointment_slots", args)
+    except MCPToolError as exc:
+        logger.warning("list_available_appointment_slots failed session=%s: %s", ud.session_id, exc)
+        return str(exc) or "I was unable to list available slots."
+
+
+@function_tool
+async def get_next_available_slot(
+    context: RunContext[SessionUserData],
+    staff_id: str,
+    hospital_id: str,
+    after_rfc3339: str = "",
+) -> str:
+    """Return the earliest bookable appointment slot (auto-select)."""
+    ud = context.userdata
+    if not ud.is_verified:
+        return "Identity verification is required before I can find the next slot."
+    args: dict = {
+        "staffID": staff_id.strip(),
+        "hospitalID": hospital_id.strip(),
+        "_auth": ud.active_token,
+    }
+    if after_rfc3339.strip():
+        args["after"] = after_rfc3339.strip()
+    try:
+        return await _client(context).call_tool("get_next_available_slot", args)
+    except MCPToolError as exc:
+        logger.warning("get_next_available_slot failed session=%s: %s", ud.session_id, exc)
+        return str(exc) or "I could not find an available slot."
+
+
+@function_tool
+async def book_appointment(
+    context: RunContext[SessionUserData],
+    staff_id: str,
+    hospital_id: str,
+    starts_at: str,
+    patient_confirmed: bool,
+    duration_minutes: int = 30,
+    timezone_name: str = "UTC",
+    appointment_type: str = "video",
+    title: str = "",
+    send_sms: bool = False,
+    send_email: bool = True,
+) -> str:
+    """Book an appointment into an available slot after verbal confirmation."""
+    ud = context.userdata
+    if not ud.is_verified:
+        return "Identity verification is required before I can book an appointment."
+    if not patient_confirmed:
+        return (
+            "Please confirm the hospital, staff member, date, and time with the caller "
+            "before booking, then call this tool again with patient_confirmed=true."
+        )
+    try:
+        raw = await _client(context).call_tool(
+            "book_appointment",
+            {
+                "staffID": staff_id.strip(),
+                "hospitalID": hospital_id.strip(),
+                "startsAt": starts_at.strip(),
+                "durationMinutes": duration_minutes,
+                "timezone": timezone_name.strip() or "UTC",
+                "type": appointment_type.strip() or "video",
+                "title": title,
+                "sendSms": send_sms,
+                "sendEmail": send_email,
+                "patientConfirmed": patient_confirmed,
+                "_auth": ud.active_token,
+            },
+        )
+        return f"Your appointment is booked. Details: {raw}"
+    except MCPToolError as exc:
+        logger.warning("book_appointment failed session=%s: %s", ud.session_id, exc)
+        return str(exc) or "I was unable to book that appointment right now."
+
+
+@function_tool
+async def cancel_appointment(
+    context: RunContext[SessionUserData],
+    appointment_id: str,
+    reason: str = "",
+) -> str:
+    """Cancel a previously booked appointment for the verified patient."""
+    ud = context.userdata
+    if not ud.is_verified:
+        return "Identity verification is required before I can cancel an appointment."
+    try:
+        return await _client(context).call_tool(
+            "cancel_appointment",
+            {
+                "appointmentID": appointment_id.strip(),
+                "reason": reason,
+                "_auth": ud.active_token,
+            },
+        )
+    except MCPToolError as exc:
+        logger.warning("cancel_appointment failed session=%s: %s", ud.session_id, exc)
+        return str(exc) or "I was unable to cancel that appointment."
+
+
+@function_tool
+async def collect_appointment_date_via_keypad(
+    context: RunContext[SessionUserData],
+    staff_id: str,
+    hospital_id: str,
+) -> str:
+    """Prompt the caller to enter preferred appointment date as MMDD on the keypad, then #."""
+    ud = context.userdata
+    if not ud.is_verified:
+        return "Identity verification is required before collecting an appointment date."
+    ud.dtmf_mode = "appointment_date"
+    ud.dtmf_appointment_date_buffer = ""
+    ud.pending_appointment_staff_id = staff_id.strip()
+    ud.pending_appointment_hospital_id = hospital_id.strip()
+    return (
+        "Ask the caller to enter the preferred date on the keypad as four digits MMDD "
+        "(month then day), then press #. Press * to clear and start over."
+    )
+
+
 ALL_TOOLS = [
     translate,
     get_location,
@@ -612,4 +755,9 @@ ALL_TOOLS = [
     get_scheduling_clock,
     request_staff_transfer,
     schedule_health_staff_meeting,
+    list_available_appointment_slots,
+    get_next_available_slot,
+    book_appointment,
+    cancel_appointment,
+    collect_appointment_date_via_keypad,
 ]

@@ -86,6 +86,11 @@ spec:
                 configMapKeyRef:
                   key: PATIENT_SERVICE_GRPC_ADDR
                   name: app-config
+            - name: APPOINTMENT_SERVICE_GRPC_ADDR
+              valueFrom:
+                configMapKeyRef:
+                  key: APPOINTMENT_SERVICE_GRPC_ADDR
+                  name: app-config
             - name: AUDIT_SERVICE_GRPC_ADDR
               valueFrom:
                 configMapKeyRef:

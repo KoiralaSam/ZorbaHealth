@@ -30,6 +30,7 @@ export function WeeklyScheduleBoard({
               aria-pressed={on}
               title={`${WEEKDAY_FULL[weekday]} — tap to ${on ? "turn off" : "turn on"}`}
               className={[
+<<<<<<< HEAD
                 "flex min-h-[5.5rem] flex-col items-center justify-center gap-1 rounded-[var(--zh-radius-card)] border px-1 py-3 text-center transition",
                 on
                   ? "border-[var(--zh-success)] bg-[var(--zh-success-surface)] text-emerald-900 shadow-sm"
@@ -37,12 +38,25 @@ export function WeeklyScheduleBoard({
               ].join(" ")}
             >
               <span className="text-[length:var(--zh-body-size)] font-black uppercase tracking-wide">{short}</span>
+=======
+                "flex min-h-[5.5rem] flex-col items-center justify-center gap-1 rounded-2xl border px-1 py-3 text-center transition",
+                on
+                  ? "border-emerald-300 bg-emerald-50 text-emerald-900 shadow-sm"
+                  : "border-slate-200 bg-white text-slate-400 hover:border-slate-300 hover:bg-slate-50",
+              ].join(" ")}
+            >
+              <span className="text-xs font-black uppercase tracking-wide">{short}</span>
+>>>>>>> af5074b (Sync active ZorbaHealth changes)
               {on ? (
                 <>
                   <span className="text-[11px] font-bold leading-tight">
                     {startTime}
                   </span>
+<<<<<<< HEAD
                   <span className="text-[10px] font-semibold text-[var(--zh-success)]/80">to</span>
+=======
+                  <span className="text-[10px] font-semibold text-emerald-700/80">to</span>
+>>>>>>> af5074b (Sync active ZorbaHealth changes)
                   <span className="text-[11px] font-bold leading-tight">{endTime}</span>
                 </>
               ) : (
@@ -52,7 +66,11 @@ export function WeeklyScheduleBoard({
           );
         })}
       </div>
+<<<<<<< HEAD
       <p className="text-[length:var(--zh-body-size)] font-semibold text-[var(--zh-text-secondary)]">
+=======
+      <p className="text-xs font-semibold text-slate-500">
+>>>>>>> af5074b (Sync active ZorbaHealth changes)
         Green = available every week · Gray = off · Tap a day to flip it
       </p>
     </div>

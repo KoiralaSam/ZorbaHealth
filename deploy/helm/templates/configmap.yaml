@@ -13,7 +13,7 @@ data:
   # LiveKit host Docker sidecar (deploy/docker/livekit/); update PUBLIC URL to host IP.
   LIVEKIT_WS_URL: "ws://host.minikube.internal:7880"
   LIVEKIT_URL: "ws://host.minikube.internal:7880"
-  LIVEKIT_PUBLIC_WS_URL: "ws://35.255.46.92:7880"
+  LIVEKIT_PUBLIC_WS_URL: "ws://34.30.50.212:7880"
   MCP_HTTP_ADDR: ":8092"
   HEALTH_RECORDS_SERVICE_GRPC_ADDR: "health-records-service:50054"
   ANALYTICS_SERVICE_GRPC_ADDR: "analytics-service:50054"
@@ -29,6 +29,7 @@ data:
   IP_GEOLOCATION_TIMEOUT_SEC: "5"
   HTTP_ADDR: ":3000"
   VOIPMS_DID: "3185162690"
+  ZORBA_VOICE_PHONE_NUMBER: "+13185162690"
   PUBLIC_WEB_BASE_URL: "https://zorbahealth.dev"
   POSTGRES_HOST: "postgres"
   POSTGRES_PORT: "5432"

@@ -13,6 +13,8 @@ const (
 	NotifyMeetingRequestedQueue           = "notify_meeting_requested"
 	NotifyMeetingScheduledQueue           = "notify_meeting_scheduled"
 	NotifyMeetingReminderQueue            = "notify_meeting_reminder"
+	NotifyAppointmentBookedQueue          = "notify_appointment_booked"
+	NotifyAppointmentCancelledQueue       = "notify_appointment_cancelled"
 
 	// CallsExchange is the topic exchange for call lifecycle events.
 	CallsExchange = "zorba.calls"
@@ -59,6 +61,14 @@ var NotificationServicePatientQueueBindings = []QueueBinding{
 	{
 		QueueName:   NotifyMeetingReminderQueue,
 		RoutingKeys: []string{contracts.PatientEventMeetingReminder},
+	},
+	{
+		QueueName:   NotifyAppointmentBookedQueue,
+		RoutingKeys: []string{contracts.AppointmentEventBooked},
+	},
+	{
+		QueueName:   NotifyAppointmentCancelledQueue,
+		RoutingKeys: []string{contracts.AppointmentEventCancelled},
 	},
 }
 
@@ -177,4 +187,54 @@ type MeetingReminderData struct {
 	LiveKitRoomName string `json:"livekit_room_name,omitempty"`
 	PatientToken    string `json:"patient_token,omitempty"`
 	StaffToken      string `json:"staff_token,omitempty"`
+}
+
+// AppointmentBookedData is published after an appointment is booked.
+type AppointmentBookedData struct {
+	AppointmentID   string `json:"appointment_id"`
+	PatientID       string `json:"patient_id"`
+	StaffID         string `json:"staff_id"`
+	HospitalID      string `json:"hospital_id"`
+	CorrelationID   string `json:"correlation_id"`
+	StartsAtRFC3339 string `json:"starts_at"`
+	DurationMinutes int    `json:"duration_minutes"`
+	Timezone        string `json:"timezone"`
+	Title           string `json:"title"`
+	Type            string `json:"type"`
+	Channel         string `json:"channel"`
+	JoinURL         string `json:"join_url,omitempty"`
+	PatientEmail    string `json:"patient_email"`
+	PatientPhone    string `json:"patient_phone"`
+	PatientName     string `json:"patient_name"`
+	StaffEmail      string `json:"staff_email"`
+	StaffName       string `json:"staff_name"`
+	StaffPhone      string `json:"staff_phone,omitempty"`
+	HospitalName    string `json:"hospital_name,omitempty"`
+	HospitalAddress string `json:"hospital_address,omitempty"`
+	HospitalPhone   string `json:"hospital_phone,omitempty"`
+	MapsURL         string `json:"maps_url,omitempty"`
+	SendSMS         bool   `json:"send_sms"`
+	SendEmail       bool   `json:"send_email"`
+	LiveKitRoomName string `json:"livekit_room_name,omitempty"`
+	PatientToken    string `json:"patient_token,omitempty"`
+	StaffToken      string `json:"staff_token,omitempty"`
+}
+
+// AppointmentCancelledData is published after an appointment is cancelled.
+type AppointmentCancelledData struct {
+	AppointmentID   string `json:"appointment_id"`
+	PatientID       string `json:"patient_id"`
+	StaffID         string `json:"staff_id"`
+	HospitalID      string `json:"hospital_id"`
+	CorrelationID   string `json:"correlation_id"`
+	StartsAtRFC3339 string `json:"starts_at"`
+	DurationMinutes int    `json:"duration_minutes"`
+	Timezone        string `json:"timezone"`
+	Title           string `json:"title"`
+	Type            string `json:"type"`
+	Reason          string `json:"reason"`
+	PatientEmail    string `json:"patient_email"`
+	PatientName     string `json:"patient_name"`
+	StaffEmail      string `json:"staff_email"`
+	StaffName       string `json:"staff_name"`
 }

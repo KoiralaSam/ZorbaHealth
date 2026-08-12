@@ -383,3 +383,236 @@ func (s *NotificationService) recordNotifyAudit(ctx context.Context, data *event
 	}
 	_ = s.audit.RecordNotificationSent(ctx, data.PatientID, data.CorrelationID, data.MeetingID, channel, role, "meeting_scheduled", success, fail)
 }
+
+func (s *NotificationService) SendAppointmentBookedNotifications(ctx context.Context, data *events.AppointmentBookedData) error {
+	if data == nil {
+		return nil
+	}
+	if !data.SendEmail && !data.SendSMS {
+		return nil
+	}
+
+	ctx, span := notificationTracer.Start(ctx, "notification.appointment_booked")
+	defer span.End()
+	span.SetAttributes(attribute.String("appointment.id", data.AppointmentID))
+
+	start, err := time.Parse(time.RFC3339, data.StartsAtRFC3339)
+	if err != nil {
+		span.RecordError(err)
+		return err
+	}
+	loc := start.Location()
+	if data.Timezone != "" {
+		if tz, tzErr := time.LoadLocation(data.Timezone); tzErr == nil {
+			loc = tz
+			start = start.In(loc)
+		}
+	}
+
+	typeLabel := appointmentTypeLabel(data.Type)
+	patientJoinURL := meetingJoinURLForNotification(s.publicWebBase, data.JoinURL, data.LiveKitRoomName, data.PatientToken, "patient")
+	staffJoinURL := meetingJoinURLForNotification(s.publicWebBase, data.JoinURL, data.LiveKitRoomName, data.StaffToken, "staff")
+	mapsURL := strings.TrimSpace(data.MapsURL)
+	if mapsURL == "" {
+		q := strings.TrimSpace(data.HospitalName)
+		if addr := strings.TrimSpace(data.HospitalAddress); addr != "" {
+			if q != "" {
+				q = q + ", " + addr
+			} else {
+				q = addr
+			}
+		}
+		if q != "" {
+			mapsURL = "https://www.google.com/maps/search/?api=1&query=" + url.QueryEscape(q)
+		}
+	}
+
+	templateBase := map[string]string{
+		"Title":           data.Title,
+		"StartLocal":      start.Format("Monday, Jan 2, 2006 at 3:04 PM"),
+		"Timezone":        data.Timezone,
+		"DurationMinutes": fmt.Sprintf("%d", data.DurationMinutes),
+		"TypeLabel":       typeLabel,
+		"PatientName":     data.PatientName,
+		"StaffName":       data.StaffName,
+		"HospitalName":    data.HospitalName,
+		"HospitalAddress": data.HospitalAddress,
+		"HospitalPhone":   data.HospitalPhone,
+		"MapsURL":         mapsURL,
+	}
+
+	auditMeeting := &events.MeetingScheduledData{
+		MeetingID:     data.AppointmentID,
+		PatientID:     data.PatientID,
+		CorrelationID: data.CorrelationID,
+	}
+
+	if data.SendEmail && data.PatientEmail != "" {
+		patientData := cloneStringMap(templateBase)
+		patientData["JoinURL"] = patientJoinURL
+		patientPlain, err := notificationtemplates.RenderText("appointment_booked_patient_plain.tmpl", patientData)
+		if err != nil {
+			return err
+		}
+		patientHTML, err := notificationtemplates.RenderHTML("appointment_booked_patient_html.tmpl", patientData)
+		if err != nil {
+			return err
+		}
+		subject := fmt.Sprintf("Appointment confirmed: %s", firstNonEmpty(data.Title, typeLabel))
+		desc := fmt.Sprintf("%s with %s at %s", typeLabel, data.StaffName, data.HospitalName)
+		ics := calendar.BuildMeetingRequestICS(
+			calendar.MeetingUID(data.AppointmentID, data.PatientEmail),
+			firstNonEmpty(data.Title, "Zorba Health appointment"),
+			desc,
+			s.fromEmail(),
+			data.PatientEmail,
+			start,
+			data.DurationMinutes,
+			data.Timezone,
+		)
+		err = s.email.SendWithAttachments(ctx, data.PatientEmail, data.PatientName, subject, patientPlain, patientHTML, []outbound.EmailAttachment{{
+			Filename:    "appointment.ics",
+			ContentType: "text/calendar; method=REQUEST",
+			Content:     []byte(ics),
+		}})
+		s.recordNotifyAudit(ctx, auditMeeting, "email", "patient", err)
+		if err != nil {
+			span.RecordError(err)
+		}
+	}
+
+	if data.SendEmail && data.StaffEmail != "" {
+		staffData := cloneStringMap(templateBase)
+		staffData["JoinURL"] = staffJoinURL
+		staffPlain, err := notificationtemplates.RenderText("appointment_booked_staff_plain.tmpl", staffData)
+		if err != nil {
+			return err
+		}
+		staffHTML, err := notificationtemplates.RenderHTML("appointment_booked_staff_html.tmpl", staffData)
+		if err != nil {
+			return err
+		}
+		subject := fmt.Sprintf("Patient appointment booked: %s", firstNonEmpty(data.Title, typeLabel))
+		desc := fmt.Sprintf("%s with %s at %s", typeLabel, data.PatientName, data.HospitalName)
+		ics := calendar.BuildMeetingRequestICS(
+			calendar.MeetingUID(data.AppointmentID, data.StaffEmail),
+			firstNonEmpty(data.Title, "Zorba Health appointment"),
+			desc,
+			s.fromEmail(),
+			data.StaffEmail,
+			start,
+			data.DurationMinutes,
+			data.Timezone,
+		)
+		err = s.email.SendWithAttachments(ctx, data.StaffEmail, data.StaffName, subject, staffPlain, staffHTML, []outbound.EmailAttachment{{
+			Filename:    "appointment.ics",
+			ContentType: "text/calendar; method=REQUEST",
+			Content:     []byte(ics),
+		}})
+		s.recordNotifyAudit(ctx, auditMeeting, "email", "staff", err)
+		if err != nil {
+			span.RecordError(err)
+		}
+	}
+
+	if data.SendSMS && data.PatientPhone != "" {
+		smsMsg := fmt.Sprintf(
+			"Zorba Health: appointment with %s on %s at %s.",
+			firstNonEmpty(data.StaffName, "your clinician"),
+			start.Format("Jan 2 3:04 PM"),
+			firstNonEmpty(data.HospitalName, "the hospital"),
+		)
+		if mapsURL != "" {
+			smsMsg += " Maps: " + mapsURL
+		}
+		if patientJoinURL != "" {
+			smsMsg += " Join: " + patientJoinURL
+		}
+		err := s.sms.SendSMS(ctx, data.PatientPhone, smsMsg)
+		s.recordNotifyAudit(ctx, auditMeeting, "sms", "patient", err)
+		if err != nil {
+			span.RecordError(err)
+		}
+	}
+
+	if data.SendSMS && data.StaffPhone != "" {
+		smsMsg := fmt.Sprintf(
+			"Zorba Health: patient appointment %s on %s at %s.",
+			firstNonEmpty(data.PatientName, "booked"),
+			start.Format("Jan 2 3:04 PM"),
+			firstNonEmpty(data.HospitalName, "hospital"),
+		)
+		if staffJoinURL != "" {
+			smsMsg += " Join: " + staffJoinURL
+		}
+		err := s.sms.SendSMS(ctx, data.StaffPhone, smsMsg)
+		s.recordNotifyAudit(ctx, auditMeeting, "sms", "staff", err)
+		if err != nil {
+			span.RecordError(err)
+		}
+	}
+
+	return nil
+}
+
+func appointmentTypeLabel(t string) string {
+	switch strings.ToLower(strings.TrimSpace(t)) {
+	case "in_person", "in-person":
+		return "In-person visit"
+	case "video":
+		return "Video visit"
+	default:
+		if t == "" {
+			return "Appointment"
+		}
+		return t
+	}
+}
+
+func firstNonEmpty(values ...string) string {
+	for _, v := range values {
+		if strings.TrimSpace(v) != "" {
+			return strings.TrimSpace(v)
+		}
+	}
+	return ""
+}
+
+func cloneStringMap(in map[string]string) map[string]string {
+	out := make(map[string]string, len(in))
+	for k, v := range in {
+		out[k] = v
+	}
+	return out
+}
+
+func (s *NotificationService) SendAppointmentCancelledNotifications(ctx context.Context, data *events.AppointmentCancelledData) error {
+	if data == nil {
+		return nil
+	}
+	ctx, span := notificationTracer.Start(ctx, "notification.appointment_cancelled")
+	defer span.End()
+	span.SetAttributes(attribute.String("appointment.id", data.AppointmentID))
+
+	start, err := time.Parse(time.RFC3339, data.StartsAtRFC3339)
+	if err != nil {
+		span.RecordError(err)
+		return err
+	}
+	subject := fmt.Sprintf("Appointment cancelled: %s", data.Title)
+	body := fmt.Sprintf(
+		"Hello,\n\nYour appointment (%s) scheduled for %s has been cancelled.\nReason: %s\n\n— Zorba Health",
+		data.Title, start.Format(time.RFC1123), data.Reason,
+	)
+	if data.PatientEmail != "" {
+		if err := s.email.Send(ctx, data.PatientEmail, data.PatientName, subject, body, "<p>"+body+"</p>"); err != nil {
+			span.RecordError(err)
+		}
+	}
+	if data.StaffEmail != "" {
+		if err := s.email.Send(ctx, data.StaffEmail, data.StaffName, subject, body, "<p>"+body+"</p>"); err != nil {
+			span.RecordError(err)
+		}
+	}
+	return nil
+}

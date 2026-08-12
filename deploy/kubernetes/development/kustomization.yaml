@@ -11,9 +11,10 @@ resources:
   - jaeger.yaml
   - api-gateway-deployment.yaml
   - patient-service-deployment.yaml
-  - welfare-check-dispatcher-cronjob.yaml
-  - meeting-reminder-dispatcher-cronjob.yaml
+  - cron-dispatcher-deployment.yaml
   - auth-service-deployment.yaml
+  - health-provider-service-deployment.yaml
+  - appointment-service-deployment.yaml
   - notification-service-deployment.yaml
   - health-records-service-deployment.yaml
   - analytics-service-deployment.yaml

@@ -1,0 +1,139 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: cron-dispatcher
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: cron-dispatcher
+  template:
+    metadata:
+      labels:
+        app: cron-dispatcher
+    spec:
+      containers:
+        - name: cron-dispatcher
+          image: patient-service
+          imagePullPolicy: IfNotPresent
+          command: ["./build/cron-dispatcher"]
+          resources:
+            requests:
+              memory: "64Mi"
+              cpu: "50m"
+            limits:
+              memory: "128Mi"
+              cpu: "150m"
+          env:
+            - name: ENVIRONMENT
+              valueFrom:
+                configMapKeyRef:
+                  key: ENVIRONMENT
+                  name: app-config
+            - name: JAEGER_ENDPOINT
+              valueFrom:
+                configMapKeyRef:
+                  key: JAEGER_ENDPOINT
+                  name: app-config
+            - name: AUTH_SERVICE_GRPC_ADDR
+              valueFrom:
+                configMapKeyRef:
+                  key: AUTH_SERVICE_GRPC_ADDR
+                  name: app-config
+            - name: AUDIT_SERVICE_GRPC_ADDR
+              valueFrom:
+                configMapKeyRef:
+                  key: AUDIT_SERVICE_GRPC_ADDR
+                  name: app-config
+            - name: INTERNAL_SERVICE_SECRET
+              valueFrom:
+                secretKeyRef:
+                  key: INTERNAL_SERVICE_SECRET
+                  name: app-secrets
+            - name: SERVICE_NAME
+              value: cron-dispatcher
+            - name: GRPC_CLIENT_SERVICE_NAME
+              value: cron-dispatcher
+            - name: WELFARE_CHECK_DISPATCH_CRON
+              value: "* * * * *"
+            - name: WELFARE_CHECK_DISPATCH_LIMIT
+              value: "25"
+            - name: WELFARE_CHECK_MAX_ATTEMPTS
+              value: "5"
+            - name: WELFARE_CHECK_RETRY_BASE_SECONDS
+              value: "120"
+            - name: WELFARE_CHECK_RETRY_MAX_SECONDS
+              value: "1800"
+            - name: MEETING_REMINDER_DISPATCH_CRON
+              value: "* * * * *"
+            - name: MEETING_REMINDER_DISPATCH_LIMIT
+              value: "25"
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  key: DATABASE_URL
+                  name: app-secrets
+            - name: PATIENT_SERVICE_JWT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  key: PATIENT_SERVICE_JWT_SECRET
+                  name: app-secrets
+            - name: AUTH_SERVICE_JWT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  key: AUTH_SERVICE_JWT_SECRET
+                  name: app-secrets
+            - name: REDIS_ADDR
+              valueFrom:
+                configMapKeyRef:
+                  key: REDIS_ADDR
+                  name: app-config
+            - name: RABBITMQ_URI
+              valueFrom:
+                secretKeyRef:
+                  key: uri
+                  name: rabbitmq-credentials
+            - name: LIVEKIT_URL
+              valueFrom:
+                configMapKeyRef:
+                  key: LIVEKIT_URL
+                  name: app-config
+            - name: LIVEKIT_WS_URL
+              valueFrom:
+                configMapKeyRef:
+                  key: LIVEKIT_WS_URL
+                  name: app-config
+            - name: LIVEKIT_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  key: apiKey
+                  name: livekit-credentials
+            - name: LIVEKIT_API_SECRET
+              valueFrom:
+                secretKeyRef:
+                  key: apiSecret
+                  name: livekit-credentials
+            - name: LIVEKIT_SIP_TRUNK_ID
+              valueFrom:
+                secretKeyRef:
+                  key: sipTrunkId
+                  name: livekit-credentials
+                  optional: true
+            - name: LIVEKIT_SIP_FROM_USER
+              value: "527931"
+            - name: LIVEKIT_SIP_FROM_HOST
+              value: "dallas1.voip.ms"
+            - name: LIVEKIT_SIP_CALLER_ID
+              value: "3185162690"
+            - name: LIVEKIT_USE_STUB
+              valueFrom:
+                configMapKeyRef:
+                  key: LIVEKIT_USE_STUB
+                  name: app-config
+                  optional: true
+            - name: WELFARE_CHECK_ALLOW_CONSENT_BYPASS
+              valueFrom:
+                configMapKeyRef:
+                  key: WELFARE_CHECK_ALLOW_CONSENT_BYPASS
+                  name: app-config
+                  optional: true

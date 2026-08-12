@@ -1,0 +1,110 @@
+{
+  "name": "ZorbaHealth Peak UX Accessibility Metadata Audit",
+  "verified_at": "2026-08-12",
+  "figma_file_key": "eNq0V4HwW6Yk4ut4GQWg8b",
+  "scope": "Core Peak UX Figma prototype pages with visible prototype reactions.",
+  "method": "Figma MCP derived accessible labels from layer names or child text, wrote zorba.a11y shared metadata keys label/focusOrder/frame to every interactive node, then re-scanned metadata coverage.",
+  "pages": {
+    "Web - Patient Peak UX": {
+      "interactive_nodes": 50,
+      "missing_label_or_focus_metadata": 0,
+      "frame_buckets": {
+        "web/patient/home": 5,
+        "web/patient/care": 4,
+        "web/patient/appointments/who": 5,
+        "web/patient/appointments/when": 5,
+        "web/patient/appointments/confirm": 5,
+        "web/patient/appointments/booked": 4,
+        "web/patient/privacy/scan": 4,
+        "web/patient/privacy/confirm": 5,
+        "web/patient/privacy/granted": 4,
+        "web/patient/records": 4,
+        "web/patient/meeting/prejoin": 2,
+        "web/patient/meeting/room": 1,
+        "web/patient/meeting/ended": 1,
+        "Hotspot / web patient join visit to meeting prejoin": 1
+      }
+    },
+    "Web - Hospital Peak UX": {
+      "interactive_nodes": 6,
+      "missing_label_or_focus_metadata": 0,
+      "frame_buckets": {
+        "web/hospital/home": 4,
+        "web/hospital/summary": 1,
+        "web/hospital/incidents": 1
+      }
+    },
+    "Web - Meeting Peak UX": {
+      "interactive_nodes": 4,
+      "missing_label_or_focus_metadata": 0,
+      "frame_buckets": {
+        "web/meeting/join/prejoin": 1,
+        "web/meeting/room": 2,
+        "web/meeting/audio-only": 1
+      }
+    },
+    "Mobile - Patient Peak UX": {
+      "interactive_nodes": 47,
+      "missing_label_or_focus_metadata": 0,
+      "frame_buckets": {
+        "mobile/patient/home": 5,
+        "mobile/patient/care": 3,
+        "mobile/patient/appointments/who": 5,
+        "mobile/patient/appointments/when": 5,
+        "mobile/patient/appointments/confirm": 5,
+        "mobile/patient/privacy/scan": 4,
+        "mobile/patient/privacy/grant": 5,
+        "mobile/patient/privacy/granted": 4,
+        "mobile/patient/records": 4,
+        "mobile/patient/appointments/booked": 1,
+        "mobile/patient/meeting/prejoin": 2,
+        "mobile/patient/meeting/room": 1,
+        "mobile/patient/meeting/ended": 1,
+        "Hotspot / mobile patient join visit to prejoin": 1,
+        "Hotspot / mobile patient confirm booking to booked": 1
+      }
+    },
+    "Mobile - Hospital Peak UX": {
+      "interactive_nodes": 5,
+      "missing_label_or_focus_metadata": 0,
+      "frame_buckets": {
+        "mobile/hospital/home": 3,
+        "mobile/hospital/summary": 1,
+        "mobile/hospital/alerts": 1
+      }
+    }
+  },
+  "totals": {
+    "interactive_nodes": 112,
+    "missing_label_or_focus_metadata": 0
+  },
+  "figma_metadata_namespace": "zorba.a11y",
+  "metadata_keys": [
+    "label",
+    "focusOrder",
+    "frame"
+  ],
+  "evidence_node": {
+    "page": "Redesign Rationale",
+    "node_id": "31:2",
+    "a11y_metadata_note_id": "42:2"
+  },
+  "limitations": [
+    "Figma metadata supports design QA and handoff but is not a runtime screen-reader test.",
+    "Full WCAG 2.2 AA still requires keyboard/focus/reduced-motion/screen-reader verification in the running web and mobile apps.",
+    "Fewer-decisions-than-current-state remains unproved without the Current State Figma baseline."
+  ],
+  "figma_evidence_card_recheck": {
+    "verified_at": "2026-08-12",
+    "node_id": "31:2",
+    "metadata_status": "pass",
+    "screenshot_rendered": "760x518",
+    "downloaded_bytes": 94040,
+    "notes_present": [
+      "WCAG Note",
+      "Target Size Note",
+      "A11y Metadata Note"
+    ],
+    "visual_viewer_status": "blocked_by_local_sandbox_loopback_error"
+  }
+}

@@ -1,0 +1,20 @@
+Hello {{ .PatientName }},
+
+Your appointment is confirmed.
+
+Details
+-------
+Title: {{ .Title }}
+When: {{ .StartLocal }} ({{ .Timezone }})
+Duration: {{ .DurationMinutes }} minutes
+Type: {{ .TypeLabel }}
+Clinician: {{ .StaffName }}
+Hospital: {{ .HospitalName }}
+{{ if .HospitalAddress }}Address: {{ .HospitalAddress }}{{ end }}
+{{ if .HospitalPhone }}Hospital phone: {{ .HospitalPhone }}{{ end }}
+{{ if .MapsURL }}Directions: {{ .MapsURL }}{{ end }}
+{{ if .JoinURL }}Join video visit: {{ .JoinURL }}{{ end }}
+
+We look forward to seeing you.
+
+— Zorba Health Care Team

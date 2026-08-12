@@ -11,14 +11,13 @@ import (
 )
 
 type patientAuthServiceClient struct {
-	LoginClient            pb.LoginServiceClient
-	RegistrationClient     registration_verification.RegistrationVerificationServiceClient
-	HospitalLoginClient    authpb.LoginServiceClient
-	HospitalRegisterClient authpb.RegisterHealthProviderServiceClient
-	RefreshClient          authpb.RefreshSessionServiceClient
-	LogoutRefreshClient    authpb.LogoutServiceClient
-	patientConn            *grpc.ClientConn
-	authConn               *grpc.ClientConn
+	LoginClient         pb.LoginServiceClient
+	RegistrationClient  registration_verification.RegistrationVerificationServiceClient
+	HospitalLoginClient authpb.LoginServiceClient
+	RefreshClient       authpb.RefreshSessionServiceClient
+	LogoutRefreshClient authpb.LogoutServiceClient
+	patientConn         *grpc.ClientConn
+	authConn            *grpc.ClientConn
 }
 
 func NewPatientAuthServiceClient() (*patientAuthServiceClient, error) {
@@ -43,14 +42,13 @@ func NewPatientAuthServiceClient() (*patientAuthServiceClient, error) {
 	}
 
 	return &patientAuthServiceClient{
-		LoginClient:            pb.NewLoginServiceClient(patientConn),
-		RegistrationClient:     registration_verification.NewRegistrationVerificationServiceClient(patientConn),
-		HospitalLoginClient:    authpb.NewLoginServiceClient(authConn),
-		HospitalRegisterClient: authpb.NewRegisterHealthProviderServiceClient(authConn),
-		RefreshClient:          authpb.NewRefreshSessionServiceClient(authConn),
-		LogoutRefreshClient:    authpb.NewLogoutServiceClient(authConn),
-		patientConn:            patientConn,
-		authConn:               authConn,
+		LoginClient:         pb.NewLoginServiceClient(patientConn),
+		RegistrationClient:  registration_verification.NewRegistrationVerificationServiceClient(patientConn),
+		HospitalLoginClient: authpb.NewLoginServiceClient(authConn),
+		RefreshClient:       authpb.NewRefreshSessionServiceClient(authConn),
+		LogoutRefreshClient: authpb.NewLogoutServiceClient(authConn),
+		patientConn:         patientConn,
+		authConn:            authConn,
 	}, nil
 }
 

@@ -80,6 +80,18 @@ services:
       redis:
         condition: service_healthy
 
+  health-provider-service:
+    build:
+      context: ../..
+      dockerfile: deploy/docker/development/health-provider-service.Dockerfile
+    env_file:
+      - ../../examples/sample-env/.env.example
+    depends_on:
+      postgres:
+        condition: service_healthy
+      auth-service:
+        condition: service_started
+
   patient-service:
     build:
       context: ../..
@@ -94,16 +106,36 @@ services:
       rabbitmq:
         condition: service_healthy
 
-  welfare-check-dispatcher:
+  appointment-service:
     build:
       context: ../..
-      dockerfile: deploy/docker/development/patient-service.Dockerfile
-    command: ["./build/welfare-check-dispatcher"]
+      dockerfile: deploy/docker/development/appointment-service.Dockerfile
     env_file:
       - ../../examples/sample-env/.env.example
     environment:
-      WELFARE_CHECK_DISPATCH_LOOP_SECONDS: "60"
+      APPOINTMENT_SERVICE_GRPC_ADDR: "appointment-service:9099"
+      LIVEKIT_USE_STUB: "${LIVEKIT_USE_STUB:-true}"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+
+  cron-dispatcher:
+    build:
+      context: ../..
+      dockerfile: deploy/docker/development/patient-service.Dockerfile
+    command: ["./build/cron-dispatcher"]
+    env_file:
+      - ../../examples/sample-env/.env.example
+    environment:
+      WELFARE_CHECK_DISPATCH_CRON: "* * * * *"
       WELFARE_CHECK_DISPATCH_LIMIT: "25"
+      WELFARE_CHECK_MAX_ATTEMPTS: "5"
+      WELFARE_CHECK_RETRY_BASE_SECONDS: "120"
+      WELFARE_CHECK_RETRY_MAX_SECONDS: "1800"
+      MEETING_REMINDER_DISPATCH_CRON: "* * * * *"
+      MEETING_REMINDER_DISPATCH_LIMIT: "25"
       # Explicit local bypasses only — never rely on silent fail-open.
       LIVEKIT_USE_STUB: "${LIVEKIT_USE_STUB:-false}"
       WELFARE_CHECK_ALLOW_CONSENT_BYPASS: "${WELFARE_CHECK_ALLOW_CONSENT_BYPASS:-false}"
@@ -112,30 +144,13 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
       patient-service:
         condition: service_started
       audit-service:
         condition: service_started
       auth-service:
-        condition: service_started
-
-  meeting-reminder-dispatcher:
-    build:
-      context: ../..
-      dockerfile: deploy/docker/development/patient-service.Dockerfile
-    command: ["./build/meeting-reminder-dispatcher"]
-    env_file:
-      - ../../examples/sample-env/.env.example
-    environment:
-      MEETING_REMINDER_DISPATCH_LOOP_SECONDS: "60"
-      MEETING_REMINDER_DISPATCH_LIMIT: "25"
-      LIVEKIT_USE_STUB: "${LIVEKIT_USE_STUB:-false}"
-    depends_on:
-      postgres:
-        condition: service_healthy
-      rabbitmq:
-        condition: service_healthy
-      patient-service:
         condition: service_started
 
   audit-service:
@@ -213,6 +228,8 @@ services:
       - "8081:8081"
     depends_on:
       auth-service:
+        condition: service_started
+      health-provider-service:
         condition: service_started
       patient-service:
         condition: service_started

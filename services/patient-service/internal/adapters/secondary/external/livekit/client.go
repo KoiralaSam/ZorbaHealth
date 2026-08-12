@@ -224,7 +224,7 @@ func (c *Client) DialSIPParticipant(ctx context.Context, in outbound.DialSIPPart
 		client: c.httpClient,
 		token:  token,
 	})
-	sip, err := sipClient.CreateSIPParticipant(ctx, &lklivekit.CreateSIPParticipantRequest{
+	req := &lklivekit.CreateSIPParticipantRequest{
 		SipTrunkId:          sipTrunkID,
 		SipCallTo:           phone,
 		RoomName:            roomName,
@@ -234,7 +234,14 @@ func (c *Client) DialSIPParticipant(ctx context.Context, in outbound.DialSIPPart
 		MaxCallDuration:     durationpb.New(30 * time.Minute),
 		WaitUntilAnswered:   false,
 		PlayDialtone:        true,
-	})
+	}
+	if fromUser := strings.TrimSpace(sharedenv.GetString("LIVEKIT_SIP_FROM_USER", sharedenv.GetString("LIVEKIT_SIP_AUTH_USERNAME", ""))); fromUser != "" {
+		req.SipNumber = fromUser
+	}
+	if callerID := strings.TrimSpace(sharedenv.GetString("LIVEKIT_SIP_CALLER_ID", sharedenv.GetString("VOIPMS_DID", ""))); callerID != "" {
+		req.DisplayName = &callerID
+	}
+	sip, err := sipClient.CreateSIPParticipant(ctx, req)
 	if err != nil {
 		return nil, fmt.Errorf("livekit: dial staff SIP participant: %w", err)
 	}

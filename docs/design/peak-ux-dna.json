@@ -1,0 +1,440 @@
+{
+  "meta": {
+    "name": "ZorbaHealth Peak UX",
+    "description": "Structured design DNA for the Peak UX redesign of the current ZorbaHealth web and Expo apps. This evolves the shipped indigo clinical system into a calmer patient experience and a denser hospital console while preserving routes, roles, feature scope, and data states.",
+    "source_references": [
+      "web/src/app/**/page.tsx",
+      "web/src/components/**",
+      "web/src/app/globals.css",
+      "web/tailwind.config.ts",
+      "mobile/App.tsx",
+      "mobile/src/components/**",
+      "mobile/src/theme/tokens.ts",
+      "mobile/src/theme/styles.ts",
+      "ui-ux-pro-max: patient design-system search, hospital design-system search, color healthcare trust, typography clinical calm legible, ux accessibility forms navigation",
+      "motion-design: Premium patient archetype and Corporate hospital archetype",
+      "Note: docs/design/current-state-dna.json was not present in the repository during this pass; the current-state baseline was inferred from source code and the original current-state prompt until the Figma source file is supplied."
+    ],
+    "created_at": "2026-08-11"
+  },
+  "design_system": {
+    "color": {
+      "palette_type": "split-complementary clinical indigo with cyan, green, and warm orange highlights",
+      "primary": {
+        "hex": "#4f46e5",
+        "role": "Trust anchor, primary actions, active navigation, focus ring, consent-positive emphasis"
+      },
+      "secondary": {
+        "hex": "#0891b2",
+        "role": "Clinical information, patient reassurance, quiet secondary surfaces"
+      },
+      "accent": {
+        "hex": "#fb923c",
+        "role": "Warm highlight only: countdowns, next-best-action accents, non-destructive attention"
+      },
+      "neutral": {
+        "scale": {
+          "0": "#ffffff",
+          "50": "#f8fafc",
+          "100": "#f1f5f9",
+          "200": "#e2e8f0",
+          "300": "#cbd5e1",
+          "500": "#64748b",
+          "600": "#475569",
+          "800": "#1e293b",
+          "900": "#0f172a",
+          "950": "#020617"
+        },
+        "usage": "Light patient canvas, white cards, slate text, slate borders; dense hospital screens use the same scale with tighter contrast and less decorative color."
+      },
+      "semantic": {
+        "success": {
+          "bg": "#ecfdf5",
+          "fg": "#047857",
+          "border": "#a7f3d0"
+        },
+        "warning": {
+          "bg": "#fff7ed",
+          "fg": "#9a3412",
+          "border": "#fed7aa"
+        },
+        "error": {
+          "bg": "#fff1f2",
+          "fg": "#be123c",
+          "border": "#fecdd3"
+        },
+        "info": {
+          "bg": "#eff6ff",
+          "fg": "#1d4ed8",
+          "border": "#bfdbfe"
+        },
+        "phi_sensitive": {
+          "bg": "#eef2ff",
+          "fg": "#3730a3",
+          "border": "#c7d2fe"
+        }
+      },
+      "surface": {
+        "background": "#f5f7ff",
+        "card": "#ffffff",
+        "elevated": "#ffffff"
+      },
+      "contrast_strategy": "AA-first foreground/background pairs; patient screens use calm high contrast with fewer simultaneous signals, hospital screens use compact labels and status color paired with text/icons so color is never the only cue."
+    },
+    "typography": {
+      "type_scale": {
+        "display": {
+          "size": "44px web / 34pt mobile",
+          "weight": "700",
+          "line_height": "1.12",
+          "tracking": "0"
+        },
+        "heading_1": {
+          "size": "32px web / 28pt mobile",
+          "weight": "700",
+          "line_height": "1.18",
+          "tracking": "0"
+        },
+        "heading_2": {
+          "size": "24px web / 22pt mobile",
+          "weight": "700",
+          "line_height": "1.25",
+          "tracking": "0"
+        },
+        "heading_3": {
+          "size": "20px web / 19pt mobile",
+          "weight": "650",
+          "line_height": "1.3",
+          "tracking": "0"
+        },
+        "body": {
+          "size": "16px web / 17pt mobile",
+          "weight": "400",
+          "line_height": "1.55",
+          "tracking": "0"
+        },
+        "body_small": {
+          "size": "14px web / 15pt mobile",
+          "weight": "400",
+          "line_height": "1.45",
+          "tracking": "0"
+        },
+        "caption": {
+          "size": "12px web / 13pt mobile",
+          "weight": "600",
+          "line_height": "1.35",
+          "tracking": "0"
+        },
+        "overline": {
+          "size": "11px web / 12pt mobile",
+          "weight": "700",
+          "line_height": "1.2",
+          "tracking": "0.08em"
+        }
+      },
+      "font_families": {
+        "heading": "Lora for patient-facing welcome and reassurance moments; Plus Jakarta Sans for clinical console headings",
+        "body": "Plus Jakarta Sans, fallback Inter/system sans",
+        "mono": "ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace"
+      },
+      "font_style_notes": "Two-family direction: warmer patient headlines for calm reassurance, legible humanist/geometric sans for all UI and dense hospital data."
+    },
+    "spacing": {
+      "base_unit": "4px",
+      "scale": {
+        "2xs": 4,
+        "xs": 8,
+        "sm": 12,
+        "md": 16,
+        "lg": 20,
+        "xl": 24,
+        "2xl": 32,
+        "3xl": 40,
+        "4xl": 56
+      },
+      "content_density": "Patient: comfortable; Hospital: compact dashboard density",
+      "section_rhythm": "Patient screens use 24-40px between major groups; hospital screens use 12-20px within panels and 24px between work zones."
+    },
+    "layout": {
+      "grid_system": "Responsive shell: web 1440 desktop with sidebar/rail and task-first content; mobile 390x844 with top status, task home, and max five primary tabs.",
+      "max_content_width": "1280px web console, 1120px patient content, full-width mobile safe area",
+      "columns": "Patient web 12-column with 7/5 task split; hospital web 12-column with triage strip and dense tables; mobile single column with bottom navigation.",
+      "gutter": "24px web, 16px mobile",
+      "breakpoints": {
+        "mobile": 390,
+        "tablet": 768,
+        "desktop": 1024,
+        "wide": 1440
+      },
+      "alignment_tendency": "Strict grid for hospital console, softer grouped hierarchy for patient surfaces"
+    },
+    "shape": {
+      "border_radius": {
+        "small": "12px",
+        "medium": "16px",
+        "large": "20px",
+        "pill": "999px"
+      },
+      "border_usage": "Subtle 1px borders on cards, fields, PHI containers, and safety-critical groupings",
+      "divider_style": "Low-contrast slate/indigo dividers with explicit section labels"
+    },
+    "elevation": {
+      "shadow_style": "Soft clinical depth, never neumorphic; hospital console keeps shadows very low for scan speed",
+      "levels": {
+        "low": "0 8px 24px -18px rgba(15, 23, 42, 0.28)",
+        "medium": "0 18px 40px -26px rgba(15, 23, 42, 0.35)",
+        "high": "0 28px 70px -36px rgba(79, 70, 229, 0.38)"
+      },
+      "depth_cues": "Border, tonal surface, shadow, and fixed triage/consent affordances"
+    },
+    "iconography": {
+      "style": "Outlined, rounded, clinical",
+      "stroke_weight": "2px web Lucide, platform default Ionicons mobile",
+      "size_scale": "16, 20, 24, 32",
+      "preferred_set": "Lucide for web, Ionicons for Expo mobile"
+    },
+    "motion": {
+      "easing": {
+        "patient_signature": "cubic-bezier(0.4, 0, 0.2, 1)",
+        "hospital_signature": "cubic-bezier(0.2, 0, 0, 1)"
+      },
+      "duration_scale": {
+        "micro": "120ms patient / 100ms hospital",
+        "normal": "360ms patient / 240ms hospital",
+        "macro": "520ms patient / 360ms hospital"
+      },
+      "entrance_pattern": "Patient: Card Entrance (Premium), 20px y, opacity plus delayed shadow/content; Hospital: Corporate triage updates, 0-3% overshoot, 200-400ms.",
+      "exit_pattern": "Exit is 60-70% of entrance duration with accelerated easing; reduced motion swaps spatial movement for instant state and subtle color/outline change.",
+      "philosophy": "Motion is functional and named. Every animated note traces to Premium patient or Corporate hospital archetypes; never more than one or two key animated elements per view."
+    },
+    "components": {
+      "button_style": "Rounded 12-16px, clear primary/secondary/destructive hierarchy, visible focus-visible ring, loading state, no color-only meaning",
+      "input_style": "Persistent labels, helper/error text below field, 48px minimum web height and 44pt mobile target",
+      "card_style": "Task cards with top status signal, PHI boundary annotation, low shadow, and clear primary action",
+      "navigation_pattern": "Patient task-first: Home, Care, Records, Privacy plus persistent welfare/emergency action. Hospital: triage strip plus role tabs Home, Summary, Meetings, Appointments, Staff, Consent, Alerts, Audit.",
+      "modal_style": "Sheet/dialog with clear escape route and extra confirmation for destructive or medical-risk actions",
+      "list_style": "Dense hospital lists with filters and provenance; patient lists group by next action and recency",
+      "component_notes": "Build Figma variants for default, hover, focus-visible, pressed, disabled, loading, and error. Annotate PHI regions, focus order, reduced-motion behavior, and decision count."
+    }
+  },
+  "design_style": {
+    "aesthetic": {
+      "mood": [
+        "calm",
+        "trustworthy",
+        "clinically precise",
+        "reassuring",
+        "efficient"
+      ],
+      "visual_metaphor": "A calm care command center where consent is the spine and the next safe action is always visible.",
+      "era_influence": "Modern healthcare SaaS with patient-grade warmth and clinical dashboard discipline",
+      "genre": "medical SaaS portal and staff operations console",
+      "personality_traits": [
+        "steady",
+        "transparent",
+        "fast under pressure",
+        "careful with risk"
+      ],
+      "adjectives": [
+        "airy",
+        "legible",
+        "auditable",
+        "consent-aware",
+        "task-first"
+      ]
+    },
+    "visual_language": {
+      "complexity": "Moderate: simplified patient IA, dense but organized hospital IA",
+      "ornamentation": "Low; warm highlights and status bands only where they clarify attention",
+      "whitespace_usage": "Generous on patient home and booking, compact in hospital tables and triage strips",
+      "visual_weight_distribution": "Top-heavy priority zone above the fold followed by grouped supporting detail",
+      "focal_strategy": "One glance, one truth: next best action or highest-risk clinical queue leads every screen",
+      "contrast_level": "High functional contrast with restrained brand color",
+      "texture_usage": "None beyond subtle tonal surfaces and existing web mesh/gradient concepts"
+    },
+    "composition": {
+      "hierarchy_method": "Priority bands, status chips, card grouping, readable type scale, and stable action placement",
+      "balance_type": "Patient: soft asymmetric task cards; Hospital: strict grid and tables",
+      "flow_direction": "Top priority to timeline/detail to action confirmation",
+      "grouping_strategy": "Care, Records, Privacy, and Safety instead of equal flat tabs",
+      "negative_space_role": "Creates calm on patient screens and scan lanes on hospital screens"
+    },
+    "imagery": {
+      "photo_treatment": "No stock photography required for app surfaces",
+      "illustration_style": "Minimal explanatory diagrams only for QR consent and degraded video mode",
+      "graphic_elements": "Status strips, consent badges, provenance chips, focus order markers",
+      "pattern_usage": "Current landing mesh/dot ideas may remain as restrained background texture, not on dense work screens",
+      "image_shape": "Rounded 16-20px if media appears"
+    },
+    "interaction_feel": {
+      "feedback_style": "Immediate, plain-language, localized near the action; undo for consent grant/revoke where safe",
+      "hover_behavior": "Subtle lift or tonal state on web; never required for discovery",
+      "transition_personality": "Patient Premium calm glide; Hospital Corporate snappy and controlled",
+      "loading_style": "Skeleton/loading card with retained layout and clear label",
+      "microinteraction_density": "Low to medium; only task progress, status updates, and confirmations animate"
+    },
+    "brand_voice_in_ui": {
+      "tone": "Plain, reassuring, clinically respectful",
+      "formality": "Patient: conversational eighth-grade reading level; Hospital: concise clinical precision",
+      "cta_style": "Direct verbs tied to patient/staff outcomes",
+      "empty_state_approach": "Explain the missing prerequisite and offer the next safe action",
+      "error_tone": "Cause plus recovery path, no blame"
+    }
+  },
+  "visual_effects": {
+    "overview": {
+      "effect_intensity": "subtle-accent",
+      "performance_tier": "lightweight",
+      "fallback_strategy": "Respect reduced motion: remove spatial movement, keep instant state and semantic color/text change.",
+      "primary_technology": "GSAP for web implementation handoff; React Native Animated/Reanimated-compatible native APIs for mobile handoff"
+    },
+    "background_effects": {
+      "type": "subtle gradient mesh on marketing/arrival only",
+      "description": "Retain the current indigo/orange/sky mesh lineage for non-work surfaces; work surfaces use static clinical backgrounds.",
+      "technology": "CSS gradients on web, static View backgrounds on mobile",
+      "params": {
+        "color_palette": [
+          "#4f46e5",
+          "#0891b2",
+          "#fb923c",
+          "#f8fafc"
+        ],
+        "speed": "none on work screens; optional slow 8s aurora on marketing only",
+        "density": "low",
+        "opacity": "0.08-0.18",
+        "blend_mode": "normal"
+      }
+    },
+    "particle_systems": {
+      "enabled": false,
+      "type": "none",
+      "description": "No particle system in the redesign baseline.",
+      "technology": "none",
+      "params": {
+        "count": 0,
+        "shape": "none",
+        "size_range": "none",
+        "movement_pattern": "none",
+        "color_behavior": "none",
+        "interaction": "none",
+        "spawn_area": "none"
+      }
+    },
+    "3d_elements": {
+      "enabled": false,
+      "type": "none",
+      "description": "No 3D elements planned for the clinical product UI.",
+      "technology": "none",
+      "params": {
+        "renderer": "none",
+        "lighting": "none",
+        "camera": "none",
+        "materials": "none",
+        "geometry": "none",
+        "post_processing": "none",
+        "interaction_model": "none"
+      }
+    },
+    "shader_effects": {
+      "enabled": false,
+      "type": "none",
+      "description": "No shader effects.",
+      "technology": "none",
+      "params": {
+        "uniforms": "none",
+        "vertex_manipulation": "none",
+        "fragment_output": "none",
+        "noise_type": "none",
+        "distortion": "none"
+      }
+    },
+    "scroll_effects": {
+      "parallax": {
+        "enabled": false,
+        "layers": 0,
+        "depth_range": "none",
+        "speed_curve": "none"
+      },
+      "scroll_triggered_animations": {
+        "enabled": true,
+        "trigger_points": "Below-fold marketing and long rationale pages only",
+        "animation_type": "Card Entrance (Premium) for patient-context content; Corporate fade/translate for hospital-context content",
+        "scrub_behavior": "none"
+      },
+      "scroll_morphing": {
+        "enabled": false,
+        "description": "No scroll morphing."
+      }
+    },
+    "text_effects": {
+      "type": "none on product surfaces",
+      "description": "Current aurora/shiny text is reserved for marketing; Peak UX product screens use stable readable text.",
+      "technology": "CSS on marketing only",
+      "params": {
+        "split_strategy": "none",
+        "animation_per_unit": "none",
+        "stagger": "none",
+        "effect_style": "none"
+      }
+    },
+    "cursor_effects": {
+      "enabled": false,
+      "type": "none",
+      "description": "No custom cursor effects.",
+      "params": {
+        "shape": "none",
+        "size": "none",
+        "blend_mode": "none",
+        "trail": "none",
+        "interaction_zone": "none"
+      }
+    },
+    "image_effects": {
+      "type": "none",
+      "description": "No image effects on app screens.",
+      "technology": "none",
+      "params": {
+        "filter_pipeline": "none",
+        "hover_transform": "none",
+        "reveal_animation": "none",
+        "distortion_type": "none"
+      }
+    },
+    "glassmorphism_neumorphism": {
+      "enabled": false,
+      "style": "none",
+      "params": {
+        "blur_radius": "0",
+        "transparency": "none",
+        "border_treatment": "none",
+        "shadow_type": "none",
+        "light_source_angle": "none"
+      }
+    },
+    "canvas_drawings": {
+      "enabled": false,
+      "type": "none",
+      "description": "The current app has a canvas flickering grid component for marketing decoration; Peak UX product surfaces do not rely on canvas.",
+      "technology": "none",
+      "params": {
+        "draw_method": "none",
+        "animation_loop": "none",
+        "color_scheme": "none",
+        "responsiveness": "none",
+        "interaction": "none"
+      }
+    },
+    "svg_animations": {
+      "enabled": false,
+      "type": "none",
+      "description": "No SVG animation in product surfaces; current marketing dotted map animation remains outside core clinical flows.",
+      "params": {
+        "animation_method": "none",
+        "path_morphing": "none",
+        "stroke_animation": "none",
+        "filter_effects": "none"
+      }
+    },
+    "composite_notes": "Patient Home next-best-action card and appointment-confirmed state use three motion layers: primary card entrance/confirmation, secondary icon/status shift, ambient low-opacity accent pulse. Hospital triage strip uses Corporate live-update motion at 200-400ms with cubic-bezier(0.2,0,0,1) and 0-3% overshoot. All motion annotations in Figma should name these patterns so implementation can map them to GSAP on web and native animation APIs on mobile."
+  }
+}

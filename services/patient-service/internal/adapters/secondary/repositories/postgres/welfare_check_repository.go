@@ -272,12 +272,13 @@ func (r *PatientRepository) MarkWelfareRunDispatched(ctx context.Context, result
 	return nil
 }
 
-func (r *PatientRepository) MarkWelfareRunFailed(ctx context.Context, runID uuid.UUID, reason string, retry bool) error {
+func (r *PatientRepository) MarkWelfareRunFailed(ctx context.Context, runID uuid.UUID, reason string, nextAttemptAt *time.Time) error {
+	retry := nextAttemptAt != nil
 	status := "failed"
 	var nextAttempt any
 	if retry {
 		status = "pending"
-		nextAttempt = time.Now().UTC().Add(2 * time.Minute)
+		nextAttempt = nextAttemptAt.UTC()
 	}
 	tx, err := r.db.Begin(ctx)
 	if err != nil {
@@ -289,10 +290,13 @@ func (r *PatientRepository) MarkWelfareRunFailed(ctx context.Context, runID uuid
 		SET status = $2,
 		    failure_reason = $3,
 		    next_attempt_at = $4,
+		    livekit_room_sid = CASE WHEN $5 THEN '' ELSE livekit_room_sid END,
+		    livekit_dispatch_id = CASE WHEN $5 THEN '' ELSE livekit_dispatch_id END,
+		    livekit_sip_call_id = CASE WHEN $5 THEN '' ELSE livekit_sip_call_id END,
 		    updated_at = now()
 		WHERE id = $1
 		  AND status IN ('claimed', 'pending', 'dispatched')
-	`, runID, status, reason, nextAttempt)
+	`, runID, status, reason, nextAttempt, retry)
 	if err != nil {
 		return err
 	}

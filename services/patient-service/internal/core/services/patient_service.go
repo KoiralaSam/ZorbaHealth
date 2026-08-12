@@ -3,9 +3,11 @@ package services
 import (
 	"context"
 	"crypto/rand"
+	"errors"
 	"fmt"
 	"strings"
 	"time"
+	_ "time/tzdata" // Alpine runtime images omit /usr/share/zoneinfo
 
 	domainErrors "github.com/KoiralaSam/ZorbaHealth/services/patient-service/internal/core/domain/errors"
 	"github.com/KoiralaSam/ZorbaHealth/services/patient-service/internal/core/domain/models"
@@ -13,6 +15,7 @@ import (
 	sharedaudit "github.com/KoiralaSam/ZorbaHealth/shared/audit"
 	sharedauth "github.com/KoiralaSam/ZorbaHealth/shared/auth"
 	sharedenv "github.com/KoiralaSam/ZorbaHealth/shared/env"
+	"github.com/KoiralaSam/ZorbaHealth/shared/grpcclient"
 	auditpb "github.com/KoiralaSam/ZorbaHealth/shared/proto/audit"
 	"github.com/google/uuid"
 	"google.golang.org/protobuf/types/known/structpb"
@@ -408,13 +411,8 @@ func (s *PatientService) DispatchDueWelfareChecks(ctx context.Context, limit int
 }
 
 func (s *PatientService) dispatchWelfareCheckRun(ctx context.Context, run models.WelfareCheckRun) (*models.WelfareCheckDispatchResult, error) {
-	if err := s.requireWelfareCheckConsents(ctx, run.PatientID.String()); err != nil {
-		_ = s.welfareChecks.MarkWelfareRunFailed(ctx, run.ID, err.Error(), false)
-		s.appendWelfareAudit(ctx, sharedaudit.EventWelfareCheckFailed, run.PatientID.String(), welfareRunAuditMeta(run), false, err.Error())
-		return nil, err
-	}
 	if normalizePhone(run.PatientPhoneNumber) == "" {
-		_ = s.welfareChecks.MarkWelfareRunFailed(ctx, run.ID, domainErrors.ErrWelfareCheckPhoneRequired.Error(), false)
+		_ = s.failWelfareRun(ctx, run, domainErrors.ErrWelfareCheckPhoneRequired.Error(), welfareFailPermanent)
 		return nil, domainErrors.ErrWelfareCheckPhoneRequired
 	}
 
@@ -425,10 +423,10 @@ func (s *PatientService) dispatchWelfareCheckRun(ctx context.Context, run models
 			roomName = "welfare-check-" + run.ID.String()
 		}
 		result := models.WelfareCheckDispatchResult{
-			RunID:     run.ID,
-			RequestID: run.RequestID,
-			RoomName:  roomName,
-			RoomSID:   run.LiveKitRoomSID,
+			RunID:      run.ID,
+			RequestID:  run.RequestID,
+			RoomName:   roomName,
+			RoomSID:    run.LiveKitRoomSID,
 			DispatchID: run.LiveKitDispatchID,
 			SIPCallID:  run.LiveKitSIPCallID,
 		}
@@ -438,11 +436,27 @@ func (s *PatientService) dispatchWelfareCheckRun(ctx context.Context, run models
 		return &result, nil
 	}
 
+	// Background workers have no caller JWT; mint a patient session so audit
+	// CheckConsent (which requires x-forwarded-token) can authorize.
 	session, err := s.authService.CreatePatientSession(ctx, run.PatientUserID.String(), []string{"location:read", "records:read"})
 	if err != nil {
-		_ = s.welfareChecks.MarkWelfareRunFailed(ctx, run.ID, err.Error(), run.Attempts < 3)
+		_ = s.failWelfareRun(ctx, run, err.Error(), welfareFailRetryable)
 		return nil, err
 	}
+	ctx = grpcclient.WithForwardedToken(ctx, session.AccessToken)
+
+	if err := s.requireWelfareCheckConsents(ctx, run.PatientID.String()); err != nil {
+		// Infra/misconfig (missing INTERNAL_SERVICE_SECRET, audit down) should retry.
+		// Missing patient consents should not.
+		kind := welfareFailPermanent
+		if errors.Is(err, domainErrors.ErrWelfareCheckConsentUnavailable) {
+			kind = welfareFailRetryable
+		}
+		_ = s.failWelfareRun(ctx, run, err.Error(), kind)
+		s.appendWelfareAudit(ctx, sharedaudit.EventWelfareCheckFailed, run.PatientID.String(), welfareRunAuditMeta(run), false, err.Error())
+		return nil, err
+	}
+
 	roomName := strings.TrimSpace(run.LiveKitRoomName)
 	if roomName == "" {
 		roomName = "welfare-check-" + run.ID.String()
@@ -462,13 +476,12 @@ func (s *PatientService) dispatchWelfareCheckRun(ctx context.Context, run models
 		AgentName:    "zorba-health-voice",
 	})
 	if err != nil {
-		if run.Attempts >= 3 {
-			_ = s.welfareChecks.MarkWelfareRunMissed(ctx, run.ID, err.Error())
-			s.appendWelfareAudit(ctx, sharedaudit.EventWelfareCheckMissed, run.PatientID.String(), welfareRunAuditMeta(run), false, err.Error())
-		} else {
-			_ = s.welfareChecks.MarkWelfareRunFailed(ctx, run.ID, err.Error(), true)
-			s.appendWelfareAudit(ctx, sharedaudit.EventWelfareCheckFailed, run.PatientID.String(), welfareRunAuditMeta(run), false, err.Error())
+		_ = s.failWelfareRun(ctx, run, err.Error(), welfareFailDial)
+		eventType := sharedaudit.EventWelfareCheckFailed
+		if !welfareCanRetry(run.Attempts) {
+			eventType = sharedaudit.EventWelfareCheckMissed
 		}
+		s.appendWelfareAudit(ctx, eventType, run.PatientID.String(), welfareRunAuditMeta(run), false, err.Error())
 		return nil, err
 	}
 	result := models.WelfareCheckDispatchResult{
@@ -492,6 +505,25 @@ func (s *PatientService) dispatchWelfareCheckRun(ctx context.Context, run models
 	s.appendWelfareAudit(ctx, sharedaudit.EventWelfareCheckDispatched, run.PatientID.String(), meta, true, "")
 	s.appendWelfareAudit(ctx, sharedaudit.EventWelfareCheckRecordAccessed, run.PatientID.String(), meta, true, "")
 	return &result, nil
+}
+
+type welfareFailKind int
+
+const (
+	welfareFailPermanent welfareFailKind = iota
+	welfareFailRetryable
+	welfareFailDial // retryable; exhausted -> missed
+)
+
+func (s *PatientService) failWelfareRun(ctx context.Context, run models.WelfareCheckRun, reason string, kind welfareFailKind) error {
+	if kind != welfareFailPermanent && welfareCanRetry(run.Attempts) {
+		next := time.Now().UTC().Add(welfareRetryBackoff(run.Attempts))
+		return s.welfareChecks.MarkWelfareRunFailed(ctx, run.ID, reason, &next)
+	}
+	if kind == welfareFailDial {
+		return s.welfareChecks.MarkWelfareRunMissed(ctx, run.ID, reason)
+	}
+	return s.welfareChecks.MarkWelfareRunFailed(ctx, run.ID, reason, nil)
 }
 
 func (s *PatientService) UpdateWelfareRunLifecycle(ctx context.Context, cmd *models.UpdateWelfareRunLifecycleCommand) (*models.WelfareCheckRun, error) {

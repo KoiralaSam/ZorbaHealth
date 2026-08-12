@@ -1,0 +1,46 @@
+{
+  "venue": "GAISS",
+  "format": "IEEE conference (IEEEtran conference class, max 6 pages)",
+  "commit_short": "2d7429d0",
+  "commit_full": "2d7429d0ee2de14820d0e56722b640926a20a524",
+  "synthea_seed": 1784242671144,
+  "live_rag_audited": {
+    "mode": "live_openai_rag_audited",
+    "scoring": "answer_string_required_v3",
+    "answerable_n": 20,
+    "answerable_hits": 17,
+    "answerable_accuracy": 0.85,
+    "unanswerable_n": 5,
+    "unanswerable_safe_rate": 1.0,
+    "citation_presence_rate": 1.0,
+    "avg_latency_ms": 1666.88,
+    "p95_latency_ms": 2432,
+    "error_count": 7,
+    "error_tag_counts": {
+      "allergy_as_medication": 1,
+      "missed_allergy_in_answer": 3,
+      "answer_miss": 3
+    },
+    "note": "Tightened scoring requires expected fact in answer text; citation-only no longer counts as success."
+  },
+  "consent_e2e": {
+    "n": 11,
+    "passed": 11,
+    "pass_rate": 1.0,
+    "record_qa_deny_ok": true,
+    "record_qa_allow_ok": true,
+    "regrant_ok": true,
+    "known_gaps": [
+      "consent-007",
+      "THIRD_PARTY_MODEL_PROCESSING not gated before external embedding/chat"
+    ],
+    "note": "Stub consent checker mirrors rag.Pipeline deny/allow + audit status fields. HEALTH_RECORD_ACCESS is enforced; THIRD_PARTY_MODEL_PROCESSING remains an open pipeline gap."
+  },
+  "safety": {
+    "exact_f1": 1.0,
+    "paraphrase_f1": 0.2857,
+    "combined_f1": 0.7059
+  },
+  "pdf": "docs/research/latex/main.pdf",
+  "camera_ready_notes": "docs/research/CAMERA_READY_CHANGES.md"
+}

@@ -1,0 +1,67 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: health-provider-service
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: health-provider-service
+  template:
+    metadata:
+      labels:
+        app: health-provider-service
+    spec:
+      containers:
+        - name: health-provider-service
+          image: health-provider-service
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 9094
+              name: grpc
+          resources:
+            requests:
+              memory: "64Mi"
+              cpu: "50m"
+            limits:
+              memory: "128Mi"
+              cpu: "100m"
+          env:
+            - name: ENVIRONMENT
+              valueFrom:
+                configMapKeyRef:
+                  key: ENVIRONMENT
+                  name: app-config
+            - name: JAEGER_ENDPOINT
+              valueFrom:
+                configMapKeyRef:
+                  key: JAEGER_ENDPOINT
+                  name: app-config
+            - name: HEALTH_PROVIDER_SERVICE_GRPC_ADDR
+              valueFrom:
+                configMapKeyRef:
+                  key: HEALTH_PROVIDER_SERVICE_GRPC_ADDR
+                  name: app-config
+            - name: AUTH_SERVICE_GRPC_ADDR
+              valueFrom:
+                configMapKeyRef:
+                  key: AUTH_SERVICE_GRPC_ADDR
+                  name: app-config
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  key: DATABASE_URL
+                  name: app-secrets
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: health-provider-service
+spec:
+  type: ClusterIP
+  ports:
+    - port: 9094
+      targetPort: 9094
+      name: grpc
+  selector:
+    app: health-provider-service

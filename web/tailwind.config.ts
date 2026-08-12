@@ -51,6 +51,7 @@ export default {
   				'4': 'hsl(var(--chart-4))',
   				'5': 'hsl(var(--chart-5))'
 			},
+<<<<<<< HEAD
         surface: { page: "var(--zh-surface-page)", raised: "var(--zh-surface-raised)", subtle: "var(--zh-surface-subtle)" },
         text: { primary: "var(--zh-text-primary)", secondary: "var(--zh-text-secondary)" },
         clinical: { info: "var(--zh-info)", success: "var(--zh-success)", caution: "var(--zh-caution)", critical: "var(--zh-critical)", phi: "var(--zh-phi)" },
@@ -63,15 +64,96 @@ export default {
         card: "var(--zh-radius-card)",
         panel: "var(--zh-radius-panel)",
         pill: "var(--zh-radius-pill)",
+=======
+        canvas: 'hsl(var(--canvas))',
+        surface: {
+          DEFAULT: 'hsl(var(--surface))',
+          muted: 'hsl(var(--surface-muted))',
+        },
+        subtle: 'hsl(var(--text-subtle))',
+        peak: {
+          primary: 'hsl(var(--primary))',
+          secondary: 'hsl(var(--secondary))',
+          warm: 'hsl(var(--accent))',
+        },
+        success: {
+          DEFAULT: 'hsl(var(--success))',
+          background: 'hsl(var(--success-background))',
+          border: 'hsl(var(--success-border))',
+        },
+        warning: {
+          DEFAULT: 'hsl(var(--warning))',
+          background: 'hsl(var(--warning-background))',
+          border: 'hsl(var(--warning-border))',
+        },
+        error: {
+          DEFAULT: 'hsl(var(--error))',
+          background: 'hsl(var(--error-background))',
+          border: 'hsl(var(--error-border))',
+        },
+        info: {
+          DEFAULT: 'hsl(var(--info))',
+          background: 'hsl(var(--info-background))',
+          border: 'hsl(var(--info-border))',
+        },
+        phi: {
+          DEFAULT: 'hsl(var(--phi))',
+          background: 'hsl(var(--phi-background))',
+          border: 'hsl(var(--phi-border))',
+        },
+  		},
+  		borderRadius: {
+  			lg: 'var(--radius)',
+  			md: 'calc(var(--radius) - 2px)',
+			sm: 'calc(var(--radius) - 4px)',
+        peak: '1.25rem',
+        pill: '999px',
+  		},
+      spacing: {
+        'peak-2xs': '0.25rem',
+        'peak-xs': '0.5rem',
+        'peak-sm': '0.75rem',
+        'peak-md': '1rem',
+        'peak-lg': '1.25rem',
+        'peak-xl': '1.5rem',
+        'peak-2xl': '2rem',
+        'peak-3xl': '2.5rem',
+        'peak-4xl': '3.5rem',
+      },
+      fontSize: {
+        'peak-display': ['2.75rem', { lineHeight: '1.12', fontWeight: '700', letterSpacing: '0' }],
+        'peak-h1': ['2rem', { lineHeight: '1.18', fontWeight: '700', letterSpacing: '0' }],
+        'peak-h2': ['1.5rem', { lineHeight: '1.25', fontWeight: '700', letterSpacing: '0' }],
+        'peak-h3': ['1.25rem', { lineHeight: '1.3', fontWeight: '650', letterSpacing: '0' }],
+        'peak-body': ['1rem', { lineHeight: '1.55', fontWeight: '400', letterSpacing: '0' }],
+        'peak-body-sm': ['0.875rem', { lineHeight: '1.45', fontWeight: '400', letterSpacing: '0' }],
+        'peak-caption': ['0.75rem', { lineHeight: '1.35', fontWeight: '600', letterSpacing: '0' }],
+        'peak-overline': ['0.6875rem', { lineHeight: '1.2', fontWeight: '700', letterSpacing: '0.08em' }],
+>>>>>>> af5074b (Sync active ZorbaHealth changes)
       },
       fontFamily: {
         sans: ["var(--font-ui)", ...defaultTheme.fontFamily.sans],
         patient: ["var(--font-patient)", ...defaultTheme.fontFamily.serif],
       },
       boxShadow: {
-        clinical: "0 20px 45px -30px rgba(15, 23, 42, 0.45)",
-        glow: "0 18px 40px -22px rgba(79, 70, 229, 0.65)",
-        orange: "0 18px 34px -24px rgba(249, 115, 22, 0.75)",
+        low: 'var(--shadow-low)',
+        medium: 'var(--shadow-medium)',
+        high: 'var(--shadow-high)',
+        clinical: 'var(--shadow-medium)',
+        glow: '0 18px 40px -22px hsl(var(--primary) / 0.65)',
+        warm: '0 18px 34px -24px hsl(var(--accent) / 0.75)',
+      },
+      transitionTimingFunction: {
+        'patient': 'var(--motion-patient-ease)',
+        'hospital': 'var(--motion-hospital-ease)',
+      },
+      transitionDuration: {
+        'patient-micro': 'var(--motion-patient-micro)',
+        'patient-normal': 'var(--motion-patient-normal)',
+        'patient-macro': 'var(--motion-patient-macro)',
+        'hospital-micro': 'var(--motion-hospital-micro)',
+        'hospital-normal': 'var(--motion-hospital-normal)',
+        'hospital-macro': 'var(--motion-hospital-macro)',
       },
       keyframes: {
         "fade-in": {

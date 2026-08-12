@@ -8,17 +8,25 @@ data:
   JAEGER_ENDPOINT: "http://jaeger:4318/v1/traces"
   # API Gateway
   API_GATEWAY_HTTP_ADDR: ":8081"
+  API_GATEWAY_ALLOWED_ORIGINS: "http://localhost:3000"
+  # Dev-only: accept any localhost/127.0.0.1 origin so temporary verification
+  # servers (next start / static previews on ephemeral ports) can call the API.
+  API_GATEWAY_ALLOW_LOCALHOST_ORIGINS: "true"
   # Patient Service
   PATIENT_SERVICE_HTTP_ADDR: ":8083"
   PATIENT_SERVICE_GRPC_ADDR: "patient-service:9093"
   # Auth Service
   AUTH_SERVICE_HTTP_ADDR: ":8082"
   AUTH_SERVICE_GRPC_ADDR: "auth-service:9092"
+  # Health Provider Service
+  HEALTH_PROVIDER_SERVICE_GRPC_ADDR: "health-provider-service:9094"
+  # Appointment Service
+  APPOINTMENT_SERVICE_GRPC_ADDR: "appointment-service:9099"
   # LiveKit runs on host Docker (deploy/docker/livekit/). Pods use host.minikube.internal;
   # browsers/join links use LIVEKIT_PUBLIC_WS_URL (host public or LAN IP — update if it changes).
   LIVEKIT_WS_URL: "ws://host.minikube.internal:7880"
   LIVEKIT_URL: "ws://host.minikube.internal:7880"
-  LIVEKIT_PUBLIC_WS_URL: "ws://35.255.46.92:7880"
+  LIVEKIT_PUBLIC_WS_URL: "ws://34.30.50.212:7880"
   MCP_HTTP_ADDR: ":8092"
   # RAG Service
   RAG_SERVICE_GRPC_ADDR: "rag-service:50053"
@@ -47,6 +55,8 @@ data:
   # OTP HTTP server (SMS via VoIP.ms) — credentials in voipms-credentials secret
   HTTP_ADDR: ":3000"
   VOIPMS_DID: "3185162690"
+  # Patient-facing Zorba voice hotline (E.164). Defaults from VOIPMS_DID in api-gateway if unset.
+  ZORBA_VOICE_PHONE_NUMBER: "+13185162690"
   # Public web base URL used to generate verification links in emails
   PUBLIC_WEB_BASE_URL: "http://localhost:3000"
   # Looser OTP SMS rate limits for local development

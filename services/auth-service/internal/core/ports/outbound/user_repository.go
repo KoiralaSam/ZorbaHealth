@@ -10,8 +10,6 @@ import (
 // The concrete Postgres/sqlc implementation lives in a secondary adapter in this service.
 type UserRepository interface {
 	CreateUser(ctx context.Context, user *domain.User) (*domain.User, error)
-	RegisterHospitalWithStaff(ctx context.Context, req domain.HospitalRegistration) (*domain.HospitalStaffAccount, error)
-	RegisterStaff(ctx context.Context, req domain.HospitalStaffRegistration) (*domain.HospitalStaffAccount, error)
 	GetUserByID(ctx context.Context, id string) (*domain.User, error)
 	GetUserByEmail(ctx context.Context, email string) (*domain.User, error)
 	GetUserByPhoneNumber(ctx context.Context, phoneNumber string) (*domain.User, error)

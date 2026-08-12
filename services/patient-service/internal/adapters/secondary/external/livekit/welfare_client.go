@@ -59,12 +59,6 @@ func (c *WelfareClient) StartWelfareCheckCall(ctx context.Context, in outbound.W
 	if c.sipTrunkID == "" {
 		return nil, fmt.Errorf("livekit: set LIVEKIT_SIP_TRUNK_ID")
 	}
-	token, err := c.welfareAdminToken()
-	if err != nil {
-		return nil, err
-	}
-	admin := &authClient{client: c.httpClient, token: token}
-
 	roomName := strings.TrimSpace(in.RoomName)
 	if roomName == "" {
 		if strings.TrimSpace(in.RunID) == "" {
@@ -72,6 +66,11 @@ func (c *WelfareClient) StartWelfareCheckCall(ctx context.Context, in outbound.W
 		}
 		roomName = "welfare-check-" + strings.TrimSpace(in.RunID)
 	}
+	token, err := c.welfareAdminToken(roomName)
+	if err != nil {
+		return nil, err
+	}
+	admin := &authClient{client: c.httpClient, token: token}
 
 	roomClient := lklivekit.NewRoomServiceProtobufClient(c.httpBaseURL, admin)
 	room, err := roomClient.CreateRoom(ctx, &lklivekit.CreateRoomRequest{
@@ -132,7 +131,7 @@ func (c *WelfareClient) StartWelfareCheckCall(ctx context.Context, in outbound.W
 
 	sipClient := lklivekit.NewSIPProtobufClient(c.httpBaseURL, admin)
 	identity := "sip_" + normalizeDigits(in.PatientPhone)
-	sip, err := sipClient.CreateSIPParticipant(ctx, &lklivekit.CreateSIPParticipantRequest{
+	req := &lklivekit.CreateSIPParticipantRequest{
 		SipTrunkId:          c.sipTrunkID,
 		SipCallTo:           in.PatientPhone,
 		RoomName:            roomName,
@@ -141,9 +140,22 @@ func (c *WelfareClient) StartWelfareCheckCall(ctx context.Context, in outbound.W
 		ParticipantMetadata: string(publicMetadata),
 		RingingTimeout:      durationpb.New(45 * time.Second),
 		MaxCallDuration:     durationpb.New(15 * time.Minute),
-		WaitUntilAnswered:   false,
-		PlayDialtone:        true,
-	})
+		// Wait so SIP declines / no-answer surface as dial errors and enter the
+		// welfare retry path instead of being marked dispatched prematurely.
+		WaitUntilAnswered: true,
+		PlayDialtone:      true,
+	}
+	// Voip.ms requires From URI user = SIP account (e.g. 527931), not the DID.
+	// Do not set req.Trunk here: a partial Trunk override clears the stored trunk
+	// hostname and yields "no outbound hostname specified".
+	if fromUser := strings.TrimSpace(sharedenv.GetString("LIVEKIT_SIP_FROM_USER", sharedenv.GetString("LIVEKIT_SIP_AUTH_USERNAME", ""))); fromUser != "" {
+		req.SipNumber = fromUser
+	}
+	// Optional PSTN Caller ID display (DID). Separate from From URI user.
+	if callerID := strings.TrimSpace(sharedenv.GetString("LIVEKIT_SIP_CALLER_ID", sharedenv.GetString("VOIPMS_DID", ""))); callerID != "" {
+		req.DisplayName = &callerID
+	}
+	sip, err := sipClient.CreateSIPParticipant(ctx, req)
 	if err != nil {
 		return nil, fmt.Errorf("livekit: start outbound SIP call: %w", err)
 	}
@@ -158,10 +170,17 @@ func (c *WelfareClient) StartWelfareCheckCall(ctx context.Context, in outbound.W
 	}, nil
 }
 
-func (c *WelfareClient) welfareAdminToken() (string, error) {
+func (c *WelfareClient) welfareAdminToken(roomName string) (string, error) {
+	// LiveKit authorizes AgentDispatch via room-scoped roomAdmin (same as `lk dispatch create`),
+	// not a global agent.admin grant alone.
 	return lkauth.NewAccessToken(c.apiKey, c.apiSecret).
 		SetIdentity("welfare-check-dispatcher").
-		SetVideoGrant(&lkauth.VideoGrant{RoomCreate: true, RoomList: true, RoomAdmin: true}).
+		SetVideoGrant(&lkauth.VideoGrant{
+			RoomCreate: true,
+			RoomList:   true,
+			RoomAdmin:  true,
+			Room:       roomName,
+		}).
 		SetSIPGrant(&lkauth.SIPGrant{Admin: true, Call: true}).
 		SetAgentGrant(&lkauth.AgentGrant{Admin: true}).
 		SetValidFor(5 * time.Minute).

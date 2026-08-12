@@ -27,16 +27,24 @@ func (f *fakePatientRepo) GetPatientByID(ctx context.Context, id string) (*model
 }
 
 type fakeWelfareRepo struct {
-	inserted      *models.WelfareCheck
-	cancelled     *models.WelfareCheck
-	claimed       []models.WelfareCheckRun
-	dispatched    []models.WelfareCheckDispatchResult
-	lifecycle     *models.WelfareCheckRun
-	lifecycleErr  error
-	failMarkErr   error
-	cancelErr     error
-	claimErr      error
-	insertErr     error
+	inserted     *models.WelfareCheck
+	cancelled    *models.WelfareCheck
+	claimed      []models.WelfareCheckRun
+	dispatched   []models.WelfareCheckDispatchResult
+	failed       []fakeWelfareFail
+	missed       []uuid.UUID
+	lifecycle    *models.WelfareCheckRun
+	lifecycleErr error
+	failMarkErr  error
+	cancelErr    error
+	claimErr     error
+	insertErr    error
+}
+
+type fakeWelfareFail struct {
+	RunID         uuid.UUID
+	Reason        string
+	NextAttemptAt *time.Time
 }
 
 func (f *fakeWelfareRepo) InsertWelfareCheck(ctx context.Context, check *models.WelfareCheck) (*models.WelfareCheck, error) {
@@ -78,11 +86,16 @@ func (f *fakeWelfareRepo) MarkWelfareRunDispatched(ctx context.Context, result m
 	return nil
 }
 
-func (f *fakeWelfareRepo) MarkWelfareRunFailed(ctx context.Context, runID uuid.UUID, reason string, retry bool) error {
-	return f.failMarkErr
+func (f *fakeWelfareRepo) MarkWelfareRunFailed(ctx context.Context, runID uuid.UUID, reason string, nextAttemptAt *time.Time) error {
+	if f.failMarkErr != nil {
+		return f.failMarkErr
+	}
+	f.failed = append(f.failed, fakeWelfareFail{RunID: runID, Reason: reason, NextAttemptAt: nextAttemptAt})
+	return nil
 }
 
 func (f *fakeWelfareRepo) MarkWelfareRunMissed(ctx context.Context, runID uuid.UUID, reason string) error {
+	f.missed = append(f.missed, runID)
 	return nil
 }
 
@@ -311,5 +324,100 @@ func TestDispatchAllFailuresSurfaceError(t *testing.T) {
 	_, err := svc.DispatchDueWelfareChecks(context.Background(), 5)
 	if err == nil {
 		t.Fatal("expected systemic failure when all runs fail")
+	}
+	if len(welfare.failed) != 1 || welfare.failed[0].NextAttemptAt == nil {
+		t.Fatalf("expected retryable failure with next_attempt_at, got %+v", welfare.failed)
+	}
+	if len(welfare.missed) != 0 {
+		t.Fatalf("expected no missed mark on first dial failure")
+	}
+}
+
+func TestDispatchDialFailureSchedulesRetry(t *testing.T) {
+	t.Setenv("WELFARE_CHECK_ALLOW_CONSENT_BYPASS", "true")
+	t.Setenv("WELFARE_CHECK_MAX_ATTEMPTS", "5")
+	t.Setenv("WELFARE_CHECK_RETRY_BASE_SECONDS", "120")
+	runID := uuid.New()
+	welfare := &fakeWelfareRepo{
+		claimed: []models.WelfareCheckRun{{
+			ID:                 runID,
+			RequestID:          uuid.New(),
+			PatientID:          uuid.New(),
+			Attempts:           2,
+			PatientPhoneNumber: "+15551234567",
+			PatientUserID:      uuid.New(),
+			RequestReasonCode:  models.WelfareReasonOther,
+			RequestTimezone:    "UTC",
+			ScheduledAt:        time.Now().UTC(),
+		}},
+	}
+	calls := &fakeCallProvider{err: errors.New("sip status: 603: Declined")}
+	svc := newTestService(nil, welfare, nil, calls)
+	_, err := svc.DispatchDueWelfareChecks(context.Background(), 5)
+	if err == nil {
+		t.Fatal("expected dial error")
+	}
+	if len(welfare.failed) != 1 || welfare.failed[0].NextAttemptAt == nil {
+		t.Fatalf("expected scheduled retry, got %+v", welfare.failed)
+	}
+	delay := time.Until(*welfare.failed[0].NextAttemptAt)
+	// attempt 2 => 2 * base = 4 minutes (± slack)
+	if delay < 3*time.Minute || delay > 5*time.Minute {
+		t.Fatalf("expected ~4m backoff, got %v", delay)
+	}
+}
+
+func TestDispatchDialFailureExhaustsToMissed(t *testing.T) {
+	t.Setenv("WELFARE_CHECK_ALLOW_CONSENT_BYPASS", "true")
+	t.Setenv("WELFARE_CHECK_MAX_ATTEMPTS", "3")
+	welfare := &fakeWelfareRepo{
+		claimed: []models.WelfareCheckRun{{
+			ID:                 uuid.New(),
+			RequestID:          uuid.New(),
+			PatientID:          uuid.New(),
+			Attempts:           3,
+			PatientPhoneNumber: "+15551234567",
+			PatientUserID:      uuid.New(),
+			RequestReasonCode:  models.WelfareReasonOther,
+			RequestTimezone:    "UTC",
+			ScheduledAt:        time.Now().UTC(),
+		}},
+	}
+	calls := &fakeCallProvider{err: errors.New("sip status: 603: Declined")}
+	svc := newTestService(nil, welfare, nil, calls)
+	_, err := svc.DispatchDueWelfareChecks(context.Background(), 5)
+	if err == nil {
+		t.Fatal("expected dial error")
+	}
+	if len(welfare.missed) != 1 {
+		t.Fatalf("expected missed after max attempts, got failed=%+v missed=%v", welfare.failed, welfare.missed)
+	}
+	if len(welfare.failed) != 0 {
+		t.Fatalf("expected no pending retry after exhaustion, got %+v", welfare.failed)
+	}
+}
+
+func TestDispatchMissingPhoneIsPermanent(t *testing.T) {
+	t.Setenv("WELFARE_CHECK_ALLOW_CONSENT_BYPASS", "true")
+	welfare := &fakeWelfareRepo{
+		claimed: []models.WelfareCheckRun{{
+			ID:                 uuid.New(),
+			RequestID:          uuid.New(),
+			PatientID:          uuid.New(),
+			Attempts:           1,
+			PatientPhoneNumber: "",
+			PatientUserID:      uuid.New(),
+			RequestReasonCode:  models.WelfareReasonOther,
+			RequestTimezone:    "UTC",
+			ScheduledAt:        time.Now().UTC(),
+		}},
+	}
+	svc := newTestService(nil, welfare, nil, &fakeCallProvider{})
+	_, err := svc.DispatchDueWelfareChecks(context.Background(), 5)
+	if err == nil {
+		t.Fatal("expected phone required error")
+	}
+	if len(welfare.failed) != 1 || welfare.failed[0].NextAttemptAt != nil {
+		t.Fatalf("expected permanent failure, got %+v", welfare.failed)
 	}
 }

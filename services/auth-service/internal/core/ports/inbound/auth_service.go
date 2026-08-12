@@ -9,8 +9,6 @@ import (
 // AuthService is the inbound port implemented by the core auth service.
 type AuthService interface {
 	RegisterUser(ctx context.Context, email, phoneNumber, password, role string) (*models.User, error)
-	RegisterHospital(ctx context.Context, hospitalName, licenseNo, staffName, staffEmail, staffPhone, password, staffRole string) (*models.HospitalStaffAccount, error)
-	RegisterHospitalStaff(ctx context.Context, hospitalID, staffName, staffEmail, staffPhone, password, staffRole string) (*models.HospitalStaffAccount, error)
 	ValidateUserCredentials(ctx context.Context, email, phoneNumber, password string) (userID, role string, err error)
 	Login(ctx context.Context, email, phoneNumber, password, clientKind string) (accessToken, refreshToken, userID, role, authUUID string, err error)
 	CreateSession(ctx context.Context, userID string, authUUID string) (string, *models.Auth, error)

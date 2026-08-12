@@ -17,4 +17,6 @@ type NotificationService interface {
 	SendMeetingRequestedNotifications(ctx context.Context, data *events.MeetingRequestedData) error
 	SendMeetingScheduledNotifications(ctx context.Context, data *events.MeetingScheduledData) error
 	SendMeetingReminderNotifications(ctx context.Context, data *events.MeetingReminderData) error
+	SendAppointmentBookedNotifications(ctx context.Context, data *events.AppointmentBookedData) error
+	SendAppointmentCancelledNotifications(ctx context.Context, data *events.AppointmentCancelledData) error
 }

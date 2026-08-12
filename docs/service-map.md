@@ -117,10 +117,10 @@ This document inventories the services currently present in the repository, thei
 
 - Path: `services/health-provider-service`
 - Entrypoint: `services/health-provider-service/cmd/health-provider-service/main.go`
-- Interfaces: HTTP on `HEALTH_PROVIDER_SERVICE_HTTP_ADDR`
-- Primary dependencies: none wired yet
-- Current scope: placeholder for provider and organization APIs
-- Status: Future work
+- Interfaces: gRPC on `HEALTH_PROVIDER_SERVICE_GRPC_ADDR` (default `:9094`)
+- Primary dependencies: PostgreSQL, auth-service (credential user creation)
+- Current scope: hospital registration and hospital staff membership
+- Status: Implemented (hexagonal; auth owns credentials only)
 
 ## Supporting application modules
 

@@ -24,7 +24,7 @@ RUN --mount=type=cache,target=/root/.cache/go-build \
 FROM alpine:latest
 WORKDIR /app
 
-RUN apk --no-cache add ca-certificates
+RUN apk --no-cache add ca-certificates tzdata
 
 COPY --from=builder /app/build/notification-service ./build/notification-service
 COPY --from=builder /app/shared ./shared

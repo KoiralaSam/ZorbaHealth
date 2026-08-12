@@ -1,0 +1,580 @@
+{
+  "meta": {
+    "name": "ZorbaHealth Peak UX Verification Matrix",
+    "created_at": "2026-08-11",
+    "peak_ux_figma_url": "https://www.figma.com/design/eNq0V4HwW6Yk4ut4GQWg8b",
+    "status": "in_progress",
+    "blocking_dependency": {
+      "requirement": "Measure every core journey against the current-state Figma file before declaring the redesign complete.",
+      "status": "blocked",
+      "reason": "The ZorbaHealth Current State Figma file URL/key and docs/design/current-state-dna.json are not present in the repository, attachments, or saved Product Design context.",
+      "required_to_unblock": "Provide the Current State Figma URL or file key, or add docs/design/current-state-dna.json with current-state journey counts.",
+      "last_rechecked_at": "2026-08-12",
+      "search_evidence": [
+        "rg search across docs/design, /home/koiralas2/.codex/attachments, and /home/koiralas2/.codex/plugins/cache found references to the requested Current State file but no Figma URL/key.",
+        "docs/design/current-state-dna.json is still absent.",
+        "graphify query \"current state Figma baseline Peak UX decisions WCAG ZorbaHealth\" returned exit code 1 with no output."
+      ]
+    },
+    "last_verified_at": "2026-08-12",
+    "latest_attached_brief": "/home/koiralas2/.codex/attachments/73bb9a5e-1442-4b1c-b7b2-f2d26be39b31/pasted-text.txt"
+  },
+  "figma_pages": {
+    "goal": "Goal",
+    "cover": "Cover",
+    "foundations": "Foundations",
+    "components": "Components",
+    "auth_and_journey_map": "Auth & Journey Map",
+    "web_patient": "Web - Patient Peak UX",
+    "web_hospital": "Web - Hospital Peak UX",
+    "web_meeting": "Web - Meeting Peak UX",
+    "mobile_patient": "Mobile - Patient Peak UX",
+    "mobile_hospital": "Mobile - Hospital Peak UX",
+    "rationale": "Redesign Rationale"
+  },
+  "core_journeys": [
+    {
+      "id": "patient_book_appointment",
+      "required_outcome": "Patient books an appointment in fewer decisions than current state.",
+      "peak_decision_count": 3,
+      "peak_decisions": [
+        "Choose who",
+        "Choose or accept when",
+        "Confirm"
+      ],
+      "peak_figma_frames": [
+        "web/patient/appointments/who",
+        "web/patient/appointments/when",
+        "web/patient/appointments/confirm",
+        "web/patient/appointments/booked",
+        "mobile/patient/appointments/who",
+        "mobile/patient/appointments/when",
+        "mobile/patient/appointments/confirm",
+        "mobile/patient/appointments/booked"
+      ],
+      "prototype_evidence": "Figma live verification on 2026-08-12: Web Patient visible flow is Book appointment -> Choose St. Mary -> Use earliest slot -> Confirm booking -> web/patient/appointments/booked. Mobile Patient visible flow is Book appointment -> Choose St. Mary -> Use earliest slot -> Confirm booking -> mobile/patient/appointments/booked, with Back to care plan wired.",
+      "current_state_count_status": "missing",
+      "completion_status": "blocked_on_baseline"
+    },
+    {
+      "id": "patient_grant_qr_consent",
+      "required_outcome": "Patient grants consent via QR in fewer decisions than current state.",
+      "peak_decision_count": 3,
+      "peak_decisions": [
+        "Scan QR",
+        "Review what is being granted",
+        "Confirm grant"
+      ],
+      "peak_figma_frames": [
+        "web/patient/privacy/scan",
+        "web/patient/privacy/confirm",
+        "web/patient/privacy/granted",
+        "mobile/patient/privacy/scan",
+        "mobile/patient/privacy/grant",
+        "mobile/patient/privacy/granted"
+      ],
+      "prototype_evidence": "Figma live verification on 2026-08-12: Web Patient sidebar Privacy cards now provide visible entry to web/patient/privacy/scan from patient frames, then Scan QR code -> web/patient/privacy/confirm -> Grant consent -> web/patient/privacy/granted. Mobile Patient Privacy tabs now provide visible entry to mobile/patient/privacy/scan, then Scan QR code -> mobile/patient/privacy/grant -> Grant consent -> mobile/patient/privacy/granted.",
+      "current_state_count_status": "missing",
+      "completion_status": "blocked_on_baseline"
+    },
+    {
+      "id": "patient_join_video_visit",
+      "required_outcome": "Patient joins a video visit in fewer decisions than current state.",
+      "peak_decision_count": 3,
+      "peak_decisions": [
+        "Open upcoming visit",
+        "Run device check",
+        "Join visit or choose audio-only fallback"
+      ],
+      "peak_figma_frames": [
+        "web/meeting/join/prejoin",
+        "web/meeting/room",
+        "web/meeting/audio-only",
+        "web/meeting/ended",
+        "web/meeting/join/missing",
+        "mobile/hospital/meeting",
+        "web/patient/meeting/prejoin",
+        "web/patient/meeting/room",
+        "web/patient/meeting/ended",
+        "mobile/patient/meeting/prejoin",
+        "mobile/patient/meeting/room",
+        "mobile/patient/meeting/ended"
+      ],
+      "prototype_evidence": "Figma live verification on 2026-08-12: Web Patient visible Run device check and Join visit controls route to web/patient/meeting/prejoin -> room -> ended -> dashboard. Mobile Patient visible Join/device check routes to mobile/patient/meeting/prejoin -> room -> ended -> home. Web Meeting page remains wired independently for /meeting/join states.",
+      "current_state_count_status": "missing",
+      "completion_status": "blocked_on_baseline"
+    },
+    {
+      "id": "patient_ask_records_question",
+      "required_outcome": "Patient asks a records question in fewer decisions than current state.",
+      "peak_decision_count": 3,
+      "peak_decisions": [
+        "Open Records",
+        "Ask the question",
+        "Review sourced answer with consent provenance"
+      ],
+      "peak_figma_frames": [
+        "web/patient/records",
+        "mobile/patient/records"
+      ],
+      "prototype_evidence": "Figma live verification on 2026-08-12: Web Patient sidebar Records cards now provide visible entry to web/patient/records from patient frames; Mobile Patient Records tabs now provide visible entry to mobile/patient/records. Both records frames include Ask question reactions and sourced answer/PHI provenance states.",
+      "current_state_count_status": "missing",
+      "completion_status": "blocked_on_baseline"
+    },
+    {
+      "id": "staff_triage_incident_and_review_summary",
+      "required_outcome": "Staff triages an incident and reviews a summary in fewer decisions than current state.",
+      "peak_decision_count": 3,
+      "peak_decisions": [
+        "Choose triage item",
+        "Open patient or incident context",
+        "Verify AI summary provenance"
+      ],
+      "peak_figma_frames": [
+        "web/hospital/home",
+        "web/hospital/incidents",
+        "web/hospital/summary",
+        "web/hospital/audit",
+        "mobile/hospital/home",
+        "mobile/hospital/alerts",
+        "mobile/hospital/summary",
+        "mobile/hospital/audit"
+      ],
+      "prototype_evidence": "Figma live verification on 2026-08-12: Web Hospital chains Home Triage incident -> web/hospital/incidents -> Review patient summary -> web/hospital/summary -> Trace audit -> web/hospital/audit; Home Review summary also routes directly to summary. Mobile Hospital chains Home Triage alert -> mobile/hospital/alerts -> Trace audit -> mobile/hospital/audit; Home Review summary routes to summary and summary Open audit trail routes to audit.",
+      "current_state_count_status": "missing",
+      "completion_status": "blocked_on_baseline"
+    }
+  ],
+  "accessibility_evidence": {
+    "contrast_pairs": [
+      {
+        "pair": "text/default on background",
+        "ratio": "17.60:1",
+        "status": "AA pass"
+      },
+      {
+        "pair": "text/subtle on white",
+        "ratio": "7.58:1",
+        "status": "AA pass"
+      },
+      {
+        "pair": "white on primary",
+        "ratio": "6.29:1",
+        "status": "AA pass"
+      },
+      {
+        "pair": "white on navy",
+        "ratio": "16.79:1",
+        "status": "AA pass"
+      },
+      {
+        "pair": "PHI foreground on PHI background",
+        "ratio": "8.88:1",
+        "status": "AA pass"
+      },
+      {
+        "pair": "success foreground on success background",
+        "ratio": "5.21:1",
+        "status": "AA pass"
+      },
+      {
+        "pair": "warning foreground on warning background",
+        "ratio": "6.88:1",
+        "status": "AA pass"
+      },
+      {
+        "pair": "error foreground on error background",
+        "ratio": "5.72:1",
+        "status": "AA pass"
+      },
+      {
+        "pair": "info foreground on info background",
+        "ratio": "6.16:1",
+        "status": "AA pass"
+      }
+    ],
+    "touch_targets": "Peak UX component guidance specifies 44px/44pt minimum targets. Figma button frames are visually sized above 44px/44pt in the main flows.",
+    "focus_order": "Goal, Foundations, Components, and Rationale pages document focus order requirements; primary journeys are ordered visually top-to-bottom and left-to-right.",
+    "reduced_motion": "Peak UX DNA and Goal evidence document reduced-motion behavior for Premium patient and Corporate hospital motion patterns.",
+    "phi_annotations": "PHI-sensitive cards and regions are marked in patient records, consent, summary provenance, and audit surfaces.",
+    "figma_text_contrast_scan": {
+      "verified_at": "2026-08-12",
+      "method": "Figma MCP approximate scan of visible TEXT solid foreground against nearest solid ancestor background; normal text threshold 4.5:1, large text threshold 3:1.",
+      "pages": {
+        "Web - Patient Peak UX": {
+          "checked_text_nodes": 195,
+          "aa_issue_count": 0
+        },
+        "Web - Hospital Peak UX": {
+          "checked_text_nodes": 94,
+          "aa_issue_count": 0
+        },
+        "Web - Meeting Peak UX": {
+          "checked_text_nodes": 26,
+          "aa_issue_count": 0
+        },
+        "Mobile - Patient Peak UX": {
+          "checked_text_nodes": 175,
+          "aa_issue_count": 0
+        },
+        "Mobile - Hospital Peak UX": {
+          "checked_text_nodes": 60,
+          "aa_issue_count": 0
+        }
+      },
+      "total_checked_text_nodes": 550,
+      "aa_issue_count": 0,
+      "scope_note": "This supports contrast evidence only; full WCAG 2.2 AA still requires keyboard, focus, touch-target, reduced-motion, and screen-reader checks."
+    },
+    "target_size_scan": {
+      "verified_at": "2026-08-12",
+      "method": "Figma MCP scan of visible nodes with prototype reactions across core Peak UX pages. WCAG 2.2 AA target-size threshold recorded as 24x24; project mobile comfort threshold recorded as 44x44.",
+      "patch": "Raised 45 Mobile Patient bottom tab instances from 62x39 to 62x45 by increasing existing top/bottom tab padding from 7 to 10.",
+      "pages": {
+        "Web - Patient Peak UX": {
+          "interactive_nodes": 50,
+          "wcag24_failures": 0,
+          "comfort44_failures": 0
+        },
+        "Web - Hospital Peak UX": {
+          "interactive_nodes": 6,
+          "wcag24_failures": 0,
+          "comfort44_failures": 0
+        },
+        "Web - Meeting Peak UX": {
+          "interactive_nodes": 4,
+          "wcag24_failures": 0,
+          "comfort44_failures": 0
+        },
+        "Mobile - Patient Peak UX": {
+          "interactive_nodes": 47,
+          "wcag24_failures": 0,
+          "comfort44_failures": 0
+        },
+        "Mobile - Hospital Peak UX": {
+          "interactive_nodes": 5,
+          "wcag24_failures": 0,
+          "comfort44_failures": 0
+        }
+      },
+      "total_interactive_nodes": 112,
+      "wcag24_failures": 0,
+      "comfort44_failures": 0,
+      "screenshot_check": {
+        "node_id": "8:2",
+        "frame": "mobile/patient/home",
+        "rendered": "390x844",
+        "downloaded_to": "/tmp/mobile-patient-home-target-size.png",
+        "visual_viewer_status": "blocked_by_local_sandbox_loopback_error"
+      },
+      "scope_note": "Target size evidence does not prove full WCAG 2.2 AA; keyboard, focus, reduced-motion, touch semantics, and screen-reader labels remain separate gates."
+    },
+    "interactive_name_focus_metadata": {
+      "verified_at": "2026-08-12",
+      "audit_file": "docs/design/peak-ux-accessibility-audit.json",
+      "figma_namespace": "zorba.a11y",
+      "metadata_keys": [
+        "label",
+        "focusOrder",
+        "frame"
+      ],
+      "checked_interactive_nodes": 112,
+      "missing_label_or_focus_metadata": 0,
+      "evidence_node_id": "31:2",
+      "a11y_metadata_note_id": "42:2",
+      "scope_note": "Design-time metadata supports prototype accessibility handoff; runtime screen-reader and keyboard testing remain open."
+    },
+    "web_build_a11y_warning_fix": {
+      "verified_at": "2026-08-12",
+      "command": "npm run build",
+      "working_directory": "web",
+      "status": "pass",
+      "evidence": "Next.js production build completed successfully after adding aria-selected to PatientPicker role=\"option\" results; the previous jsx-a11y role-has-required-aria-props warning did not recur.",
+      "source_location": "web/src/components/PatientPicker.tsx:155",
+      "scope_note": "This proves the specific PatientPicker build-time accessibility warning is fixed; it is not a full runtime keyboard or screen-reader audit."
+    },
+    "wcag_2_2_gap_audit": {
+      "file": "docs/design/peak-ux-wcag-gap-audit.json",
+      "audited_at": "2026-08-12",
+      "overall_status": "in_progress_not_full_wcag_pass",
+      "proven": [
+        "Core Figma text contrast scan",
+        "Core Figma target-size scan",
+        "Core Figma interactive metadata scan",
+        "PatientPicker aria-selected build warning fix"
+      ],
+      "not_yet_proven": [
+        "All-frame WCAG coverage",
+        "Runtime keyboard-only completion",
+        "Runtime focus-visible evidence",
+        "Runtime screen-reader labels/roles/states",
+        "Runtime reduced-motion behavior"
+      ]
+    }
+  },
+  "prototype_reaction_inventory": {
+    "web_patient": 50,
+    "web_hospital": 6,
+    "mobile_patient": 47,
+    "mobile_hospital": 5,
+    "web_meeting": 4,
+    "auth_and_journey_map": 10
+  },
+  "verification_commands": [
+    {
+      "command": "python3 -m json.tool docs/design/peak-ux-dna.json",
+      "status": "pass"
+    },
+    {
+      "command": "python3 -m json.tool docs/design/peak-ux-verification.json",
+      "status": "pass"
+    },
+    {
+      "command": "graphify update .",
+      "status": "not_run",
+      "reason": "graphify is not installed in this environment"
+    },
+    {
+      "command": "Figma MCP: inspect Web Patient Peak UX reaction graph",
+      "status": "pass"
+    },
+    {
+      "command": "Figma MCP: inspect Mobile Patient Peak UX reaction graph",
+      "status": "pass"
+    },
+    {
+      "command": "Figma MCP: screenshot node 24:2 web/patient/meeting/prejoin",
+      "status": "pass"
+    },
+    {
+      "command": "Figma MCP: screenshot node 25:2 mobile/patient/appointments/booked",
+      "status": "pass"
+    },
+    {
+      "command": "Figma MCP: screenshot node 26:2 Prototype Walkability Patch / 2026-08-12",
+      "status": "pass"
+    },
+    {
+      "command": "python3 generated docs/design/peak-ux-design-intelligence-evidence.md from local ui-ux-pro-max searches",
+      "status": "pass"
+    },
+    {
+      "command": "Figma MCP: corrected visible patient booking/join button reactions and re-read destinations",
+      "status": "pass"
+    },
+    {
+      "command": "Figma MCP: approximate WCAG contrast scan across five core Peak UX pages",
+      "status": "pass",
+      "evidence": "550 visible text nodes checked; 0 AA contrast issues found"
+    },
+    {
+      "command": "Figma MCP: wired non-active Web Patient sidebar nav cards for Home/Care/Records/Privacy",
+      "status": "pass",
+      "evidence": "36 nav cards wired; web patient reaction count increased to 50"
+    },
+    {
+      "command": "Figma MCP: wired non-active Mobile Patient bottom tabs for Home/Care/Records/Privacy",
+      "status": "pass",
+      "evidence": "32 tab frames wired; mobile patient reaction count increased to 47"
+    },
+    {
+      "command": "Figma MCP: verified staff incident-to-summary chains on web and mobile hospital pages",
+      "status": "pass"
+    },
+    {
+      "command": "Figma MCP: mobile patient target-size scan before patch",
+      "status": "pass",
+      "evidence": "47 interactive nodes passed WCAG 24x24; 32 wired bottom tabs were below 44x44 comfort at 62x39"
+    },
+    {
+      "command": "Figma MCP: raised Mobile Patient bottom tab target height",
+      "status": "pass",
+      "evidence": "45 tab frames updated to 62x45"
+    },
+    {
+      "command": "Figma MCP: target-size scan across five core Peak UX pages",
+      "status": "pass",
+      "evidence": "112 interactive nodes checked; 0 WCAG 24x24 failures; 0 44x44 comfort failures"
+    },
+    {
+      "command": "Figma MCP: accessible-name and focus-order metadata scan across five core Peak UX pages",
+      "status": "pass",
+      "evidence": "112 interactive nodes annotated with zorba.a11y label/focusOrder/frame; 0 missing metadata entries"
+    },
+    {
+      "command": "rg current-state baseline search across repo docs and Codex attachments",
+      "status": "pass",
+      "evidence": "No Current State Figma URL/key or docs/design/current-state-dna.json found; only prompt references were found."
+    },
+    {
+      "command": "graphify query \"current state Figma baseline Peak UX decisions WCAG ZorbaHealth\"",
+      "status": "no_output",
+      "evidence": "graphify command exited 1 with no output in this environment."
+    },
+    {
+      "command": "npm run build",
+      "status": "pass",
+      "working_directory": "web",
+      "evidence": "Production build completed successfully with no PatientPicker jsx-a11y role-has-required-aria-props warning."
+    },
+    {
+      "command": "Figma MCP: read-only metadata and screenshot recheck for evidence node 31:2",
+      "status": "pass_with_visual_viewer_limitation",
+      "evidence": "Node 31:2 metadata contains WCAG Note, Target Size Note, and A11y Metadata Note; screenshot API rendered 760x518 and downloaded 94,040 bytes, but local visual viewer was blocked by sandbox loopback error."
+    },
+    {
+      "command": "python3 -m json.tool docs/design/peak-ux-wcag-gap-audit.json",
+      "status": "pass"
+    }
+  ],
+  "figma_live_verification": {
+    "verified_at": "2026-08-12",
+    "file_key": "eNq0V4HwW6Yk4ut4GQWg8b",
+    "web_patient": {
+      "frame_count": 14,
+      "reaction_count": 50,
+      "added_frames": {
+        "web/patient/meeting/prejoin": "24:2",
+        "web/patient/meeting/room": "24:3",
+        "web/patient/meeting/ended": "24:4"
+      },
+      "hotspots": {
+        "Hotspot / web patient join visit to meeting prejoin": "24:34"
+      },
+      "screenshot_checks": [
+        {
+          "node_id": "24:2",
+          "frame": "web/patient/meeting/prejoin",
+          "rendered": "1400x875",
+          "status": "pass"
+        }
+      ],
+      "visible_button_destination_fixes": {
+        "Button / Run device check": "web/patient/meeting/prejoin",
+        "Button / Join visit": "web/patient/meeting/prejoin"
+      },
+      "nav_wiring_patch": {
+        "verified_at": "2026-08-12",
+        "wired_non_active_sidebar_cards": 36,
+        "key_entries": {
+          "Card / Records from home": "web/patient/records",
+          "Card / Privacy from home": "web/patient/privacy/scan"
+        }
+      }
+    },
+    "mobile_patient": {
+      "frame_count": 15,
+      "reaction_count": 47,
+      "added_frames": {
+        "mobile/patient/appointments/booked": "25:2",
+        "mobile/patient/meeting/prejoin": "25:3",
+        "mobile/patient/meeting/room": "25:4",
+        "mobile/patient/meeting/ended": "25:5"
+      },
+      "hotspots": {
+        "Hotspot / mobile patient join visit to prejoin": "25:48",
+        "Hotspot / mobile patient confirm booking to booked": "25:49"
+      },
+      "screenshot_checks": [
+        {
+          "node_id": "25:2",
+          "frame": "mobile/patient/appointments/booked",
+          "rendered": "390x844",
+          "status": "pass"
+        }
+      ],
+      "visible_button_destination_fixes": {
+        "Button / Confirm booking": "mobile/patient/appointments/booked",
+        "Button / Join / device check": "mobile/patient/meeting/prejoin"
+      },
+      "tab_wiring_patch": {
+        "verified_at": "2026-08-12",
+        "wired_non_active_bottom_tabs": 32,
+        "key_entries": {
+          "Tab / Records from home": "mobile/patient/records",
+          "Tab / Privacy from home": "mobile/patient/privacy/scan"
+        }
+      }
+    },
+    "remaining_unverified_gate": "Current-state Figma baseline and docs/design/current-state-dna.json are still missing, so fewer-decisions-than-current-state cannot be proven yet.",
+    "evidence_board": {
+      "page": "Redesign Rationale",
+      "node_id": "26:2",
+      "name": "Prototype Walkability Patch / 2026-08-12",
+      "screenshot_check": {
+        "rendered": "1200x566",
+        "status": "pass"
+      },
+      "latest_node_id": "31:2",
+      "target_size_screenshot_check": {
+        "node_id": "31:2",
+        "rendered": "760x436",
+        "status": "pass"
+      },
+      "a11y_metadata_screenshot_check": {
+        "node_id": "31:2",
+        "rendered": "760x518",
+        "status": "pass"
+      },
+      "read_only_connector_recheck": {
+        "verified_at": "2026-08-12",
+        "node_id": "31:2",
+        "name": "Prototype Wiring Evidence / Visible Controls / 2026-08-12",
+        "metadata_status": "pass",
+        "metadata_children": [
+          "Eyebrow",
+          "Title",
+          "Evidence",
+          "Remaining Gate",
+          "WCAG Note",
+          "Target Size Note",
+          "A11y Metadata Note"
+        ],
+        "screenshot_status": "pass",
+        "rendered": "760x518",
+        "downloaded_to": "/tmp/peak-ux-evidence-card-31-2.png",
+        "downloaded_bytes": 94040,
+        "visual_viewer_status": "blocked_by_local_sandbox_loopback_error",
+        "connector_scope_note": "This turn exposed Figma metadata/screenshot tools but not write-capable use_figma; the evidence card was verified read-only and not modified."
+      }
+    },
+    "contrast_scan": {
+      "checked_text_nodes": 550,
+      "aa_issue_count": 0,
+      "evidence_node_id": "31:2"
+    },
+    "staff_chain_verification": {
+      "verified_at": "2026-08-12",
+      "web": "Home Triage incident -> incidents -> Review patient summary -> summary -> Trace audit -> audit",
+      "mobile": "Home Triage alert -> alerts -> Trace audit -> audit; Home Review summary -> summary -> Open audit trail -> audit"
+    },
+    "target_size_scan": {
+      "checked_interactive_nodes": 112,
+      "wcag24_failures": 0,
+      "comfort44_failures": 0,
+      "mobile_patient_tabs_patched": 45,
+      "evidence_node_id": "31:2",
+      "target_size_note_id": "38:2"
+    },
+    "a11y_metadata_scan": {
+      "checked_interactive_nodes": 112,
+      "missing_label_or_focus_metadata": 0,
+      "evidence_node_id": "31:2",
+      "a11y_metadata_note_id": "42:2"
+    }
+  },
+  "design_intelligence_evidence": {
+    "file": "docs/design/peak-ux-design-intelligence-evidence.md",
+    "verified_at": "2026-08-12",
+    "commands": [
+      "consumer healthcare patient portal calm trustworthy --design-system --variance 4 --motion 5 --density 5 -p ZorbaHealth Patient",
+      "clinical staff console dense fast triage --design-system --variance 4 --motion 5 --density 8 -p ZorbaHealth Hospital",
+      "healthcare trust --domain color",
+      "clinical calm legible --domain typography",
+      "accessibility forms navigation --domain ux",
+      "animation accessibility z-index loading --domain ux"
+    ],
+    "status": "pass",
+    "note": "Local ui-ux-pro-max searches completed successfully; raw outputs are captured in the evidence markdown. Peak UX DNA keeps shipped ZorbaHealth indigo as primary per the brief, so recommendations were used as design intelligence rather than copied literally."
+  }
+}

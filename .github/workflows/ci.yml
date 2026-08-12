@@ -28,10 +28,7 @@ jobs:
         with:
           go-version-file: go.mod
       - name: Go tests
-        run: |
-          go list ./services/... ./shared/... \
-            | grep -v '/services/health-provider-service/' \
-            | xargs go test -count=1
+        run: go test -count=1 ./services/... ./shared/...
       - name: Migration smoke
         env:
           DATABASE_URL: postgres://healthai:healthai@localhost:5432/healthai?sslmode=disable
@@ -73,9 +70,7 @@ jobs:
         continue-on-error: true
         run: |
           go install golang.org/x/vuln/cmd/govulncheck@latest
-          go list ./... \
-            | grep -v '/services/health-provider-service/' \
-            | xargs govulncheck
+          govulncheck ./...
       - name: Trivy filesystem scan
         uses: aquasecurity/trivy-action@v0.36.0
         with:

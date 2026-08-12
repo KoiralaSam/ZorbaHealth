@@ -126,7 +126,7 @@ docker_build(
 
 k8s_resource('patient-service', port_forwards=8083, resource_deps=app_deps + ['livekit-docker'], labels="services")
 k8s_resource(
-  'welfare-check-dispatcher',
+  'cron-dispatcher',
   resource_deps=app_deps + ['patient-service', 'auth-service', 'audit-service'],
   labels='jobs',
 )
@@ -143,6 +143,28 @@ docker_build(
 
 k8s_resource('auth-service', port_forwards='8082:9092', resource_deps=app_deps, labels="services")
 ### End of Auth Service ###
+
+### Health Provider Service ###
+docker_build(
+  'health-provider-service',
+  '.',
+  dockerfile='./deploy/docker/development/health-provider-service.Dockerfile',
+  platform=_docker_platform,
+)
+
+k8s_resource('health-provider-service', port_forwards='8094:9094', resource_deps=app_deps + ['auth-service'], labels="services")
+### End of Health Provider Service ###
+
+### Appointment Service ###
+docker_build(
+  'appointment-service',
+  '.',
+  dockerfile='./deploy/docker/development/appointment-service.Dockerfile',
+  platform=_docker_platform,
+)
+
+k8s_resource('appointment-service', port_forwards='8099:9099', resource_deps=app_deps + ['audit-service'], labels="services")
+### End of Appointment Service ###
 
 ### Notification Service ###
 docker_build(

@@ -11,6 +11,7 @@ import (
 	"github.com/KoiralaSam/ZorbaHealth/shared/contracts"
 	sharedlogging "github.com/KoiralaSam/ZorbaHealth/shared/logging"
 	authpb "github.com/KoiralaSam/ZorbaHealth/shared/proto/auth"
+	healthproviderpb "github.com/KoiralaSam/ZorbaHealth/shared/proto/health_provider"
 )
 
 type refreshBody struct {
@@ -60,22 +61,21 @@ func HospitalRegisterHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	client, err := grpc_clients.NewPatientAuthServiceClient()
+	client, err := grpc_clients.NewHealthProviderServiceClient()
 	if err != nil {
 		writeJson(w, http.StatusInternalServerError, nil, &contracts.APIError{Code: "INTERNAL_SERVER_ERROR", Message: err.Error()})
 		return
 	}
 	defer client.Close()
 
-	resp, err := client.HospitalRegisterClient.RegisterHealthProvider(r.Context(), &authpb.RegisterHealthProviderRequest{
-		Email:            email,
-		PhoneNumber:      strings.TrimSpace(body.PhoneNumber),
-		Password:         body.Password,
-		OrganizationName: hospitalName,
-		ServiceType:      "hospital",
-		LicenseNo:        licenseNo,
-		StaffName:        staffName,
-		StaffRole:        "admin",
+	resp, err := client.RegisterClient.RegisterHospital(r.Context(), &healthproviderpb.RegisterHospitalRequest{
+		HospitalName: hospitalName,
+		LicenseNo:    licenseNo,
+		StaffName:    staffName,
+		Email:        email,
+		PhoneNumber:  strings.TrimSpace(body.PhoneNumber),
+		Password:     body.Password,
+		StaffRole:    "admin",
 	})
 	if err != nil {
 		writeJson(w, http.StatusBadRequest, nil, &contracts.APIError{Code: "REGISTRATION_FAILED", Message: "Hospital registration failed: " + err.Error()})
@@ -123,21 +123,20 @@ func HospitalStaffRegisterHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	client, err := grpc_clients.NewPatientAuthServiceClient()
+	client, err := grpc_clients.NewHealthProviderServiceClient()
 	if err != nil {
 		writeJson(w, http.StatusInternalServerError, nil, &contracts.APIError{Code: "INTERNAL_SERVER_ERROR", Message: err.Error()})
 		return
 	}
 	defer client.Close()
 
-	resp, err := client.HospitalRegisterClient.RegisterHealthProvider(r.Context(), &authpb.RegisterHealthProviderRequest{
+	resp, err := client.RegisterClient.RegisterHospitalStaff(r.Context(), &healthproviderpb.RegisterHospitalStaffRequest{
+		HospitalId:  claims.HospitalID,
+		StaffName:   staffName,
 		Email:       email,
 		PhoneNumber: strings.TrimSpace(body.PhoneNumber),
 		Password:    body.Password,
-		ServiceType: "hospital_staff",
-		StaffName:   staffName,
 		StaffRole:   staffRole,
-		HospitalId:  claims.HospitalID,
 	})
 	if err != nil {
 		writeJson(w, http.StatusBadRequest, nil, &contracts.APIError{Code: "REGISTRATION_FAILED", Message: "Staff registration failed: " + err.Error()})

@@ -1,0 +1,126 @@
+{
+  "name": "ZorbaHealth Peak UX WCAG 2.2 AA Gap Audit",
+  "audited_at": "2026-08-12",
+  "figma_file_key": "eNq0V4HwW6Yk4ut4GQWg8b",
+  "scope": "Standing goal: every core journey in the Peak UX Figma prototype, with every frame passing WCAG 2.2 AA and every flow walkable end-to-end in prototype mode.",
+  "overall_status": "in_progress_not_full_wcag_pass",
+  "summary": {
+    "proven_or_strong_evidence": [
+      "Core Figma text contrast scan: 550 visible text nodes across five core Peak UX pages, 0 AA contrast failures.",
+      "Core Figma target-size scan: 112 interactive nodes, 0 WCAG 24x24 failures, 0 stricter 44x44 comfort failures after Mobile Patient tab patch.",
+      "Core Figma interactive metadata: 112 interactive nodes have zorba.a11y label/focusOrder/frame metadata, 0 missing entries.",
+      "Web PatientPicker role=option build-time a11y warning fixed locally and verified by npm run build."
+    ],
+    "partial_or_design_time_only": [
+      "Focus order exists as Figma metadata but has not been runtime keyboard-tested.",
+      "Accessible names exist as Figma metadata but have not been verified with runtime screen-reader tooling.",
+      "Evidence card node 31:2 renders and contains WCAG/target/a11y notes, but local visual image inspection is blocked by sandbox loopback errors."
+    ],
+    "missing_or_unproved": [
+      "All-frame WCAG coverage beyond the five core Peak UX pages is not yet proven.",
+      "Keyboard-only completion for web login, booking, consent, and audit search is not yet proven.",
+      "Visible focus at every runtime keyboard step is not yet proven.",
+      "Reduced-motion behavior in running web and mobile apps is not yet proven.",
+      "Runtime mobile screen-reader labels and touch semantics are not yet proven.",
+      "Current State decision-count baseline is still missing, so fewer-decisions-than-current-state remains unproved."
+    ]
+  },
+  "wcag_criteria": [
+    {
+      "criterion": "1.4.3 Contrast (Minimum)",
+      "level": "AA",
+      "status": "pass_for_core_figma_text_scan",
+      "evidence": "Figma MCP approximate contrast scan checked 550 visible text nodes across Web Patient, Web Hospital, Web Meeting, Mobile Patient, and Mobile Hospital Peak UX pages; 0 AA issues.",
+      "remaining": "Run rendered web/mobile contrast checks in light and dark themes and extend Figma scan to every non-core frame before claiming every-frame WCAG pass."
+    },
+    {
+      "criterion": "1.4.11 Non-text Contrast",
+      "level": "AA",
+      "status": "not_proven",
+      "evidence": "Token contrast pairs and text contrast are documented, but controls, focus indicators, chart/status affordances, and icon strokes have not been systematically checked as non-text contrast.",
+      "remaining": "Check control boundaries, icons, focus rings, status indicators, and selection states across all frames and rendered apps."
+    },
+    {
+      "criterion": "2.1.1 Keyboard",
+      "level": "A",
+      "status": "not_proven",
+      "evidence": "Prototype reactions are wired, but runtime keyboard-only completion has not been exercised for login, booking, consent, meeting, records, or staff audit/triage flows.",
+      "remaining": "Run browser keyboard walkthroughs and record focus path evidence for every web core journey."
+    },
+    {
+      "criterion": "2.4.3 Focus Order",
+      "level": "A",
+      "status": "partial_figma_metadata",
+      "evidence": "112 core Figma interactive nodes have zorba.a11y focusOrder metadata with 0 missing entries.",
+      "remaining": "Verify runtime DOM tab order and mobile screen-reader traversal order."
+    },
+    {
+      "criterion": "2.4.7 Focus Visible",
+      "level": "AA",
+      "status": "not_proven",
+      "evidence": "Figma notes and token guidance mention focus, but no runtime focus-visible screenshots/walkthroughs are attached.",
+      "remaining": "Capture focus-visible states for every keyboard step in the web core journeys."
+    },
+    {
+      "criterion": "2.5.3 Label in Name",
+      "level": "A",
+      "status": "partial_figma_metadata",
+      "evidence": "112 core Figma interactive nodes have accessible-name metadata derived from layer names or visible child text.",
+      "remaining": "Verify runtime accessible names match visible labels for web and mobile controls."
+    },
+    {
+      "criterion": "2.5.8 Target Size (Minimum)",
+      "level": "AA",
+      "status": "pass_for_core_figma_targets",
+      "evidence": "Figma target-size scan checked 112 core interactive nodes; 0 WCAG 24x24 failures and 0 44x44 comfort failures after patching 45 Mobile Patient tab instances to 62x45.",
+      "remaining": "Extend target-size scan to every frame outside the five core pages and verify rendered mobile touch targets."
+    },
+    {
+      "criterion": "2.3.3 Animation from Interactions / reduced-motion expectation",
+      "level": "AAA_reference_and_user_goal_gate",
+      "status": "not_proven_for_runtime",
+      "evidence": "Peak UX DNA documents reduced-motion behavior, but running web/mobile reduced-motion behavior has not been verified.",
+      "remaining": "Exercise prefers-reduced-motion on web and system Reduce Motion on mobile; confirm non-essential animation is disabled."
+    },
+    {
+      "criterion": "3.3.2 Labels or Instructions",
+      "level": "A",
+      "status": "partial_design_review",
+      "evidence": "Figma metadata and visible labels exist for core prototype controls; PatientPicker exposes selected option state locally.",
+      "remaining": "Verify rendered form labels, instructions, errors, and required states for auth, booking, consent, and audit search."
+    },
+    {
+      "criterion": "4.1.2 Name, Role, Value",
+      "level": "A",
+      "status": "partial_with_one_runtime_build_fix",
+      "evidence": "Figma core interactive metadata has 0 missing label/focus entries; web PatientPicker role=option now has aria-selected and npm run build no longer reports that jsx-a11y warning.",
+      "remaining": "Run runtime accessibility inspection for role/name/state across web and mobile core journeys."
+    }
+  ],
+  "prototype_scope_coverage": {
+    "core_pages_with_figma_a11y_metadata": [
+      "Web - Patient Peak UX",
+      "Web - Hospital Peak UX",
+      "Web - Meeting Peak UX",
+      "Mobile - Patient Peak UX",
+      "Mobile - Hospital Peak UX"
+    ],
+    "interactive_nodes_with_metadata": 112,
+    "known_extra_pages_not_fully_wcag_scanned_this_pass": [
+      "Goal",
+      "Cover",
+      "Foundations",
+      "Components",
+      "Auth & Journey Map",
+      "Redesign Rationale"
+    ],
+    "connector_limitation": "Current Figma connector metadata root lists only Page 1, while known node 31:2 is reachable directly. Write-capable use_figma was not available this pass, so no new Figma annotations were added."
+  },
+  "next_required_evidence": [
+    "Authoritative Current State Figma URL/key or docs/design/current-state-dna.json decision counts.",
+    "All-frame Figma contrast, target-size, and metadata coverage, including Auth & Journey Map and any state frames not in the five core pages.",
+    "Runtime web keyboard/focus-visible walkthroughs for login, booking, consent grant/revoke, meeting join/end, records ask, hospital triage, summary, and audit search.",
+    "Runtime mobile screen-reader/touch target checks in Expo/iOS/Android viewports.",
+    "Reduced-motion checks in running web and mobile apps."
+  ]
+}

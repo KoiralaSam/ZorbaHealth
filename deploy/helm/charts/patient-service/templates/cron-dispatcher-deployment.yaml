@@ -1,0 +1,47 @@
+{{- if .Values.cronDispatcher.enabled }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .Chart.Name }}-cron-dispatcher
+  labels:
+    app: {{ .Chart.Name }}-cron-dispatcher
+spec:
+  replicas: {{ .Values.cronDispatcher.replicaCount }}
+  selector:
+    matchLabels:
+      app: {{ .Chart.Name }}-cron-dispatcher
+  template:
+    metadata:
+      labels:
+        app: {{ .Chart.Name }}-cron-dispatcher
+    spec:
+      {{- include "zorba.userNodeAffinity" . | nindent 6 }}
+      containers:
+        - name: cron-dispatcher
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          command:
+            {{- toYaml .Values.cronDispatcher.command | nindent 12 }}
+          env:
+            {{- toYaml .Values.env | nindent 12 }}
+            - name: SERVICE_NAME
+              value: cron-dispatcher
+            - name: GRPC_CLIENT_SERVICE_NAME
+              value: cron-dispatcher
+            - name: WELFARE_CHECK_DISPATCH_CRON
+              value: {{ .Values.cronDispatcher.welfareCheck.schedule | quote }}
+            - name: WELFARE_CHECK_DISPATCH_LIMIT
+              value: {{ .Values.cronDispatcher.welfareCheck.limit | quote }}
+            - name: WELFARE_CHECK_MAX_ATTEMPTS
+              value: {{ .Values.cronDispatcher.welfareCheck.maxAttempts | quote }}
+            - name: WELFARE_CHECK_RETRY_BASE_SECONDS
+              value: {{ .Values.cronDispatcher.welfareCheck.retryBaseSeconds | quote }}
+            - name: WELFARE_CHECK_RETRY_MAX_SECONDS
+              value: {{ .Values.cronDispatcher.welfareCheck.retryMaxSeconds | quote }}
+            - name: MEETING_REMINDER_DISPATCH_CRON
+              value: {{ .Values.cronDispatcher.meetingReminder.schedule | quote }}
+            - name: MEETING_REMINDER_DISPATCH_LIMIT
+              value: {{ .Values.cronDispatcher.meetingReminder.limit | quote }}
+          resources:
+            {{- toYaml .Values.cronDispatcher.resources | nindent 12 }}
+{{- end }}

@@ -62,6 +62,9 @@ lerna-debug.log*
 # Local tool state and caches (non-essential — never commit)
 .cursor/
 .codex/
+.agents/
+.playwright-mcp/
+.worktrees/
 .devtunnel-cache/
 .ssh/
 .expo/

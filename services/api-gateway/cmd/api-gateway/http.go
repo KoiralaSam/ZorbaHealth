@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"net/url"
 	"os"
 	"strings"
 	"time"
@@ -34,6 +35,10 @@ import (
 
 type corsConfig struct {
 	AllowedOrigins map[string]struct{}
+	// AllowLocalhost permits any http(s) origin on localhost/127.0.0.1/[::1],
+	// regardless of port. Meant for local development only, where verification
+	// tooling serves the web app from ephemeral ports.
+	AllowLocalhost bool
 	AllowedMethods string
 	AllowedHeaders string
 }
@@ -51,6 +56,7 @@ func newCORSConfigFromEnv() corsConfig {
 
 	return corsConfig{
 		AllowedOrigins: origins,
+		AllowLocalhost: env.GetBool("API_GATEWAY_ALLOW_LOCALHOST_ORIGINS", false),
 		AllowedMethods: "GET, POST, PUT, DELETE, OPTIONS",
 		AllowedHeaders: "Content-Type, Authorization, X-Zorba-Client",
 	}
@@ -62,8 +68,22 @@ func (c corsConfig) isAllowedOrigin(origin string) bool {
 	if origin == "" {
 		return false
 	}
-	_, ok := c.AllowedOrigins[origin]
-	return ok
+	if _, ok := c.AllowedOrigins[origin]; ok {
+		return true
+	}
+	return c.AllowLocalhost && isLocalhostOrigin(origin)
+}
+
+func isLocalhostOrigin(origin string) bool {
+	parsed, err := url.Parse(origin)
+	if err != nil {
+		return false
+	}
+	if parsed.Scheme != "http" && parsed.Scheme != "https" {
+		return false
+	}
+	host := parsed.Hostname()
+	return host == "localhost" || host == "127.0.0.1" || host == "::1"
 }
 
 func (c corsConfig) apply(w http.ResponseWriter, origin string) bool {
@@ -553,10 +573,40 @@ func PatientProfileHandler(w http.ResponseWriter, r *http.Request) {
 		PhoneNumber:   profile.GetPhoneNumber(),
 		DateOfBirth:   profile.GetDateOfBirth(),
 		MedicalNotes:  profile.GetMedicalNotes(),
-		VoicePhone:    env.GetString("ZORBA_VOICE_PHONE_NUMBER", "+1-800-ZORBA-AI"),
+		VoicePhone:    zorbaVoicePhoneNumber(),
 		VoiceEnabled:  true,
 		SupportWindow: env.GetString("ZORBA_SUPPORT_WINDOW", "24/7"),
 	}, nil)
+}
+
+// zorbaVoicePhoneNumber is the PSTN number patients dial for the Zorba voice agent.
+// Prefer an explicit display/override, then the VoIP.ms DID used by LiveKit SIP.
+func zorbaVoicePhoneNumber() string {
+	if v := strings.TrimSpace(env.GetString("ZORBA_VOICE_PHONE_NUMBER", "")); v != "" {
+		return v
+	}
+	did := strings.TrimSpace(env.GetString("VOIPMS_DID", ""))
+	if did == "" {
+		return "+13185162690"
+	}
+	digits := make([]rune, 0, len(did))
+	for _, r := range did {
+		if r >= '0' && r <= '9' {
+			digits = append(digits, r)
+		}
+	}
+	switch len(digits) {
+	case 10:
+		return "+1" + string(digits)
+	case 11:
+		if digits[0] == '1' {
+			return "+" + string(digits)
+		}
+	}
+	if strings.HasPrefix(did, "+") {
+		return did
+	}
+	return "+" + string(digits)
 }
 
 func PatientListConsentsHandler(w http.ResponseWriter, r *http.Request) {

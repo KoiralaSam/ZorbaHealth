@@ -6,7 +6,6 @@ import (
 	"strings"
 
 	domainerrors "github.com/KoiralaSam/ZorbaHealth/services/auth-service/internal/core/domain/errors"
-	"github.com/KoiralaSam/ZorbaHealth/services/auth-service/internal/core/domain/models"
 	"github.com/KoiralaSam/ZorbaHealth/services/auth-service/internal/core/ports/inbound"
 	pb "github.com/KoiralaSam/ZorbaHealth/shared/proto/auth"
 	"github.com/jackc/pgx/v5/pgconn"
@@ -128,52 +127,22 @@ func (h *AuthGRPCHandler) RegisterPatient(ctx context.Context, req *pb.RegisterP
 	}, nil
 }
 
-// RegisterHealthProvider implements auth.RegisterHealthProviderService. It creates
-// a hospital plus initial staff when hospital_id is empty, or additional staff for
-// an existing hospital when hospital_id is provided.
+// RegisterHealthProvider creates a credential user with role=hospital_staff only.
+// Hospital and staff membership rows are owned by health-provider-service.
 func (h *AuthGRPCHandler) RegisterHealthProvider(ctx context.Context, req *pb.RegisterHealthProviderRequest) (*pb.RegisterHealthProviderResponse, error) {
 	if req == nil {
 		return nil, status.Error(codes.InvalidArgument, "request required")
 	}
-	var (
-		account *models.HospitalStaffAccount
-		err     error
-	)
-	if strings.TrimSpace(req.GetHospitalId()) != "" {
-		account, err = h.svc.RegisterHospitalStaff(
-			ctx,
-			req.GetHospitalId(),
-			req.GetStaffName(),
-			req.GetEmail(),
-			req.GetPhoneNumber(),
-			req.GetPassword(),
-			req.GetStaffRole(),
-		)
-	} else {
-		account, err = h.svc.RegisterHospital(
-			ctx,
-			req.GetOrganizationName(),
-			req.GetLicenseNo(),
-			req.GetStaffName(),
-			req.GetEmail(),
-			req.GetPhoneNumber(),
-			req.GetPassword(),
-			req.GetStaffRole(),
-		)
-	}
+	user, err := h.svc.RegisterUser(ctx, req.GetEmail(), req.GetPhoneNumber(), req.GetPassword(), "hospital_staff")
 	if err != nil {
 		if isUniqueViolation(err) {
-			return nil, status.Error(codes.AlreadyExists, "email, phone number, or license number already registered")
+			return nil, status.Error(codes.AlreadyExists, "email or phone number already registered")
 		}
-
 		return nil, status.Error(codes.InvalidArgument, err.Error())
 	}
 	return &pb.RegisterHealthProviderResponse{
-		Message:    "hospital staff registered successfully",
-		UserId:     account.UserID,
-		HospitalId: account.HospitalID,
-		StaffId:    account.StaffID,
-		StaffRole:  account.StaffRole,
+		Message: "user registered successfully",
+		UserId:  user.ID,
 	}, nil
 }
 

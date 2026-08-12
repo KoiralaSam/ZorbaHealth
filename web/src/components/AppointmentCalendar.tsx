@@ -78,6 +78,7 @@ export function AppointmentCalendar({
 
   return (
     <div
+<<<<<<< HEAD
       className={`rounded-[var(--zh-radius-card)] border border-[var(--zh-border-default)] bg-[var(--zh-surface-raised)] p-4 shadow-sm ${
         disabled ? "opacity-50" : ""
       } ${className}`}
@@ -87,16 +88,34 @@ export function AppointmentCalendar({
         <button
           type="button"
           className="rounded-[var(--zh-radius-pill)] px-3 py-1 text-[length:var(--zh-body-size)] font-bold text-[var(--zh-text-secondary)] hover:bg-[var(--zh-surface-subtle)] disabled:cursor-not-allowed"
+=======
+      className={`rounded-2xl border border-slate-200 bg-white p-4 shadow-sm ${
+        disabled ? "opacity-50" : ""
+      } ${className}`}
+    >
+      {label ? <p className="mb-3 text-sm font-bold text-slate-800">{label}</p> : null}
+      <div className="mb-3 flex items-center justify-between">
+        <button
+          type="button"
+          className="rounded-full px-3 py-1 text-sm font-bold text-slate-700 hover:bg-slate-100 disabled:cursor-not-allowed"
+>>>>>>> af5074b (Sync active ZorbaHealth changes)
           onClick={() => setCursor((c) => addMonths(c, -1))}
           aria-label="Previous month"
           disabled={disabled}
         >
           ‹
         </button>
+<<<<<<< HEAD
         <p className="text-[length:var(--zh-body-size)] font-black text-[var(--zh-text-primary)]">{monthLabel}</p>
         <button
           type="button"
           className="rounded-[var(--zh-radius-pill)] px-3 py-1 text-[length:var(--zh-body-size)] font-bold text-[var(--zh-text-secondary)] hover:bg-[var(--zh-surface-subtle)] disabled:cursor-not-allowed"
+=======
+        <p className="text-sm font-black text-slate-900">{monthLabel}</p>
+        <button
+          type="button"
+          className="rounded-full px-3 py-1 text-sm font-bold text-slate-700 hover:bg-slate-100 disabled:cursor-not-allowed"
+>>>>>>> af5074b (Sync active ZorbaHealth changes)
           onClick={() => setCursor((c) => addMonths(c, 1))}
           aria-label="Next month"
           disabled={disabled}
@@ -104,12 +123,20 @@ export function AppointmentCalendar({
           ›
         </button>
       </div>
+<<<<<<< HEAD
       <div className="mb-1 grid grid-cols-7 gap-1 text-center text-[11px] font-bold uppercase tracking-wide text-[var(--zh-text-secondary)]">
+=======
+      <div className="mb-1 grid grid-cols-7 gap-1 text-center text-[11px] font-bold uppercase tracking-wide text-slate-400">
+>>>>>>> af5074b (Sync active ZorbaHealth changes)
         {WEEKDAYS.map((d, i) => (
           <div
             key={d}
             className={
+<<<<<<< HEAD
               mode === "weekday" && activeWeekdaySet.has(i) ? "text-[var(--zh-success)]" : undefined
+=======
+              mode === "weekday" && activeWeekdaySet.has(i) ? "text-emerald-700" : undefined
+>>>>>>> af5074b (Sync active ZorbaHealth changes)
             }
           >
             {d}
@@ -146,6 +173,7 @@ export function AppointmentCalendar({
                 onChange(cell.iso);
               }}
               className={[
+<<<<<<< HEAD
                 "h-10 rounded-[var(--zh-radius-control)] text-[length:var(--zh-body-size)] font-bold transition",
                 selected
                   ? "bg-[var(--zh-surface-raised)] text-white shadow"
@@ -155,6 +183,17 @@ export function AppointmentCalendar({
                       ? isAvailable
                         ? "bg-[var(--zh-success-surface)] text-[var(--zh-success)] ring-1 ring-emerald-200 hover:bg-[var(--zh-success-surface)]"
                         : "bg-[var(--zh-surface-subtle)] text-[var(--zh-text-primary)] hover:bg-[var(--zh-surface-subtle)]"
+=======
+                "h-10 rounded-xl text-sm font-bold transition",
+                selected
+                  ? "bg-slate-900 text-white shadow"
+                  : mode === "weekday" && isWorkingWeekday
+                    ? "bg-emerald-50 text-emerald-800 ring-1 ring-emerald-200 hover:bg-emerald-100"
+                    : selectable
+                      ? isAvailable
+                        ? "bg-emerald-50 text-emerald-800 ring-1 ring-emerald-200 hover:bg-emerald-100"
+                        : "bg-slate-50 text-slate-800 hover:bg-slate-100"
+>>>>>>> af5074b (Sync active ZorbaHealth changes)
                       : "cursor-not-allowed text-slate-300",
               ].join(" ")}
               title={
@@ -177,6 +216,7 @@ export function AppointmentCalendar({
         })}
       </div>
       {disabled ? (
+<<<<<<< HEAD
         <p className="mt-3 text-[length:var(--zh-body-size)] text-[var(--zh-text-secondary)]">{disabledText}</p>
       ) : mode === "weekday" ? (
         <p className="mt-3 text-[length:var(--zh-body-size)] text-[var(--zh-text-secondary)]">
@@ -184,6 +224,15 @@ export function AppointmentCalendar({
         </p>
       ) : mode === "available" ? (
         <p className="mt-3 text-[length:var(--zh-body-size)] text-[var(--zh-text-secondary)]">
+=======
+        <p className="mt-3 text-xs text-slate-500">{disabledText}</p>
+      ) : mode === "weekday" ? (
+        <p className="mt-3 text-xs text-slate-500">
+          Tap any date to turn that weekday on or off for every week. Green days are working days.
+        </p>
+      ) : mode === "available" ? (
+        <p className="mt-3 text-xs text-slate-500">
+>>>>>>> af5074b (Sync active ZorbaHealth changes)
           Green dates have open slots. Tap one to auto-select the earliest time.
         </p>
       ) : null}

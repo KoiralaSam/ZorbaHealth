@@ -135,6 +135,23 @@ func (s *SchedulingService) ScheduleHealthStaffMeeting(ctx context.Context, cmd 
 		attribute.String("correlation.id", saved.CorrelationID.String()),
 	)
 
+	// Staff-created visits are auto-confirmed: mint LiveKit room/tokens immediately.
+	// Patient-created visits stay pending until a clinician accepts.
+	if strings.EqualFold(strings.TrimSpace(cmd.ActorType), "staff") {
+		actor := models.ScheduleActor{
+			ActorType:  cmd.ActorType,
+			ActorID:    cmd.ActorID,
+			StaffID:    cmd.StaffID.String(),
+			HospitalID: cmd.HospitalID.String(),
+		}
+		scheduled, err := s.createLiveKitRoomAndSchedule(ctx, saved, actor, sharedaudit.EventMeetingAccepted)
+		if err != nil {
+			span.RecordError(err)
+			return nil, err
+		}
+		return scheduled, nil
+	}
+
 	notify := &events.MeetingRequestedData{
 		MeetingID:       saved.ID.String(),
 		PatientID:       saved.PatientID.String(),

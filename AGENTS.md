@@ -36,4 +36,4 @@ Optional packaging: Helm charts under `deploy/helm/` with [deploy/helm/values/de
 ### Services disabled in Helm
 - `translation-model` (large LLM model, needs separate PVC provisioning)
 - `translation-service` (depends on translation-model)
-- Legacy: `health-provider-service`, `medical-records-service`, `rag-service` (no source code)
+- Legacy stubs (no active charts): `medical-records-service`, `rag-service`

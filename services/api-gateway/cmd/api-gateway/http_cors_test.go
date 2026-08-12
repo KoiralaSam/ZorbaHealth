@@ -59,6 +59,71 @@ func TestCORSMiddlewareRejectsUnconfiguredPreflightOrigin(t *testing.T) {
 	}
 }
 
+func TestCORSMiddlewareAllowsLocalhostOriginsWhenEnabled(t *testing.T) {
+	previous := gatewayCORS
+	t.Cleanup(func() { gatewayCORS = previous })
+	gatewayCORS = corsConfig{
+		AllowedOrigins: map[string]struct{}{"https://app.zorba.test": {}},
+		AllowLocalhost: true,
+		AllowedMethods: "GET, POST, PUT, DELETE, OPTIONS",
+		AllowedHeaders: "Content-Type, Authorization",
+	}
+
+	for _, origin := range []string{
+		"http://localhost:4173",
+		"http://127.0.0.1:3999",
+		"https://localhost:8443",
+	} {
+		req := httptest.NewRequest(http.MethodOptions, "/api/v1/patient/profile", nil)
+		req.Header.Set("Origin", origin)
+		rec := httptest.NewRecorder()
+
+		corsMiddleware(func(w http.ResponseWriter, r *http.Request) {
+			t.Fatal("preflight should not call next handler")
+		})(rec, req)
+
+		if rec.Code != http.StatusOK {
+			t.Fatalf("origin %q: status = %d, want %d", origin, rec.Code, http.StatusOK)
+		}
+		if got := rec.Header().Get("Access-Control-Allow-Origin"); got != origin {
+			t.Fatalf("origin %q: Access-Control-Allow-Origin = %q", origin, got)
+		}
+	}
+
+	// Non-localhost origins are still rejected even with the flag on.
+	req := httptest.NewRequest(http.MethodOptions, "/api/v1/patient/profile", nil)
+	req.Header.Set("Origin", "http://evil.example:3000")
+	rec := httptest.NewRecorder()
+	corsMiddleware(func(w http.ResponseWriter, r *http.Request) {
+		t.Fatal("rejected preflight should not call next handler")
+	})(rec, req)
+	if rec.Code != http.StatusForbidden {
+		t.Fatalf("status = %d, want %d", rec.Code, http.StatusForbidden)
+	}
+}
+
+func TestCORSMiddlewareRejectsLocalhostOriginsWhenDisabled(t *testing.T) {
+	previous := gatewayCORS
+	t.Cleanup(func() { gatewayCORS = previous })
+	gatewayCORS = corsConfig{
+		AllowedOrigins: map[string]struct{}{"http://localhost:3000": {}},
+		AllowedMethods: "GET, POST, PUT, DELETE, OPTIONS",
+		AllowedHeaders: "Content-Type, Authorization",
+	}
+
+	req := httptest.NewRequest(http.MethodOptions, "/api/v1/patient/profile", nil)
+	req.Header.Set("Origin", "http://localhost:4173")
+	rec := httptest.NewRecorder()
+
+	corsMiddleware(func(w http.ResponseWriter, r *http.Request) {
+		t.Fatal("rejected preflight should not call next handler")
+	})(rec, req)
+
+	if rec.Code != http.StatusForbidden {
+		t.Fatalf("status = %d, want %d", rec.Code, http.StatusForbidden)
+	}
+}
+
 func TestCORSMiddlewareAllowsSameOriginRequestsWithoutOriginHeader(t *testing.T) {
 	previous := gatewayCORS
 	t.Cleanup(func() { gatewayCORS = previous })

@@ -45,9 +45,24 @@ import {
   TabBar,
   TextButton,
 } from "./src/components/primitives";
+import {
+  MeetingVideoRoom,
+  markLiveKitNativeReady,
+  meetingCanJoin,
+  resolveMeetingJoin,
+  type MeetingJoinPayload,
+} from "./src/components/MeetingVideoRoom";
 import { resolveIANATimezone } from "./src/timezone";
+<<<<<<< HEAD
 import { colors } from "./src/theme/tokens";
+=======
+import { ScheduleDateTimePicker } from "./src/components/DateTimeSchedulePicker";
+import { SlotSchedulePicker } from "./src/components/SlotSchedulePicker";
+import { WeeklyScheduleBoard } from "./src/components/WeeklyScheduleBoard";
+import { PatientPicker, type PickerPatient } from "./src/components/PatientPicker";
+>>>>>>> af5074b (Sync active ZorbaHealth changes)
 import { styles } from "./src/theme/styles";
+import { colors } from "./src/theme/tokens";
 
 const API_URL = process.env.EXPO_PUBLIC_API_URL ?? "http://localhost:8081";
 const LOCATION_WS_URL =
@@ -58,7 +73,9 @@ const LOCATION_WS_RECONNECT_MS = 3000;
 // development build does. Degrade gracefully so the rest of the app still runs.
 try {
   registerGlobals();
+  markLiveKitNativeReady(true);
 } catch {
+  markLiveKitNativeReady(false);
   console.warn(
     "LiveKit WebRTC native module unavailable (Expo Go?). Voice/video calls are disabled; build a dev client (eas build --profile development --platform android) for calls.",
   );
@@ -110,6 +127,8 @@ const endpoints = {
   patientAudit: "/api/v1/patient/audit",
   patientMeetings: "/api/v1/patient/meetings",
   patientSchedulableStaff: "/api/v1/patient/schedulable-staff",
+  patientAppointments: "/api/v1/patient/appointments",
+  patientAppointmentSlots: "/api/v1/patient/appointment-slots",
   patientWelfareChecks: "/api/v1/patient/welfare-checks",
   hospitalLogin: "/api/v1/auth/hospital/login",
   hospitalRefresh: "/api/v1/auth/hospital/refresh",
@@ -124,6 +143,9 @@ const endpoints = {
   hospitalBridgedCallTranslation: "/api/v1/hospital/calls/bridge-translation",
   hospitalBridgedCallEnd: "/api/v1/hospital/calls/bridge-end",
   hospitalMeetings: "/api/v1/hospital/meetings",
+  hospitalAppointments: "/api/v1/hospital/appointments",
+  hospitalAppointmentSlots: "/api/v1/hospital/appointment-slots",
+  hospitalAvailability: "/api/v1/hospital/availability",
   hospitalStaffRegister: "/api/v1/auth/hospital/staff/register",
   hospitalConsentRequests: "/api/v1/hospital/consent-requests",
 };
@@ -136,6 +158,7 @@ type PatientTab =
   | "records"
   | "calls"
   | "meetings"
+  | "appointments"
   | "welfare"
   | "audit"
   | "location";
@@ -143,6 +166,7 @@ type HospitalTab =
   | "home"
   | "summary"
   | "meetings"
+  | "appointments"
   | "staff"
   | "consent"
   | "incidents"
@@ -314,105 +338,6 @@ function bridgeCaptionLabel(participant?: string) {
   return participant === "staff" ? "Clinician" : "Patient";
 }
 
-function parseMeetingJoinURL(joinURL: string): { server: string; room: string; token: string } | null {
-  const raw = (joinURL || "").trim();
-  if (!raw) return null;
-  try {
-    const url = new URL(raw);
-    const server = (url.searchParams.get("server") || "").trim();
-    const room = (url.searchParams.get("room") || "").trim();
-    const token = (url.searchParams.get("token") || "").trim();
-    if (server && token) {
-      return { server, room, token };
-    }
-    if (raw.startsWith("ws://") || raw.startsWith("wss://")) {
-      const wsToken = (url.searchParams.get("token") || "").trim();
-      if (wsToken) {
-        return {
-          server: `${url.protocol}//${url.host}${url.pathname}`.replace(/\/$/, ""),
-          room,
-          token: wsToken,
-        };
-      }
-    }
-  } catch {
-    return null;
-  }
-  return null;
-}
-
-function MeetingVideoRoom({
-  joinURL,
-  onClose,
-}: {
-  joinURL: string;
-  onClose: () => void;
-}) {
-  const [status, setStatus] = useState("Connecting…");
-  const [error, setError] = useState("");
-  const roomRef = useRef<Room | null>(null);
-
-  useEffect(() => {
-    const parsed = parseMeetingJoinURL(joinURL);
-    if (!parsed) {
-      setError("This meeting link is missing LiveKit join details. Open it in the browser instead.");
-      setStatus("");
-      return;
-    }
-    const room = new Room({ adaptiveStream: true, dynacast: true });
-    roomRef.current = room;
-    room.on(RoomEvent.Disconnected, () => setStatus("Disconnected"));
-    let cancelled = false;
-    (async () => {
-      try {
-        await room.connect(parsed.server, parsed.token);
-        if (cancelled) return;
-        setStatus(parsed.room ? `Connected — ${parsed.room}` : "Connected");
-        await room.localParticipant.setCameraEnabled(true).catch(() => undefined);
-        await room.localParticipant.setMicrophoneEnabled(true).catch(() => undefined);
-      } catch (err) {
-        if (!cancelled) {
-          setError(err instanceof Error ? err.message : "Unable to join the video visit.");
-          setStatus("");
-        }
-      }
-    })();
-    return () => {
-      cancelled = true;
-      void room.disconnect();
-      roomRef.current = null;
-    };
-  }, [joinURL]);
-
-  return (
-    <Section title="Video visit">
-      {status ? <Text style={styles.meta}>{status}</Text> : null}
-      <Feedback error={error} />
-      <Text style={styles.cardBody}>
-        Camera and microphone are enabled for this LiveKit visit. Stay on this screen until the visit ends.
-      </Text>
-      <View style={styles.inlineActions}>
-        <IconButton
-          icon="call-outline"
-          label="Leave"
-          onPress={() => {
-            void roomRef.current?.disconnect();
-            onClose();
-          }}
-          tone="neutral"
-        />
-        {error ? (
-          <IconButton
-            icon="open-outline"
-            label="Open in browser"
-            onPress={() => Linking.openURL(joinURL)}
-            tone="accent"
-          />
-        ) : null}
-      </View>
-    </Section>
-  );
-}
 type HospitalPatient = {
   patient_id?: string;
   full_name?: string;
@@ -432,8 +357,24 @@ type HospitalMeeting = {
   timezone?: string;
   title?: string;
   join_url?: string;
+  livekit_server_url?: string;
+  participant_token?: string;
+  livekit_room_name?: string;
   status?: string;
   correlation_id?: string;
+};
+type PatientAppointment = {
+  id: string;
+  patient_id?: string;
+  staff_id?: string;
+  hospital_id?: string;
+  starts_at?: string;
+  duration_minutes?: number;
+  timezone?: string;
+  title?: string;
+  status?: string;
+  type?: string;
+  join_url?: string;
 };
 type PatientSchedulableStaffMember = {
   staff_id: string;
@@ -670,6 +611,20 @@ async function performApiRequest<T>(
   return payload.data ?? ({} as T);
 }
 
+async function fetchHospitalPatientsForPicker(
+  token: string,
+  query = "",
+): Promise<PickerPatient[]> {
+  const suffix = query.trim()
+    ? `?query=${encodeURIComponent(query.trim())}`
+    : "";
+  const data = await apiRequest<{ patients?: PickerPatient[] }>(
+    `${endpoints.hospitalPatients}${suffix}`,
+    { token, role: "hospital", forceRefresh: Boolean(query.trim()) },
+  );
+  return data.patients ?? [];
+}
+
 async function silentRefresh(role: Role): Promise<string | null> {
   const refreshKey =
     role === "patient" ? "patient_refresh_token" : "hospital_refresh_token";
@@ -692,6 +647,13 @@ async function silentRefresh(role: Role): Promise<string | null> {
     }
     return null;
   }
+}
+
+function defaultWelfareScheduleISO() {
+  const next = new Date();
+  next.setMinutes(0, 0, 0);
+  next.setHours(next.getHours() + 1);
+  return next.toISOString();
 }
 
 function formatTime(value?: string) {
@@ -1254,7 +1216,21 @@ function PatientPortal({
   const [scheduleNotes, setScheduleNotes] = useState("");
   const [submittingSchedule, setSubmittingSchedule] = useState(false);
   const [mutatingMeetingID, setMutatingMeetingID] = useState("");
-  const [welfareScheduledAt, setWelfareScheduledAt] = useState("");
+  const [appointmentSlots, setAppointmentSlots] = useState<
+    { starts_at: string; ends_at: string; duration_minutes: number }[]
+  >([]);
+  const [appointmentSlotStartsAt, setAppointmentSlotStartsAt] = useState("");
+  const [appointmentHospitalID, setAppointmentHospitalID] = useState("");
+  const [appointmentStaffID, setAppointmentStaffID] = useState("");
+  const [appointmentTimezone, setAppointmentTimezone] = useState(() => resolveIANATimezone());
+  const [loadingAppointmentSlots, setLoadingAppointmentSlots] = useState(false);
+  const [bookingAppointment, setBookingAppointment] = useState(false);
+  const [cancellingAppointmentID, setCancellingAppointmentID] = useState("");
+  const [appointments, setAppointments] = useState<PatientAppointment[]>([]);
+  const [notifyEmail, setNotifyEmail] = useState(true);
+  const [notifySMS, setNotifySMS] = useState(false);
+  const [welfareScheduledAt, setWelfareScheduledAt] = useState(defaultWelfareScheduleISO);
+  const [welfareTimezone, setWelfareTimezone] = useState(() => resolveIANATimezone());
   const [welfareReason, setWelfareReason] = useState<WelfareCheckReason>("daily_checkup");
   const [welfareDetail, setWelfareDetail] = useState("");
   const [creatingWelfareCheck, setCreatingWelfareCheck] = useState(false);
@@ -1425,11 +1401,142 @@ function PatientPortal({
         setMeetings((prev) =>
           prev.map((m) => (m.id === meetingID ? data.meeting! : m)),
         );
+      } else {
+        setMeetings((prev) =>
+          prev.map((m) =>
+            m.id === meetingID ? { ...m, status: "cancelled" } : m,
+          ),
+        );
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Unable to cancel meeting.");
     } finally {
       setMutatingMeetingID("");
+    }
+  };
+
+  const loadAppointmentSlots = useCallback(async () => {
+    if (!token || !appointmentHospitalID || !appointmentStaffID) {
+      setAppointmentSlots([]);
+      setAppointmentSlotStartsAt("");
+      return;
+    }
+    setLoadingAppointmentSlots(true);
+    try {
+      const from = new Date().toISOString();
+      const to = new Date(Date.now() + 28 * 86400000).toISOString();
+      const qs = `?staff_id=${encodeURIComponent(appointmentStaffID)}&hospital_id=${encodeURIComponent(appointmentHospitalID)}&from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}`;
+      const data = await apiRequest<{
+        slots?: { starts_at: string; ends_at: string; duration_minutes: number; timezone?: string }[];
+      }>(`${endpoints.patientAppointmentSlots}${qs}`, { token, role: "patient" });
+      const slots = data.slots ?? [];
+      setAppointmentSlots(slots);
+      setAppointmentSlotStartsAt(slots[0]?.starts_at ?? "");
+      if (slots[0]?.timezone) {
+        setAppointmentTimezone(slots[0].timezone);
+      }
+    } catch (err) {
+      setAppointmentSlots([]);
+      setAppointmentSlotStartsAt("");
+      setError(err instanceof Error ? err.message : "Unable to load appointment slots.");
+    } finally {
+      setLoadingAppointmentSlots(false);
+    }
+  }, [token, appointmentHospitalID, appointmentStaffID]);
+
+  const loadAppointments = useCallback(async () => {
+    if (!token) return;
+    try {
+      const data = await apiRequest<{ appointments?: PatientAppointment[] }>(
+        endpoints.patientAppointments,
+        { token, role: "patient", forceRefresh: true },
+      );
+      setAppointments(data.appointments ?? []);
+    } catch {
+      // best-effort
+    }
+  }, [token]);
+
+  useEffect(() => {
+    if (tab === "appointments") {
+      void loadAppointments();
+    }
+  }, [tab, loadAppointments]);
+
+  useEffect(() => {
+    if (tab !== "appointments") return;
+    if (!appointmentHospitalID || !appointmentStaffID) {
+      setAppointmentSlots([]);
+      setAppointmentSlotStartsAt("");
+      return;
+    }
+    void loadAppointmentSlots();
+  }, [tab, appointmentHospitalID, appointmentStaffID, loadAppointmentSlots]);
+
+  const handleBookAppointment = async () => {
+    if (!token || !appointmentSlotStartsAt) return;
+    setBookingAppointment(true);
+    setError("");
+    try {
+      const data = await apiRequest<{ appointment?: PatientAppointment }>(
+        endpoints.patientAppointments,
+        {
+          method: "POST",
+          token,
+          role: "patient",
+          body: {
+            staff_id: appointmentStaffID,
+            hospital_id: appointmentHospitalID,
+            starts_at: appointmentSlotStartsAt,
+            duration_minutes: 30,
+            timezone: appointmentTimezone,
+            type: "video",
+            title: "Zorba Health appointment",
+            send_email: notifyEmail,
+            send_sms: notifySMS,
+          },
+        },
+      );
+      if (data.appointment) {
+        setAppointments((prev) => [data.appointment!, ...prev.filter((a) => a.id !== data.appointment!.id)]);
+      }
+      setAppointmentSlotStartsAt("");
+      await loadAppointmentSlots();
+      await loadAppointments();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Unable to book appointment.");
+    } finally {
+      setBookingAppointment(false);
+    }
+  };
+
+  const handleCancelAppointment = async (id: string) => {
+    if (!token || !id) return;
+    setCancellingAppointmentID(id);
+    setError("");
+    try {
+      const data = await apiRequest<{ appointment?: PatientAppointment }>(
+        `${endpoints.patientAppointments}/${encodeURIComponent(id)}`,
+        {
+          method: "DELETE",
+          token,
+          role: "patient",
+          body: { reason: "cancelled_by_patient" },
+        },
+      );
+      if (data.appointment) {
+        setAppointments((prev) =>
+          prev.map((item) => (item.id === id ? data.appointment! : item)),
+        );
+      } else {
+        setAppointments((prev) =>
+          prev.map((item) => (item.id === id ? { ...item, status: "cancelled" } : item)),
+        );
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Unable to cancel appointment.");
+    } finally {
+      setCancellingAppointmentID("");
     }
   };
 
@@ -1444,10 +1551,9 @@ function PatientPortal({
       setError("Welfare check time must be a valid date.");
       return;
     }
-    const timezone = resolveIANATimezone(scheduleTimezone);
-    if (timezone !== scheduleTimezone) {
-      setScheduleTimezone(timezone);
-    }
+    // Always resolve IANA from the device (picker). Never reuse meetings' typed TZ.
+    const timezone = resolveIANATimezone(welfareTimezone);
+    setWelfareTimezone(timezone);
     setCreatingWelfareCheck(true);
     setError("");
     try {
@@ -1469,7 +1575,7 @@ function PatientPortal({
         setWelfareChecks((prev) => [data.welfare_check!, ...prev]);
       }
       setWelfareDetail("");
-      setWelfareScheduledAt("");
+      setWelfareScheduledAt(defaultWelfareScheduleISO());
     } catch (err) {
       setError(err instanceof Error ? err.message : "Unable to schedule welfare check.");
     } finally {
@@ -1530,6 +1636,7 @@ function PatientPortal({
           { value: "records", label: "Ask", icon: "chatbubbles-outline" },
           { value: "calls", label: "Calls", icon: "call-outline" },
           { value: "meetings", label: "Meetings", icon: "calendar-outline" },
+          { value: "appointments", label: "Appts", icon: "time-outline" },
           { value: "welfare", label: "Welfare", icon: "heart-outline" },
           { value: "audit", label: "Audit", icon: "reader-outline" },
           { value: "location", label: "GPS", icon: "navigate-outline" },
@@ -1618,16 +1725,134 @@ function PatientPortal({
             onRefresh={() => void load(false)}
           />
         ) : null}
+        {!loading && tab === "appointments" ? (
+          <View style={styles.stack}>
+            <ScreenHeading
+              title="Appointments"
+              subtitle="Choose your care team, then tap a green calendar date. The earliest open time is selected automatically."
+            />
+            <Section title="Book appointment">
+              <Text style={styles.meta}>Hospital</Text>
+              {(hospitalConsents ?? []).filter((c) => c.hospital_id && !c.revoked_at).length === 0 ? (
+                <EmptyText text="No linked hospitals yet. Grant hospital consent first." />
+              ) : (
+                (hospitalConsents ?? [])
+                  .filter((c) => c.hospital_id && !c.revoked_at)
+                  .map((c) => (
+                    <IconButton
+                      key={c.hospital_id}
+                      icon={appointmentHospitalID === c.hospital_id ? "checkmark-circle" : "ellipse-outline"}
+                      label={c.hospital_name || c.hospital_id || "Hospital"}
+                      onPress={() => {
+                        setAppointmentHospitalID(c.hospital_id || "");
+                        setAppointmentStaffID("");
+                        setAppointmentSlots([]);
+                        setAppointmentSlotStartsAt("");
+                        void loadSchedulableStaff(c.hospital_id || "");
+                      }}
+                      tone={appointmentHospitalID === c.hospital_id ? "accent" : "neutral"}
+                    />
+                  ))
+              )}
+              <Text style={styles.meta}>Doctor / staff</Text>
+              {!appointmentHospitalID ? (
+                <Text style={styles.meta}>Select a hospital to load doctors.</Text>
+              ) : schedulableStaff.length === 0 ? (
+                <Text style={styles.meta}>No schedulable staff for this hospital.</Text>
+              ) : (
+                schedulableStaff.map((s) => (
+                  <IconButton
+                    key={s.staff_id}
+                    icon={appointmentStaffID === s.staff_id ? "checkmark-circle" : "ellipse-outline"}
+                    label={`${s.name} (${s.role})`}
+                    onPress={() => setAppointmentStaffID(s.staff_id)}
+                    tone={appointmentStaffID === s.staff_id ? "accent" : "neutral"}
+                  />
+                ))
+              )}
+              <Text style={[styles.meta, { marginTop: 8 }]}>Available dates</Text>
+              <SlotSchedulePicker
+                slots={appointmentSlots}
+                value={appointmentSlotStartsAt}
+                onChange={setAppointmentSlotStartsAt}
+                loading={loadingAppointmentSlots}
+                disabled={!appointmentHospitalID || !appointmentStaffID}
+                disabledText="Select a hospital and doctor to see open dates."
+              />
+              <Text style={styles.meta}>Send confirmation</Text>
+              <Pressable
+                onPress={() => setNotifyEmail((v) => !v)}
+                style={{ flexDirection: "row", alignItems: "center", gap: 8, paddingVertical: 6 }}
+              >
+                <Ionicons
+                  name={notifyEmail ? "checkbox" : "square-outline"}
+                  size={22}
+                  color={notifyEmail ? colors.primary : colors.mutedText}
+                />
+                <Text style={styles.cardBody}>Email</Text>
+              </Pressable>
+              <Pressable
+                onPress={() => setNotifySMS((v) => !v)}
+                style={{ flexDirection: "row", alignItems: "center", gap: 8, paddingVertical: 6 }}
+              >
+                <Ionicons
+                  name={notifySMS ? "checkbox" : "square-outline"}
+                  size={22}
+                  color={notifySMS ? colors.primary : colors.mutedText}
+                />
+                <Text style={styles.cardBody}>SMS</Text>
+              </Pressable>
+              <PrimaryButton
+                icon="calendar-outline"
+                label={bookingAppointment ? "Booking…" : "Confirm appointment"}
+                onPress={() => void handleBookAppointment()}
+                disabled={
+                  bookingAppointment ||
+                  !appointmentHospitalID ||
+                  !appointmentStaffID ||
+                  !appointmentSlotStartsAt
+                }
+              />
+            </Section>
+            <Section title="Upcoming appointments">
+              <IconButton icon="refresh-outline" label="Refresh" onPress={() => void loadAppointments()} tone="neutral" />
+              {appointments.length === 0 ? (
+                <EmptyText text="No appointments yet." />
+              ) : (
+                appointments.map((a) => {
+                  const cancelled = a.status === "cancelled";
+                  return (
+                    <View key={a.id} style={styles.card}>
+                      <Text style={styles.cardTitle}>{a.title || "Appointment"}</Text>
+                      <Text style={styles.meta}>{formatTime(a.starts_at)}</Text>
+                      <Text style={[styles.badge, cancelled ? styles.badgeWarn : null]}>
+                        {a.status || "booked"}
+                      </Text>
+                      {!cancelled ? (
+                        <IconButton
+                          icon="close-outline"
+                          label={cancellingAppointmentID === a.id ? "Cancelling…" : "Cancel"}
+                          onPress={() => void handleCancelAppointment(a.id)}
+                          tone="neutral"
+                        />
+                      ) : null}
+                    </View>
+                  );
+                })
+              )}
+            </Section>
+          </View>
+        ) : null}
         {!loading && tab === "welfare" ? (
           <PatientWelfareChecks
             checks={welfareChecks}
             scheduledAt={welfareScheduledAt}
             setScheduledAt={setWelfareScheduledAt}
+            setTimezone={setWelfareTimezone}
             reason={welfareReason}
             setReason={setWelfareReason}
             detail={welfareDetail}
             setDetail={setWelfareDetail}
-            timezone={scheduleTimezone}
             creating={creatingWelfareCheck}
             cancellingId={cancellingWelfareCheck}
             onCreate={() => void handleCreateWelfareCheck()}
@@ -1657,6 +1882,7 @@ function PatientHome({
   const nextAction = nextMeeting ? "Your next visit is ready." : pendingConsents ? "Review a consent request." : "Ask a question about your records.";
   return (
     <View style={styles.stack}>
+<<<<<<< HEAD
       <View style={styles.card}>
         <Text style={styles.eyebrow}>Next best action</Text>
         <Text style={styles.screenTitle}>{nextAction}</Text>
@@ -1664,6 +1890,30 @@ function PatientHome({
         <View style={styles.inlineActions}>
           <PrimaryButton icon={nextMeeting ? "videocam-outline" : pendingConsents ? "shield-checkmark-outline" : "chatbubble-ellipses-outline"} label={nextMeeting ? "Join visit" : pendingConsents ? "Review consent" : "Ask records"} onPress={() => onNavigate(nextMeeting ? "meetings" : pendingConsents ? "consents" : "records")} />
           <IconButton icon="heart-outline" label="Emergency / welfare" onPress={() => onNavigate("welfare")} tone="neutral" />
+=======
+      <View style={styles.heroPanel}>
+        <View style={styles.rowBetween}>
+          <Text style={styles.eyebrow}>Patient Home</Text>
+          <Pressable onPress={onRefresh} style={styles.refreshIcon}>
+            <Ionicons name="refresh" size={18} color="#e0e7ff" />
+          </Pressable>
+        </View>
+        <Text style={styles.largeTitle}>
+          {profile?.full_name || "Welcome Back"}
+        </Text>
+        <Text style={styles.heroCopy}>
+          Zorba Voice Care: {profile?.voice_phone || "+1 (318) 516-2690"}
+        </Text>
+
+        <View style={styles.heroActions}>
+          <Pressable
+            onPress={() => callNumber(profile?.voice_phone || "+13185162690")}
+            style={styles.heroCallBtn}
+          >
+            <Ionicons name="call" size={16} color="#4f46e5" />
+            <Text style={styles.heroCallBtnText}>Call Assistant</Text>
+          </Pressable>
+>>>>>>> af5074b (Sync active ZorbaHealth changes)
         </View>
       </View>
       <View style={styles.card}>
@@ -2318,8 +2568,8 @@ function CallList({
       />
       <PrimaryButton
         icon="call-outline"
-        label="Call Assistance Hotline"
-        onPress={() => callNumber(voicePhone)}
+        label={`Call Assistance Hotline${voicePhone ? ` (${voicePhone})` : " (+1 (318) 516-2690)"}`}
+        onPress={() => callNumber(voicePhone || "+13185162690")}
       />
 
       <Section title="Hospital interpreter">
@@ -2676,11 +2926,11 @@ function PatientWelfareChecks({
   checks,
   scheduledAt,
   setScheduledAt,
+  setTimezone,
   reason,
   setReason,
   detail,
   setDetail,
-  timezone,
   creating,
   cancellingId,
   onCreate,
@@ -2690,11 +2940,11 @@ function PatientWelfareChecks({
   checks: PatientWelfareCheck[];
   scheduledAt: string;
   setScheduledAt: (v: string) => void;
+  setTimezone: (v: string) => void;
   reason: WelfareCheckReason;
   setReason: (v: WelfareCheckReason) => void;
   detail: string;
   setDetail: (v: string) => void;
-  timezone: string;
   creating: boolean;
   cancellingId: string | null;
   onCreate: () => void;
@@ -2708,12 +2958,11 @@ function PatientWelfareChecks({
         subtitle="Schedule an outbound Zorba AI phone check with the reason and details you choose."
       />
       <Section title="Schedule a check">
-        <Field
-          label={`When (${timezone})`}
+        <ScheduleDateTimePicker
+          label="When"
           value={scheduledAt}
-          onChangeText={setScheduledAt}
-          placeholder="YYYY-MM-DDTHH:MM"
-          autoCapitalize="none"
+          onChange={setScheduledAt}
+          onTimezoneChange={setTimezone}
         />
         <Text style={styles.meta}>Reason</Text>
         <View style={styles.inlineActions}>
@@ -2757,6 +3006,9 @@ function PatientWelfareChecks({
                   <View style={styles.flex}>
                     <Text style={styles.cardTitle}>{reasonLabel}</Text>
                     <Text style={styles.meta}>{formatTime(check.scheduled_at)}</Text>
+                    {check.timezone ? (
+                      <Text style={styles.meta}>{check.timezone}</Text>
+                    ) : null}
                     {check.reason_detail ? (
                       <Text style={styles.cardBody}>{check.reason_detail}</Text>
                     ) : null}
@@ -2840,15 +3092,15 @@ function PatientMeetings({
   onRefresh: () => void;
 }) {
   const [error, setError] = useState("");
-  const [activeJoinURL, setActiveJoinURL] = useState<string | null>(null);
+  const [activeJoin, setActiveJoin] = useState<MeetingJoinPayload | null>(null);
   const activeConsents = useMemo(
     () => hospitalConsents.filter((hc) => !hc.revoked_at),
     [hospitalConsents],
   );
 
-  if (activeJoinURL) {
+  if (activeJoin) {
     return (
-      <MeetingVideoRoom joinURL={activeJoinURL} onClose={() => setActiveJoinURL(null)} />
+      <MeetingVideoRoom join={activeJoin} onClose={() => setActiveJoin(null)} />
     );
   }
 
@@ -2949,11 +3201,11 @@ function PatientMeetings({
           ) : scheduleHospitalID ? (
             <Text style={styles.muted}>No staff available for this hospital.</Text>
           ) : null}
-          <Field
+          <ScheduleDateTimePicker
             label="Date & Time"
             value={scheduleStartsAt}
-            onChangeText={setScheduleStartsAt}
-            placeholder="e.g. 2026-06-10T14:00"
+            onChange={setScheduleStartsAt}
+            onTimezoneChange={setScheduleTimezone}
           />
           <Field
             label="Duration (minutes)"
@@ -2961,13 +3213,6 @@ function PatientMeetings({
             onChangeText={setScheduleDuration}
             placeholder="30"
             keyboardType="number-pad"
-          />
-          <Field
-            label="Timezone (IANA)"
-            value={scheduleTimezone}
-            onChangeText={setScheduleTimezone}
-            placeholder="America/Chicago"
-            autoCapitalize="none"
           />
           <Field
             label="Title"
@@ -2998,6 +3243,8 @@ function PatientMeetings({
       {!showScheduleForm
         ? meetings.map((meeting) => {
             const cancelled = meeting.status === "cancelled";
+            const pending = meeting.status === "pending";
+            const canJoin = !cancelled && meetingCanJoin(meeting);
             return (
               <View key={meeting.id} style={styles.card}>
                 <View style={styles.rowBetween}>
@@ -3011,17 +3258,25 @@ function PatientMeetings({
                     <Text style={styles.meta}>
                       {formatTime(meeting.starts_at)} • {meeting.duration_minutes || 30} min
                     </Text>
+                    {pending ? (
+                      <Text style={styles.meta}>
+                        Waiting for clinician to accept before you can join.
+                      </Text>
+                    ) : null}
                   </View>
                   <Text style={[styles.badge, cancelled ? styles.badgeWarn : null]}>
                     {meeting.status || "pending"}
                   </Text>
                 </View>
                 <View style={styles.inlineActions}>
-                  {meeting.join_url && !cancelled ? (
+                  {canJoin ? (
                     <IconButton
                       icon="videocam-outline"
                       label="Join"
-                      onPress={() => setActiveJoinURL(meeting.join_url as string)}
+                      onPress={() => {
+                        const join = resolveMeetingJoin(meeting);
+                        if (join) setActiveJoin(join);
+                      }}
                       tone="accent"
                     />
                   ) : null}
@@ -3230,6 +3485,7 @@ function HospitalPortal({
           { value: "home", label: "Home", icon: "home-outline" },
           { value: "summary", label: "Summarize", icon: "medkit-outline" },
           { value: "meetings", label: "Meetings", icon: "calendar-outline" },
+          { value: "appointments", label: "Appts", icon: "time-outline" },
           { value: "staff", label: "Staff", icon: "person-add-outline" },
           { value: "consent", label: "Consent", icon: "qr-code-outline" },
           {
@@ -3310,6 +3566,9 @@ function HospitalPortal({
             submittingSchedule={submittingHospSchedule}
             onSchedule={handleHospitalSchedule}
           />
+        ) : null}
+        {tab === "appointments" ? (
+          <HospitalAppointmentsPanel token={token} />
         ) : null}
         {tab === "staff" ? <HospitalStaffRegistration token={token} /> : null}
         {tab === "consent" ? (
@@ -3490,13 +3749,21 @@ function HospitalIncomingBridges({ token }: { token: string }) {
               <IconButton
                 icon="laptop-outline"
                 label={busySession === session.session_id ? "Connecting..." : "Accept (Web)"}
+<<<<<<< HEAD
                 onPress={() => void acceptCall(session.session_id || "", "web")}
+=======
+                onPress={() => void acceptCall(session.session_id!, "web")}
+>>>>>>> af5074b (Sync active ZorbaHealth changes)
                 tone="accent"
               />
               <IconButton
                 icon="call-outline"
                 label="Accept (Phone)"
+<<<<<<< HEAD
                 onPress={() => void acceptCall(session.session_id || "", "phone")}
+=======
+                onPress={() => void acceptCall(session.session_id!, "phone")}
+>>>>>>> af5074b (Sync active ZorbaHealth changes)
                 tone="neutral"
               />
             </View>
@@ -3681,12 +3948,12 @@ function HospitalSummary({
         title="Record Summarizer"
         subtitle="Generate clinical record translations based on compliant database traces."
       />
-      <Field
-        label="Target Patient"
+      <PatientPicker
+        token={token}
         value={patientID}
-        onChangeText={setPatientID}
-        autoCapitalize="none"
-        placeholder="Name, email, or patient ID"
+        onChange={(id) => setPatientID(id)}
+        label="Patient"
+        loadPatients={(q) => fetchHospitalPatientsForPicker(token, q)}
       />
       <Text style={styles.label}>Focus Area Select</Text>
       <Segmented
@@ -3715,6 +3982,309 @@ function HospitalSummary({
           <AuditList events={audit} compact />
         </Section>
       ) : null}
+    </View>
+  );
+}
+
+function HospitalAppointmentsPanel({ token }: { token: string }) {
+  const [patientID, setPatientID] = useState("");
+  const [slots, setSlots] = useState<
+    { starts_at: string; ends_at: string; duration_minutes: number }[]
+  >([]);
+  const [slotStartsAt, setSlotStartsAt] = useState("");
+  const [loadingSlots, setLoadingSlots] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [message, setMessage] = useState("");
+  const [error, setError] = useState("");
+  const [activeDays, setActiveDays] = useState<number[]>([1, 2, 3, 4, 5]);
+  const [startTime, setStartTime] = useState("09:00");
+  const [endTime, setEndTime] = useState("17:00");
+  const [appointments, setAppointments] = useState<PatientAppointment[]>([]);
+  const [cancellingID, setCancellingID] = useState("");
+  const [notifyEmail, setNotifyEmail] = useState(true);
+  const [notifySMS, setNotifySMS] = useState(false);
+  const timezone = resolveIANATimezone();
+  const dayLabels = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+
+  const mergeAppointment = (appointment?: PatientAppointment) => {
+    if (!appointment?.id) return;
+    setAppointments((current) =>
+      current.some((item) => item.id === appointment.id)
+        ? current.map((item) => (item.id === appointment.id ? appointment : item))
+        : [appointment, ...current],
+    );
+  };
+
+  const loadAppointments = useCallback(async () => {
+    try {
+      const data = await apiRequest<{ appointments?: PatientAppointment[] }>(
+        endpoints.hospitalAppointments,
+        { token, role: "hospital", forceRefresh: true },
+      );
+      setAppointments(data.appointments ?? []);
+    } catch {
+      // best-effort
+    }
+  }, [token]);
+
+  const loadSlots = useCallback(async () => {
+    setLoadingSlots(true);
+    setError("");
+    try {
+      const from = new Date().toISOString();
+      const to = new Date(Date.now() + 28 * 86400000).toISOString();
+      const qs = `?from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}`;
+      const data = await apiRequest<{ slots?: typeof slots }>(
+        `${endpoints.hospitalAppointmentSlots}${qs}`,
+        { token, role: "hospital" },
+      );
+      const list = data.slots ?? [];
+      setSlots(list);
+      setSlotStartsAt(list[0]?.starts_at ?? "");
+    } catch (err) {
+      setSlots([]);
+      setSlotStartsAt("");
+      setError(err instanceof Error ? err.message : "Unable to load slots.");
+    } finally {
+      setLoadingSlots(false);
+    }
+  }, [token]);
+
+  useEffect(() => {
+    void loadAppointments();
+    void loadSlots();
+  }, [loadAppointments, loadSlots]);
+
+  const saveAvailability = async () => {
+    setBusy(true);
+    setError("");
+    setMessage("");
+    try {
+      await apiRequest(endpoints.hospitalAvailability, {
+        method: "PUT",
+        token,
+        role: "hospital",
+        body: {
+          rules: activeDays.map((weekday) => ({
+            weekday,
+            start_time_local: startTime,
+            end_time_local: endTime,
+            slot_duration_minutes: 30,
+            timezone,
+          })),
+        },
+      });
+      setMessage("Weekly availability saved.");
+      await loadSlots();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Unable to save availability.");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const book = async () => {
+    setBusy(true);
+    setError("");
+    setMessage("");
+    try {
+      const data = await apiRequest<{ appointment?: PatientAppointment }>(
+        endpoints.hospitalAppointments,
+        {
+          method: "POST",
+          token,
+          role: "hospital",
+          body: {
+            patient_id: patientID.trim(),
+            starts_at: slotStartsAt,
+            duration_minutes: 30,
+            timezone,
+            type: "video",
+            title: "Zorba Health appointment",
+            send_email: notifyEmail,
+            send_sms: notifySMS,
+          },
+        },
+      );
+      mergeAppointment(data.appointment);
+      setMessage(
+        notifyEmail || notifySMS
+          ? "Appointment booked. Confirmation will be sent."
+          : "Appointment booked.",
+      );
+      await loadSlots();
+      await loadAppointments();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Unable to book.");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const cancelAppointment = async (id: string) => {
+    setCancellingID(id);
+    setError("");
+    try {
+      const data = await apiRequest<{ appointment?: PatientAppointment }>(
+        `${endpoints.hospitalAppointments}/${encodeURIComponent(id)}`,
+        {
+          method: "DELETE",
+          token,
+          role: "hospital",
+          body: { reason: "cancelled_by_staff" },
+        },
+      );
+      if (data.appointment) {
+        mergeAppointment(data.appointment);
+      } else {
+        setAppointments((prev) =>
+          prev.map((item) => (item.id === id ? { ...item, status: "cancelled" } : item)),
+        );
+      }
+      setMessage("Appointment cancelled.");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Unable to cancel.");
+    } finally {
+      setCancellingID("");
+    }
+  };
+
+  return (
+    <View style={styles.stack}>
+      <ScreenHeading
+        title="Appointments"
+        subtitle="Set weekly hours, then book patients on open calendar dates."
+      />
+      {error ? <Text style={[styles.meta, { color: colors.error }]}>{error}</Text> : null}
+      {message ? <Text style={[styles.meta, { color: colors.success }]}>{message}</Text> : null}
+
+      <Section title="Weekly availability">
+        <View style={[styles.card, { marginBottom: 0, gap: 6 }]}>
+          <Text style={styles.cardTitle}>How to set availability</Text>
+          <Text style={styles.meta}>1. Tap each day you work (green = on).</Text>
+          <Text style={styles.meta}>2. Set start and end time below.</Text>
+          <Text style={styles.meta}>3. Press Save weekly hours.</Text>
+        </View>
+        <View style={styles.inlineActions}>
+          <IconButton
+            icon="flash-outline"
+            label="Mon–Fri 9–5"
+            tone="accent"
+            onPress={() => {
+              setActiveDays([1, 2, 3, 4, 5]);
+              setStartTime("09:00");
+              setEndTime("17:00");
+            }}
+          />
+          <IconButton
+            icon="close-outline"
+            label="Clear days"
+            tone="neutral"
+            onPress={() => setActiveDays([])}
+          />
+        </View>
+        <WeeklyScheduleBoard
+          activeWeekdays={activeDays}
+          onToggle={(weekday) =>
+            setActiveDays((prev) =>
+              prev.includes(weekday)
+                ? prev.filter((d) => d !== weekday)
+                : [...prev, weekday].sort(),
+            )
+          }
+          startTime={startTime}
+          endTime={endTime}
+        />
+        <Field label="Start (HH:MM)" value={startTime} onChangeText={setStartTime} />
+        <Field label="End (HH:MM)" value={endTime} onChangeText={setEndTime} />
+        <Text style={styles.meta}>
+          {activeDays.length === 0
+            ? "Select at least one working day."
+            : `Ready: ${activeDays.map((d) => dayLabels[d]).join(", ")} · ${startTime}–${endTime}`}
+        </Text>
+        <PrimaryButton
+          icon="save-outline"
+          label={busy ? "Saving…" : "Save weekly hours"}
+          onPress={() => void saveAvailability()}
+          disabled={busy || activeDays.length === 0 || startTime >= endTime}
+        />
+      </Section>
+
+      <Section title="Book for patient">
+        <PatientPicker
+          token={token}
+          value={patientID}
+          onChange={(id) => setPatientID(id)}
+          label="Patient"
+          loadPatients={(q) => fetchHospitalPatientsForPicker(token, q)}
+        />
+        <Text style={[styles.meta, { marginTop: 8 }]}>Available dates</Text>
+        <SlotSchedulePicker
+          slots={slots}
+          value={slotStartsAt}
+          onChange={setSlotStartsAt}
+          loading={loadingSlots}
+        />
+        <Text style={styles.meta}>Send confirmation</Text>
+        <Pressable
+          onPress={() => setNotifyEmail((v) => !v)}
+          style={{ flexDirection: "row", alignItems: "center", gap: 8, paddingVertical: 6 }}
+        >
+          <Ionicons
+            name={notifyEmail ? "checkbox" : "square-outline"}
+            size={22}
+            color={notifyEmail ? colors.primary : colors.mutedText}
+          />
+          <Text style={styles.cardBody}>Email</Text>
+        </Pressable>
+        <Pressable
+          onPress={() => setNotifySMS((v) => !v)}
+          style={{ flexDirection: "row", alignItems: "center", gap: 8, paddingVertical: 6 }}
+        >
+          <Ionicons
+            name={notifySMS ? "checkbox" : "square-outline"}
+            size={22}
+            color={notifySMS ? colors.primary : colors.mutedText}
+          />
+          <Text style={styles.cardBody}>SMS</Text>
+        </Pressable>
+        <PrimaryButton
+          icon="calendar-outline"
+          label={busy ? "Booking…" : "Book selected time"}
+          onPress={() => void book()}
+          disabled={busy || !patientID.trim() || !slotStartsAt}
+        />
+      </Section>
+
+      <Section title="Upcoming">
+        <IconButton icon="refresh-outline" label="Refresh" onPress={() => void loadAppointments()} tone="neutral" />
+        {appointments.length === 0 ? (
+          <EmptyText text="No appointments yet." />
+        ) : (
+          appointments.map((a) => {
+            const cancelled = a.status === "cancelled";
+            return (
+              <View key={a.id} style={styles.card}>
+                <Text style={styles.cardTitle}>{a.title || "Appointment"}</Text>
+                <Text style={styles.meta}>
+                  Patient {a.patient_id?.slice(0, 8) || "—"}… · {formatTime(a.starts_at)}
+                </Text>
+                <Text style={[styles.badge, cancelled ? styles.badgeWarn : null]}>
+                  {a.status || "booked"}
+                </Text>
+                {!cancelled ? (
+                  <IconButton
+                    icon="close-outline"
+                    label={cancellingID === a.id ? "Cancelling…" : "Cancel"}
+                    onPress={() => void cancelAppointment(a.id)}
+                    tone="neutral"
+                  />
+                ) : null}
+              </View>
+            );
+          })
+        )}
+      </Section>
     </View>
   );
 }
@@ -3766,7 +4336,7 @@ function HospitalMeetings({
 }) {
   const [mutating, setMutating] = useState("");
   const [error, setError] = useState("");
-  const [activeJoinURL, setActiveJoinURL] = useState<string | null>(null);
+  const [activeJoin, setActiveJoin] = useState<MeetingJoinPayload | null>(null);
 
   const mergeMeeting = (meeting?: HospitalMeeting) => {
     if (!meeting?.id) return;
@@ -3796,6 +4366,20 @@ function HospitalMeetings({
             : undefined,
       });
       mergeMeeting(data.meeting);
+      if (!data.meeting && action === "cancel") {
+        setMeetings((current) =>
+          current.map((item) =>
+            item.id === meeting.id ? { ...item, status: "cancelled" } : item,
+          ),
+        );
+      }
+      if (!data.meeting && action === "accept") {
+        setMeetings((current) =>
+          current.map((item) =>
+            item.id === meeting.id ? { ...item, status: "scheduled" } : item,
+          ),
+        );
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Meeting update failed.");
     } finally {
@@ -3803,9 +4387,9 @@ function HospitalMeetings({
     }
   };
 
-  if (activeJoinURL) {
+  if (activeJoin) {
     return (
-      <MeetingVideoRoom joinURL={activeJoinURL} onClose={() => setActiveJoinURL(null)} />
+      <MeetingVideoRoom join={activeJoin} onClose={() => setActiveJoin(null)} />
     );
   }
 
@@ -3834,30 +4418,24 @@ function HospitalMeetings({
       {showScheduleForm && onSchedule ? (
         <View style={styles.card}>
           <Text style={styles.sectionTitle}>Schedule New Meeting</Text>
-          <Field
-            label="Patient ID"
+          <PatientPicker
+            token={token}
             value={schedulePatientID || ""}
-            onChangeText={(v) => setSchedulePatientID?.(v)}
-            placeholder="Enter patient ID"
+            onChange={(id) => setSchedulePatientID?.(id)}
+            label="Patient"
+            loadPatients={(q) => fetchHospitalPatientsForPicker(token, q)}
           />
-          <Field
+          <ScheduleDateTimePicker
             label="Date & Time"
             value={scheduleStartsAt || ""}
-            onChangeText={(v) => setScheduleStartsAt?.(v)}
-            placeholder="e.g. 2026-06-10T14:00"
+            onChange={(v) => setScheduleStartsAt?.(v)}
+            onTimezoneChange={(tz) => setScheduleTimezone?.(tz)}
           />
           <Field
             label="Duration (minutes)"
             value={scheduleDuration || "30"}
             onChangeText={(v) => setScheduleDuration?.(v)}
             keyboardType="number-pad"
-          />
-          <Field
-            label="Timezone (IANA)"
-            value={scheduleTimezone || "UTC"}
-            onChangeText={(v) => setScheduleTimezone?.(v)}
-            placeholder="America/Chicago"
-            autoCapitalize="none"
           />
           <Field
             label="Title"
@@ -3889,6 +4467,7 @@ function HospitalMeetings({
         ? meetings.map((meeting) => {
             const pending = meeting.status === "pending";
             const cancelled = meeting.status === "cancelled";
+            const canJoin = !cancelled && meetingCanJoin(meeting);
             return (
               <View key={meeting.id} style={styles.card}>
                 <View style={styles.rowBetween}>
@@ -3902,6 +4481,11 @@ function HospitalMeetings({
                     <Text style={styles.meta}>
                       {formatTime(meeting.starts_at)} • {meeting.duration_minutes || 30} min
                     </Text>
+                    {pending ? (
+                      <Text style={styles.meta}>
+                        Patient request — accept to confirm and open the video room.
+                      </Text>
+                    ) : null}
                   </View>
                   <Text style={[styles.badge, cancelled ? styles.badgeWarn : null]}>
                     {meeting.status || "pending"}
@@ -3916,11 +4500,14 @@ function HospitalMeetings({
                       tone="accent"
                     />
                   ) : null}
-                  {meeting.join_url ? (
+                  {canJoin ? (
                     <IconButton
                       icon="videocam-outline"
                       label="Join"
-                      onPress={() => setActiveJoinURL(meeting.join_url as string)}
+                      onPress={() => {
+                        const join = resolveMeetingJoin(meeting);
+                        if (join) setActiveJoin(join);
+                      }}
                       tone="neutral"
                     />
                   ) : null}
@@ -4281,17 +4868,17 @@ function HospitalAudit({
         title="Clinical Audit Lookup"
         subtitle="Audit compliance log tracking under clinical credentials."
       />
-      <Field
-        label="Search Patient"
+      <PatientPicker
+        token={token}
         value={patientID}
-        onChangeText={setPatientID}
-        autoCapitalize="none"
-        placeholder="Name, email, or patient ID"
+        onChange={(id) => setPatientID(id)}
+        label="Patient"
+        loadPatients={(q) => fetchHospitalPatientsForPicker(token, q)}
       />
       <PrimaryButton
         icon="search-outline"
         label={loading ? "Tracing logs..." : "Load Audit Trail"}
-        disabled={loading}
+        disabled={loading || !patientID.trim()}
         onPress={load}
       />
       <Feedback error={error} />

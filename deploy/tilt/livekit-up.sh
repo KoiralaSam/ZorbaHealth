@@ -10,6 +10,8 @@ NS="${K8S_NAMESPACE:-dev}"
 export PATH="${HOME}/.local/bin:${PATH}"
 
 TRUNK_NAME="${LIVEKIT_SIP_TRUNK_NAME:-voipms-inbound}"
+OUTBOUND_TRUNK_NAME="${LIVEKIT_SIP_OUTBOUND_TRUNK_NAME:-voipms-outbound}"
+OUTBOUND_ADDRESS="${LIVEKIT_SIP_OUTBOUND_ADDRESS:-dallas1.voip.ms}"
 RULE_NAME="${LIVEKIT_SIP_DISPATCH_RULE_NAME:-zorba-agent-individual}"
 ROOM_PREFIX="${LIVEKIT_SIP_ROOM_PREFIX:-zorba-call-}"
 AGENT_NAME="${LIVEKIT_AGENT_NAME:-zorba-health-voice}"
@@ -165,6 +167,9 @@ print(json.dumps({
     "trunk": {
         "name": name,
         "numbers": [did, f"1{did}", f"+1{did}"],
+        # VoIP.ms POP servers currently resolve under 208.100.60.0/24.
+        # Restricting sources stops open SIP scanners from tripping LiveKit flood protection (486 Busy).
+        "allowedAddresses": ["208.100.60.0/24"],
     }
 }))
 PY
@@ -175,6 +180,176 @@ PY
     exit 1
   fi
   log "Created inbound trunk: $id"
+  echo "$id"
+}
+
+ensure_outbound_trunk() {
+  # CreateSIPParticipant (welfare / staff dial-out) requires an *outbound* trunk ID.
+  # Voip.ms declines INVITEs (SIP 603) unless From is:
+  #   <sip:{account}@{pop}.voip.ms>
+  # not <sip:{DID}@{livekit-public-ip}>. See livekit FromHost + numbers=[sipUsername].
+  #
+  # voipms-credentials.username is often the portal/API email. SIP auth/From must be the
+  # numeric account (or subaccount like 123456_trunk). Prefer sip_username when set.
+  local api_user sip_user pass
+  api_user="$(kubectl -n "$NS" get secret voipms-credentials -o jsonpath='{.data.username}' 2>/dev/null | base64 -d || true)"
+  sip_user="$(kubectl -n "$NS" get secret voipms-credentials -o jsonpath='{.data.sip_username}' 2>/dev/null | base64 -d || true)"
+  pass="$(kubectl -n "$NS" get secret voipms-credentials -o jsonpath='{.data.password}' 2>/dev/null | base64 -d || true)"
+  if [[ -z "$sip_user" ]]; then
+    sip_user="${LIVEKIT_SIP_AUTH_USERNAME:-}"
+  fi
+  if [[ -z "$sip_user" && -n "$api_user" && "$api_user" != *"@"* ]]; then
+    sip_user="$api_user"
+  fi
+  # Voip.ms SIP accounts are numeric (or subaccount like 123456_trunk). Reject emails/placeholders.
+  if [[ -n "$sip_user" ]] && ! [[ "$sip_user" =~ ^[0-9]+([_][A-Za-z0-9_-]+)?$ ]]; then
+    log "Ignoring invalid Voip.ms SIP username (need numeric account/subaccount, got placeholder or email)."
+    sip_user=""
+  fi
+
+  local json id needs_recreate="1"
+  json="$(lk sip outbound list --json 2>/dev/null || echo '[]')"
+  id="$(python3 - <<'PY' "$json" "$OUTBOUND_TRUNK_NAME" "$sip_user" "$OUTBOUND_ADDRESS"
+import json, sys
+raw, name, sip_user, address = sys.argv[1], sys.argv[2], sys.argv[3], sys.argv[4]
+try:
+    data = json.loads(raw)
+except json.JSONDecodeError:
+    data = []
+items = data if isinstance(data, list) else data.get("items") or data.get("trunks") or []
+for t in items:
+    tname = t.get("name") or t.get("Name") or ""
+    tid = t.get("sipTrunkId") or t.get("sip_trunk_id") or t.get("SipTrunkID") or t.get("id") or ""
+    if tname != name or not tid:
+        continue
+    numbers = t.get("numbers") or t.get("Numbers") or []
+    auth = t.get("authUsername") or t.get("auth_username") or ""
+    from_host = t.get("fromHost") or t.get("from_host") or ""
+    ok = (
+        sip_user
+        and numbers == [sip_user]
+        and auth == sip_user
+        and from_host == address
+    )
+    print(tid)
+    print("ok" if ok else "stale")
+    raise SystemExit(0)
+print("")
+print("missing")
+PY
+)"
+  local trunk_state
+  trunk_state="$(echo "$id" | sed -n '2p')"
+  id="$(echo "$id" | sed -n '1p')"
+  if [[ "$trunk_state" == "ok" ]]; then
+    needs_recreate="0"
+  fi
+
+  if [[ -z "$pass" || -z "$sip_user" ]]; then
+    if [[ -z "$pass" ]]; then
+      log "voipms-credentials missing password; skip outbound trunk create/update"
+    else
+      log "Voip.ms SIP username missing."
+      log "Set voipms-credentials.sip_username to your numeric account/subaccount (Main Menu → Account Settings)."
+    fi
+    if [[ -n "$id" ]]; then
+      log "Keeping existing outbound trunk $id (SIP From not updated)"
+      echo "$id"
+    else
+      echo ""
+    fi
+    return 0
+  fi
+
+  if [[ -n "$id" && "$needs_recreate" == "1" ]]; then
+    log "Outbound trunk $id has stale From/auth (need $sip_user@$OUTBOUND_ADDRESS); recreating ..."
+    lk sip outbound delete "$id" --yes >/dev/null 2>&1 || lk sip outbound delete --id "$id" --yes >/dev/null 2>&1 || true
+    id=""
+  fi
+
+  if [[ -n "$id" && "$needs_recreate" == "0" ]]; then
+    log "Outbound trunk already correct: $id (From=$sip_user@$OUTBOUND_ADDRESS)"
+    echo "$id"
+    return 0
+  fi
+
+  log "Creating outbound trunk $OUTBOUND_TRUNK_NAME → $OUTBOUND_ADDRESS (From=$sip_user@$OUTBOUND_ADDRESS) ..."
+  local out
+  # Create via JSON so fromHost is set at create time. Flag-based create cannot set
+  # fromHost, and JSON update has been unreliable with this lk CLI version.
+  out="$(
+    python3 - <<'PY' "$OUTBOUND_TRUNK_NAME" "$OUTBOUND_ADDRESS" "$sip_user" "$pass" | lk sip outbound create - --yes 2>&1
+import json, sys
+name, address, sip_user, password = sys.argv[1:5]
+print(json.dumps({
+    "trunk": {
+        "name": name,
+        "address": address,
+        "numbers": [sip_user],
+        "authUsername": sip_user,
+        "authPassword": password,
+        "fromHost": address,
+        "destinationCountry": "US",
+    }
+}))
+PY
+  )" || true
+  id="$(echo "$out" | python3 -c 'import sys,re; m=re.search(r"ST_\w+", sys.stdin.read()); print(m.group(0) if m else "")')"
+  if [[ -z "$id" ]]; then
+    # Fallback to flags (fromHost may be empty → Voip.ms 603).
+    out="$(
+      lk sip outbound create \
+        --name "$OUTBOUND_TRUNK_NAME" \
+        --address "$OUTBOUND_ADDRESS" \
+        --numbers "$sip_user" \
+        --auth-user "$sip_user" \
+        --auth-pass "$pass" \
+        --destination-country US \
+        --yes 2>&1
+    )" || true
+    id="$(echo "$out" | python3 -c 'import sys,re; m=re.search(r"ST_\w+", sys.stdin.read()); print(m.group(0) if m else "")')"
+  fi
+  if [[ -z "$id" ]]; then
+    echo "[livekit-up] failed to create outbound trunk: $out" >&2
+    exit 1
+  fi
+
+  # Best-effort patch if create omitted fromHost (flag fallback path).
+  local from_host_now
+  from_host_now="$(
+    lk sip outbound list --json 2>/dev/null | python3 -c '
+import json, sys
+want = sys.argv[1]
+try:
+    data = json.load(sys.stdin)
+except json.JSONDecodeError:
+    data = []
+items = data if isinstance(data, list) else data.get("items") or data.get("trunks") or []
+for t in items:
+    tid = t.get("sipTrunkId") or t.get("sip_trunk_id") or ""
+    if tid == want:
+        print(t.get("fromHost") or t.get("from_host") or "")
+        break
+' "$id"
+  )"
+  if [[ -z "$from_host_now" ]]; then
+    log "Patching fromHost=$OUTBOUND_ADDRESS on trunk $id ..."
+    upd_out="$(
+      python3 - <<'PY' "$id" "$OUTBOUND_ADDRESS" | lk sip outbound update - --yes 2>&1
+import json, sys
+trunk_id, address = sys.argv[1], sys.argv[2]
+print(json.dumps({
+    "sipTrunkId": trunk_id,
+    "update": {"fromHost": address},
+}))
+PY
+    )" || true
+    if ! echo "$upd_out" | grep -q "ST_"; then
+      log "WARN: could not set fromHost on $id (Voip.ms may 603). update output: $upd_out"
+    fi
+  fi
+
+  log "Created outbound trunk: $id"
   echo "$id"
 }
 
@@ -279,7 +454,20 @@ wait_sip
 
 trunk_id="$(ensure_trunk)"
 dispatch_id="$(ensure_dispatch "$trunk_id")"
-sync_secret_trunk_id "$trunk_id"
+outbound_id="$(ensure_outbound_trunk)"
+# patient-service dial-out reads livekit-credentials.sipTrunkId — must be outbound.
+if [[ -n "$outbound_id" ]]; then
+  sync_secret_trunk_id "$outbound_id"
+else
+  log "No outbound trunk; leaving sipTrunkId unchanged (inbound-only)"
+fi
 
-log "Ready. trunk=$trunk_id dispatch=$dispatch_id agent=$AGENT_NAME"
-log "Reminder: VoIP.ms DID voice → ${DID}@<public-ip>:5060 ; open GCP firewall udp/tcp 5060 + udp 10000-10100"
+public_ip="$(curl -4 -fsS --max-time 3 ifconfig.me 2>/dev/null || true)"
+log "Ready. inbound=$trunk_id outbound=${outbound_id:-none} dispatch=$dispatch_id agent=$AGENT_NAME"
+log "Reminder: open GCP firewall for LiveKit WebRTC (Cloud Shell): bash deploy/tilt/open-livekit-firewall.sh"
+if [[ -n "$public_ip" ]]; then
+  log "Reminder: VoIP.ms DID ($DID) voice routing MUST be SIP URI → ${DID}@${public_ip}:5060"
+  log "  (Manage DIDs → Routing → SIP URI / IP. If the VM public IP changed, update this or inbound calls never reach LiveKit.)"
+else
+  log "Reminder: VoIP.ms DID voice → ${DID}@<public-ip>:5060 ; SIP ports udp/tcp 5060 + udp 10000-10100"
+fi

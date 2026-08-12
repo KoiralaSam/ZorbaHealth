@@ -50,6 +50,7 @@ import { useAuth } from "../../../../hooks/useAuth";
 import {
   Activity,
   AlertCircle,
+  CalendarClock,
   CalendarDays,
   CheckCircle,
   Clock,
@@ -70,6 +71,8 @@ import {
 } from "lucide-react";
 import { formatDateTime, formatEventType, formatTimeOnly, meaningfulDate } from "../../../../lib/format";
 import { resolveIANATimezone } from "../../../../lib/timezone";
+import { StaffAppointmentDashboard } from "../../../../components/StaffAppointmentDashboard";
+import { PatientPicker } from "../../../../components/PatientPicker";
 
 const focusOptions = [
   { value: "full", label: "Full Summary" },
@@ -82,6 +85,7 @@ const navItems: SidebarItem[] = [
   { id: "home", label: "Home", icon: Home },
   { id: "summary", label: "Summary", icon: FileText },
   { id: "meetings", label: "Meetings", icon: CalendarDays },
+  { id: "appointments", label: "Appointments", icon: CalendarClock },
   { id: "staff", label: "Staff", icon: UserPlus },
   { id: "consent", label: "Consent", icon: QrCode },
   { id: "incidents", label: "Incidents", icon: AlertCircle },
@@ -462,6 +466,13 @@ function HospitalPatientSummaryPageContent() {
     });
   };
 
+  const applyMeetingStatusFallback = (meetingID: string, status: string) => {
+    clearApiCache("hospital");
+    setMeetings((current) =>
+      current.map((item) => (item.id === meetingID ? { ...item, status } : item)),
+    );
+  };
+
   const handleAcceptMeeting = async (meetingID: string) => {
     setMutatingMeetingID(meetingID);
     setError("");
@@ -474,7 +485,11 @@ function HospitalPatientSummaryPageContent() {
         setError(data.error?.message || "Unable to accept meeting request.");
         return;
       }
-      mergeMeeting(data.data?.meeting);
+      if (data.data?.meeting) {
+        mergeMeeting(data.data.meeting);
+      } else {
+        applyMeetingStatusFallback(meetingID, "scheduled");
+      }
     } catch {
       setError("Network error while accepting meeting request.");
     } finally {
@@ -499,7 +514,9 @@ function HospitalPatientSummaryPageContent() {
         setError(data.error?.message || "Unable to reschedule meeting request.");
         return;
       }
-      mergeMeeting(data.data?.meeting);
+      if (data.data?.meeting) {
+        mergeMeeting(data.data.meeting);
+      }
     } catch {
       setError("Network error while rescheduling meeting request.");
     } finally {
@@ -521,7 +538,11 @@ function HospitalPatientSummaryPageContent() {
         setError(data.error?.message || "Unable to cancel meeting request.");
         return;
       }
-      mergeMeeting(data.data?.meeting);
+      if (data.data?.meeting) {
+        mergeMeeting(data.data.meeting);
+      } else {
+        applyMeetingStatusFallback(meetingID, "cancelled");
+      }
     } catch {
       setError("Network error while cancelling meeting request.");
     } finally {
@@ -1097,13 +1118,10 @@ function HospitalPatientSummaryPageContent() {
                 onSubmit={handleSubmit}
                 className="clinical-card grid gap-4 p-6 md:grid-cols-[minmax(0,2fr)_minmax(13rem,0.8fr)_auto]"
               >
-                <Input
-                  id="patientID"
-                  label="Patient Name, Email, or ID"
-                  icon={<Search className="h-5 w-5" />}
+                <PatientPicker
                   value={patientID}
-                  onChange={(e) => setPatientID(e.target.value)}
-                  placeholder="Jane Patient, jane@example.com, or UUID"
+                  onChange={(id) => setPatientID(id)}
+                  label="Patient"
                   required
                 />
                 <div className="space-y-2">
@@ -1131,7 +1149,7 @@ function HospitalPatientSummaryPageContent() {
                     type="submit"
                     variant="healthcare"
                     className="h-12 w-full"
-                    disabled={isLoading}
+                    disabled={isLoading || !patientID.trim()}
                   >
                     <Sparkles className="h-4 w-4" />
                     {isLoading ? "Summarizing..." : "Generate"}
@@ -1191,6 +1209,8 @@ function HospitalPatientSummaryPageContent() {
               onSchedule={(e) => void handleScheduleMeeting(e)}
             />
           ) : null}
+
+          {activeSection === "appointments" ? <StaffAppointmentDashboard /> : null}
 
           {activeSection === "staff" ? (
             <StaffRegistrationPanel
@@ -1459,13 +1479,11 @@ function MeetingPanel({
 
       {showScheduleForm && onSchedule && scheduleForm && setScheduleForm ? (
         <form onSubmit={onSchedule} className="mt-5 grid gap-4 rounded-2xl border border-slate-200 bg-slate-50/70 p-5 md:grid-cols-2">
-          <div className="space-y-2">
-            <label className="text-xs font-black uppercase tracking-wide text-slate-500">Patient ID</label>
-            <input
+          <div className="space-y-2 md:col-span-2">
+            <PatientPicker
               value={scheduleForm.patient_id}
-              onChange={(e) => setScheduleForm((prev) => ({ ...prev, patient_id: e.target.value }))}
-              placeholder="Enter patient ID"
-              className="h-10 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-700 outline-none focus:border-indigo-400 focus:ring-4 focus:ring-indigo-100"
+              onChange={(id) => setScheduleForm((prev) => ({ ...prev, patient_id: id }))}
+              label="Patient"
               required
             />
           </div>
@@ -2263,16 +2281,14 @@ function AuditSearch({
     <section className="clinical-card overflow-hidden">
       <form onSubmit={loadAudit} className="border-b border-slate-200 p-6">
         <div className="grid gap-4 md:grid-cols-[1fr_auto]">
-          <Input
-            label="Patient Name, Email, or ID"
-            icon={<Search className="h-5 w-5" />}
+          <PatientPicker
             value={patientID}
-            onChange={(e) => setPatientID(e.target.value)}
-            placeholder="Jane Patient, jane@example.com, or UUID"
+            onChange={(id) => setPatientID(id)}
+            label="Patient"
             required
           />
           <div className="flex items-end">
-            <Button type="submit" variant="healthcare" className="h-12 w-full" disabled={loading}>
+            <Button type="submit" variant="healthcare" className="h-12 w-full" disabled={loading || !patientID.trim()}>
               <ListChecks className="h-4 w-4" />
               {loading ? "Searching..." : "Load Audit Trail"}
             </Button>

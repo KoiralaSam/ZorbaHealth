@@ -1,0 +1,221 @@
+syntax = "proto3";
+
+package appointment;
+
+import "google/protobuf/timestamp.proto";
+
+option go_package = "shared/proto/appointment;appointment";
+
+service AppointmentService {
+  // Doctor-managed availability
+  rpc SetAvailabilityRules(SetAvailabilityRulesRequest) returns (SetAvailabilityRulesResponse);
+  rpc GetAvailabilityRules(GetAvailabilityRulesRequest) returns (GetAvailabilityRulesResponse);
+  rpc AddAvailabilityException(AddAvailabilityExceptionRequest) returns (AddAvailabilityExceptionResponse);
+  rpc RemoveAvailabilityException(RemoveAvailabilityExceptionRequest) returns (RemoveAvailabilityExceptionResponse);
+  rpc ListAvailabilityExceptions(ListAvailabilityExceptionsRequest) returns (ListAvailabilityExceptionsResponse);
+
+  // Slot discovery
+  rpc ListAvailableSlots(ListAvailableSlotsRequest) returns (ListAvailableSlotsResponse);
+  rpc GetNextAvailableSlot(GetNextAvailableSlotRequest) returns (GetNextAvailableSlotResponse);
+
+  // Booking
+  rpc BookAppointment(BookAppointmentRequest) returns (BookAppointmentResponse);
+  rpc RescheduleAppointment(RescheduleAppointmentRequest) returns (RescheduleAppointmentResponse);
+  rpc CancelAppointment(CancelAppointmentRequest) returns (CancelAppointmentResponse);
+  rpc ListAppointments(ListAppointmentsRequest) returns (ListAppointmentsResponse);
+  rpc GetAppointment(GetAppointmentRequest) returns (GetAppointmentResponse);
+}
+
+message AvailabilityRule {
+  string id = 1;
+  string staff_id = 2;
+  string hospital_id = 3;
+  int32 weekday = 4; // 0=Sunday .. 6=Saturday (Go time.Weekday)
+  string start_time_local = 5; // HH:MM
+  string end_time_local = 6; // HH:MM
+  int32 slot_duration_minutes = 7;
+  string timezone = 8; // IANA
+  google.protobuf.Timestamp effective_from = 9;
+  google.protobuf.Timestamp effective_until = 10; // optional; empty = open-ended
+}
+
+message AvailabilityException {
+  string id = 1;
+  string staff_id = 2;
+  string hospital_id = 3;
+  google.protobuf.Timestamp starts_at = 4;
+  google.protobuf.Timestamp ends_at = 5;
+  string reason = 6;
+  bool is_available = 7; // false = time off; true = extra availability override
+}
+
+message AppointmentSlot {
+  google.protobuf.Timestamp starts_at = 1;
+  google.protobuf.Timestamp ends_at = 2;
+  int32 duration_minutes = 3;
+  string timezone = 4;
+  string staff_id = 5;
+  string hospital_id = 6;
+}
+
+message Appointment {
+  string id = 1;
+  string patient_id = 2;
+  string staff_id = 3;
+  string hospital_id = 4;
+  google.protobuf.Timestamp starts_at = 5;
+  int32 duration_minutes = 6;
+  string timezone = 7;
+  string type = 8; // video | in_person
+  string status = 9; // booked | cancelled | completed | no_show
+  string channel = 10; // voice | portal | mobile | dashboard
+  string title = 11;
+  string notes = 12;
+  string correlation_id = 13;
+  string voice_session_id = 14;
+  string booked_by_actor_type = 15;
+  string booked_by_actor_id = 16;
+  string join_url = 17;
+  string livekit_room_name = 18;
+  string patient_token = 19;
+  string staff_token = 20;
+  google.protobuf.Timestamp created_at = 21;
+  google.protobuf.Timestamp updated_at = 22;
+}
+
+message SetAvailabilityRulesRequest {
+  string staff_id = 1;
+  string hospital_id = 2;
+  repeated AvailabilityRule rules = 3;
+}
+
+message SetAvailabilityRulesResponse {
+  repeated AvailabilityRule rules = 1;
+}
+
+message GetAvailabilityRulesRequest {
+  string staff_id = 1;
+  string hospital_id = 2;
+}
+
+message GetAvailabilityRulesResponse {
+  repeated AvailabilityRule rules = 1;
+}
+
+message AddAvailabilityExceptionRequest {
+  string staff_id = 1;
+  string hospital_id = 2;
+  google.protobuf.Timestamp starts_at = 3;
+  google.protobuf.Timestamp ends_at = 4;
+  string reason = 5;
+  bool is_available = 6;
+}
+
+message AddAvailabilityExceptionResponse {
+  AvailabilityException exception = 1;
+}
+
+message RemoveAvailabilityExceptionRequest {
+  string exception_id = 1;
+}
+
+message RemoveAvailabilityExceptionResponse {
+  bool removed = 1;
+}
+
+message ListAvailabilityExceptionsRequest {
+  string staff_id = 1;
+  string hospital_id = 2;
+  google.protobuf.Timestamp from = 3;
+  google.protobuf.Timestamp to = 4;
+}
+
+message ListAvailabilityExceptionsResponse {
+  repeated AvailabilityException exceptions = 1;
+}
+
+message ListAvailableSlotsRequest {
+  string staff_id = 1;
+  string hospital_id = 2;
+  google.protobuf.Timestamp from = 3;
+  google.protobuf.Timestamp to = 4;
+  int32 limit = 5;
+}
+
+message ListAvailableSlotsResponse {
+  repeated AppointmentSlot slots = 1;
+}
+
+message GetNextAvailableSlotRequest {
+  string staff_id = 1;
+  string hospital_id = 2;
+  google.protobuf.Timestamp after = 3; // optional; defaults to now
+}
+
+message GetNextAvailableSlotResponse {
+  AppointmentSlot slot = 1;
+}
+
+message BookAppointmentRequest {
+  string patient_id = 1;
+  string staff_id = 2;
+  string hospital_id = 3;
+  google.protobuf.Timestamp starts_at = 4;
+  int32 duration_minutes = 5;
+  string timezone = 6;
+  string type = 7; // video | in_person
+  string channel = 8; // voice | portal | mobile | dashboard
+  string title = 9;
+  string notes = 10;
+  string correlation_id = 11;
+  string voice_session_id = 12;
+  string booked_by_actor_type = 13;
+  string booked_by_actor_id = 14;
+  bool send_sms = 15;
+  bool send_email = 16;
+}
+
+message BookAppointmentResponse {
+  Appointment appointment = 1;
+}
+
+message RescheduleAppointmentRequest {
+  string appointment_id = 1;
+  google.protobuf.Timestamp starts_at = 2;
+  int32 duration_minutes = 3;
+  string timezone = 4;
+  string title = 5;
+}
+
+message RescheduleAppointmentResponse {
+  Appointment appointment = 1;
+}
+
+message CancelAppointmentRequest {
+  string appointment_id = 1;
+  string reason = 2;
+}
+
+message CancelAppointmentResponse {
+  Appointment appointment = 1;
+}
+
+message ListAppointmentsRequest {
+  string patient_id = 1;
+  string staff_id = 2;
+  string hospital_id = 3;
+  bool include_cancelled = 4;
+  int32 limit = 5;
+}
+
+message ListAppointmentsResponse {
+  repeated Appointment appointments = 1;
+}
+
+message GetAppointmentRequest {
+  string appointment_id = 1;
+}
+
+message GetAppointmentResponse {
+  Appointment appointment = 1;
+}

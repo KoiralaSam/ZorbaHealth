@@ -111,17 +111,20 @@ service:
     - port: 9093
       targetPort: 9093
       name: grpc
-welfareCheckDispatcher:
+cronDispatcher:
   enabled: true
-  schedule: "* * * * *"
-  concurrencyPolicy: Forbid
-  successfulJobsHistoryLimit: 2
-  failedJobsHistoryLimit: 4
-  startingDeadlineSeconds: 50
-  backoffLimit: 1
-  activeDeadlineSeconds: 90
+  replicaCount: 1
   command:
-    - ./build/welfare-check-dispatcher
+    - ./build/cron-dispatcher
+  welfareCheck:
+    schedule: "* * * * *"
+    limit: "25"
+    maxAttempts: "5"
+    retryBaseSeconds: "120"
+    retryMaxSeconds: "1800"
+  meetingReminder:
+    schedule: "* * * * *"
+    limit: "25"
   resources:
     requests:
       memory: 64Mi

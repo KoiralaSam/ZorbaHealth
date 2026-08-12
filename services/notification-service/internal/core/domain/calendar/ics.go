@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"strings"
 	"time"
+	_ "time/tzdata" // Alpine runtime images omit /usr/share/zoneinfo
 )
 
 // BuildMeetingRequestICS returns RFC5545 calendar content for a scheduled visit.

@@ -72,26 +72,29 @@ message RegisterPatientResponse {
   string user_id = 2;
 }
 
-// --- Register health provider: auth creates user (role=health_provider) only; health_provider service creates row ---
+// --- Register health provider credentials: auth creates user (role=hospital_staff) only.
+// Hospital + staff membership rows are owned by health-provider-service. ---
 
 message RegisterHealthProviderRequest {
   string email = 1;
   string phone_number = 2;
   string password = 3;
-  string organization_name = 4;
-  string service_type = 5;
-  string license_no = 6;
-  string staff_name = 7;
-  string staff_role = 8;
-  string hospital_id = 9;
+  // Deprecated domain fields — ignored by auth; kept for wire compatibility.
+  string organization_name = 4 [deprecated = true];
+  string service_type = 5 [deprecated = true];
+  string license_no = 6 [deprecated = true];
+  string staff_name = 7 [deprecated = true];
+  string staff_role = 8 [deprecated = true];
+  string hospital_id = 9 [deprecated = true];
 }
 
 message RegisterHealthProviderResponse {
   string message = 1;
   string user_id = 2;
-  string hospital_id = 3;
-  string staff_id = 4;
-  string staff_role = 5;
+  // Deprecated — always empty from auth; health-provider-service returns these.
+  string hospital_id = 3 [deprecated = true];
+  string staff_id = 4 [deprecated = true];
+  string staff_role = 5 [deprecated = true];
 }
 
 message CreatePatientSessionRequest {

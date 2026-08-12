@@ -1,128 +1,81 @@
 "use client";
 
-import { Room, RoomEvent, Track } from "livekit-client";
+import "@livekit/components-styles";
+import {
+  LiveKitRoom,
+  RoomAudioRenderer,
+  VideoConference,
+} from "@livekit/components-react";
 import { useSearchParams } from "next/navigation";
-import { Suspense, useCallback, useEffect, useRef, useState } from "react";
+import { Suspense, useMemo, useState } from "react";
 
 function MeetingJoinInner() {
   const params = useSearchParams();
-  const server = params.get("server") ?? "";
-  const token = params.get("token") ?? "";
-  const roomName = params.get("room") ?? "";
-  const [status, setStatus] = useState("Connecting…");
-  const [error, setError] = useState<string | null>(null);
-  const roomRef = useRef<Room | null>(null);
-  const localVideoRef = useRef<HTMLVideoElement>(null);
-  const remoteContainerRef = useRef<HTMLDivElement>(null);
+  const server = (params.get("server") ?? "").trim();
+  const token = (params.get("token") ?? "").trim();
+  const roomName = (params.get("room") ?? "").trim();
+  const [disconnected, setDisconnected] = useState(false);
 
-  const attachTrack = useCallback((track: Track, participantIdentity: string) => {
-    if (track.kind !== Track.Kind.Video) {
-      return;
-    }
-    const el = track.attach() as HTMLVideoElement;
-    el.autoplay = true;
-    el.playsInline = true;
-    const room = roomRef.current;
-    if (room && participantIdentity === room.localParticipant.identity) {
-      if (localVideoRef.current) {
-        localVideoRef.current.replaceWith(el);
-        el.id = "local-video";
-        localVideoRef.current = el;
-      }
-      return;
-    }
-    el.className = "h-full w-full rounded-xl bg-slate-900 object-cover";
-    const wrap = document.createElement("div");
-    wrap.className = "aspect-video overflow-hidden rounded-xl bg-slate-900";
-    wrap.appendChild(el);
-    remoteContainerRef.current?.appendChild(wrap);
-  }, []);
+  const missing = useMemo(() => !server || !token, [server, token]);
 
-  useEffect(() => {
-    if (!server || !token) {
-      setError("Missing LiveKit server URL or access token.");
-      setStatus("");
-      return;
-    }
-
-    const room = new Room({ adaptiveStream: true, dynacast: true });
-    roomRef.current = room;
-
-    room.on(RoomEvent.TrackSubscribed, (track, _pub, participant) => {
-      attachTrack(track, participant.identity);
-    });
-    room.on(RoomEvent.TrackPublished, (pub, participant) => {
-      if (pub.track) {
-        attachTrack(pub.track, participant.identity);
-      }
-    });
-    room.on(RoomEvent.Disconnected, () => {
-      setStatus("Disconnected");
-    });
-
-    let cancelled = false;
-    (async () => {
-      try {
-        await room.connect(server, token);
-        if (cancelled) {
-          return;
-        }
-        setStatus("Connected");
-        await room.localParticipant.setCameraEnabled(true);
-        await room.localParticipant.setMicrophoneEnabled(true);
-        room.localParticipant.trackPublications.forEach((pub) => {
-          if (pub.track) {
-            attachTrack(pub.track, room.localParticipant.identity);
-          }
-        });
-        if (roomName) {
-          document.title = `Visit — ${roomName}`;
-        }
-      } catch (e) {
-        if (!cancelled) {
-          setError(e instanceof Error ? e.message : "Could not join the visit.");
-          setStatus("");
-        }
-      }
-    })();
-
-    return () => {
-      cancelled = true;
-      room.disconnect();
-      roomRef.current = null;
-    };
-  }, [server, token, roomName, attachTrack]);
-
-  return (
-    <main className="mx-auto flex min-h-screen max-w-4xl flex-col gap-6 px-4 py-10">
-      <div>
-        <h1 className="text-2xl font-black text-slate-950">Zorba Health video visit</h1>
-        {roomName ? (
-          <p className="mt-1 text-sm font-semibold text-slate-500">Room: {roomName}</p>
-        ) : null}
-        {status ? (
-          <p className="mt-2 text-sm font-semibold text-slate-600">{status}</p>
-        ) : null}
-        {error ? (
-          <p className="mt-2 text-sm font-semibold text-red-600">{error}</p>
-        ) : null}
-      </div>
-      <div className="grid gap-4 md:grid-cols-2">
-        <div className="aspect-video overflow-hidden rounded-xl bg-slate-900">
-          <video
-            ref={localVideoRef}
-            id="local-video"
-            className="h-full w-full object-cover"
-            autoPlay
-            playsInline
-            muted
-          />
-          <p className="pointer-events-none -mt-8 relative z-10 px-3 text-xs font-bold text-white">
-            You
+  if (missing) {
+    return (
+      <main className="flex min-h-screen items-center justify-center bg-slate-950 px-4">
+        <div className="max-w-md rounded-2xl border border-white/10 bg-slate-900/80 p-6 text-center shadow-2xl">
+          <h1 className="text-xl font-semibold text-white">Missing join details</h1>
+          <p className="mt-2 text-sm text-slate-300">
+            This visit link needs a LiveKit server URL and access token. Open the link from your
+            Zorba Health meeting email or dashboard.
           </p>
         </div>
-        <div ref={remoteContainerRef} className="grid gap-4" />
+      </main>
+    );
+  }
+
+  if (disconnected) {
+    return (
+      <main className="flex min-h-screen items-center justify-center bg-slate-950 px-4">
+        <div className="max-w-md rounded-2xl border border-white/10 bg-slate-900/80 p-6 text-center shadow-2xl">
+          <h1 className="text-xl font-semibold text-white">Visit ended</h1>
+          <p className="mt-2 text-sm text-slate-300">
+            You left the LiveKit room{roomName ? ` (${roomName})` : ""}. You can close this tab.
+          </p>
+          <button
+            type="button"
+            className="mt-5 rounded-full bg-indigo-500 px-5 py-2 text-sm font-semibold text-white hover:bg-indigo-400"
+            onClick={() => {
+              setDisconnected(false);
+            }}
+          >
+            Rejoin
+          </button>
+        </div>
+      </main>
+    );
+  }
+
+  return (
+    <main className="h-[100dvh] w-full overflow-hidden bg-slate-950 text-white">
+      <div className="absolute left-4 top-4 z-20 rounded-full bg-black/50 px-3 py-1.5 text-xs font-semibold tracking-wide text-white/90 backdrop-blur">
+        Zorba Health{roomName ? ` · ${roomName}` : ""}
       </div>
+      <LiveKitRoom
+        token={token}
+        serverUrl={server}
+        connect
+        video
+        audio
+        data-lk-theme="default"
+        className="h-full w-full"
+        onDisconnected={() => setDisconnected(true)}
+        onError={(err) => {
+          console.error("LiveKit meeting error", err);
+        }}
+      >
+        {/* VideoConference focuses ScreenShare over Camera when present. */}
+        <VideoConference />
+        <RoomAudioRenderer />
+      </LiveKitRoom>
     </main>
   );
 }
@@ -131,8 +84,8 @@ export default function MeetingJoinPage() {
   return (
     <Suspense
       fallback={
-        <main className="mx-auto max-w-4xl px-4 py-10 text-sm font-semibold text-slate-600">
-          Loading…
+        <main className="flex min-h-screen items-center justify-center bg-slate-950 text-sm font-semibold text-slate-300">
+          Connecting to visit…
         </main>
       }
     >

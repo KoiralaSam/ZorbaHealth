@@ -291,6 +291,36 @@ export const styles = StyleSheet.create({
   field: {
     gap: 6,
   },
+  dateTimeRow: {
+    flexDirection: "row",
+    gap: 10,
+  },
+  dateTimeChip: {
+    flex: 1,
+    minHeight: 64,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: colors.primaryTintStrong,
+    backgroundColor: colors.surface,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+  },
+  dateTimeChipEyebrow: {
+    fontSize: 11,
+    fontWeight: "700",
+    color: colors.mutedText,
+    textTransform: "uppercase",
+    letterSpacing: 0.4,
+  },
+  dateTimeChipValue: {
+    marginTop: 2,
+    fontSize: 14,
+    fontWeight: "800",
+    color: colors.text,
+  },
   filterPanel: {
     borderRadius: 18,
     borderWidth: 1,

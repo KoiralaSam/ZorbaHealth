@@ -1,0 +1,17 @@
+Hello {{ .StaffName }},
+
+An appointment has been booked{{ if .PatientName }} for {{ .PatientName }}{{ end }}.
+
+Details
+-------
+Title: {{ .Title }}
+When: {{ .StartLocal }} ({{ .Timezone }})
+Duration: {{ .DurationMinutes }} minutes
+Type: {{ .TypeLabel }}
+Patient: {{ .PatientName }}
+Hospital: {{ .HospitalName }}
+{{ if .HospitalAddress }}Address: {{ .HospitalAddress }}{{ end }}
+{{ if .MapsURL }}Directions: {{ .MapsURL }}{{ end }}
+{{ if .JoinURL }}Join video visit: {{ .JoinURL }}{{ end }}
+
+— Zorba Health

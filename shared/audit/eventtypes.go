@@ -46,6 +46,11 @@ const (
 	EventWelfareCheckFailed               = "WELFARE_CHECK_FAILED"
 	EventWelfareCheckCompleted            = "WELFARE_CHECK_COMPLETED"
 	EventWelfareCheckRecordAccessed       = "WELFARE_CHECK_RECORD_CONTEXT_ACCESSED"
+	EventAppointmentBooked                = "APPOINTMENT_BOOKED"
+	EventAppointmentRescheduled           = "APPOINTMENT_RESCHEDULED"
+	EventAppointmentCancelled             = "APPOINTMENT_CANCELLED"
+	EventAppointmentBookDenied            = "APPOINTMENT_BOOK_DENIED"
+	EventAvailabilityUpdated              = "AVAILABILITY_UPDATED"
 )
 
 var AllEventTypes = []string{
@@ -94,4 +99,9 @@ var AllEventTypes = []string{
 	EventWelfareCheckFailed,
 	EventWelfareCheckCompleted,
 	EventWelfareCheckRecordAccessed,
+	EventAppointmentBooked,
+	EventAppointmentRescheduled,
+	EventAppointmentCancelled,
+	EventAppointmentBookDenied,
+	EventAvailabilityUpdated,
 }

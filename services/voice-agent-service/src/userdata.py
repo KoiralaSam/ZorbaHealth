@@ -44,6 +44,13 @@ class SessionUserData:
     dtmf_otp_buffer: str = ""
     verification_attempts: int = 0
 
+    # Appointment date keypad entry (MMDD then #).
+    dtmf_mode: str = ""  # "" | "appointment_date"
+    dtmf_appointment_date_buffer: str = ""
+    pending_appointment_staff_id: str = ""
+    pending_appointment_hospital_id: str = ""
+    pending_appointment_date: str = ""  # YYYY-MM-DD when collected
+
     # Health context loaded after verification; summarised by Go.
     health_context: str = ""
 

@@ -134,6 +134,7 @@ func main() {
 	patientConsumer := rmqconsumer.NewPatientConsumer(rabbitmq, notificationSvc)
 	emergencyConsumer := rmqconsumer.NewEmergencyConsumer(rabbitmq, notificationSvc)
 	meetingConsumer := rmqconsumer.NewMeetingConsumer(rabbitmq, notificationSvc)
+	appointmentConsumer := rmqconsumer.NewAppointmentConsumer(rabbitmq, notificationSvc)
 	go func() {
 		if err := patientConsumer.Listen(); err != nil {
 			log.Printf("Failed to listen for patient messages: %v", err)
@@ -161,6 +162,18 @@ func main() {
 	go func() {
 		if err := meetingConsumer.ListenReminders(); err != nil {
 			log.Printf("Failed to listen for meeting reminder messages: %v", err)
+			cancel()
+		}
+	}()
+	go func() {
+		if err := appointmentConsumer.ListenBooked(); err != nil {
+			log.Printf("Failed to listen for appointment booked messages: %v", err)
+			cancel()
+		}
+	}()
+	go func() {
+		if err := appointmentConsumer.ListenCancelled(); err != nil {
+			log.Printf("Failed to listen for appointment cancelled messages: %v", err)
 			cancel()
 		}
 	}()

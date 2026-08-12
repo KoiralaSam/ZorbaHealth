@@ -113,17 +113,18 @@ _ZORBA_INSTRUCTIONS = textwrap.dedent(
       lookup on this call's phone number, send an OTP, ask for the code, then verify. After
       success, use grounded record tools only. If verification fails, ask them to try again;
       after repeated failures, suggest the patient portal or calling back—do not fake access.
-    - After verification, if they want a video visit with their care team:
+    - After verification, if they want an appointment with their care team:
       1) Call list_patient_hospitals (not find_nearest_hospital) and read the facility names.
       2) If none, explain hospital consent in the portal; if several, ask which hospital they mean.
       3) After they choose, call list_schedulable_staff with that hospital_id and help them pick staff.
-      4) Use get_scheduling_clock if you need today's UTC anchor. Ask for visit_date (YYYY-MM-DD),
-         visit_time_local (HH:MM 24-hour), and IANA timezone_name (e.g. America/Los_Angeles).
-         Never pass raw RFC3339—schedule_health_staff_meeting converts local date/time for you.
-      5) Repeat hospital, staff, local date, local time, and timezone aloud; get explicit yes.
-      6) Call schedule_health_staff_meeting with patient_confirmed=true.
-      Explain the request stays pending until hospital staff accept or reschedule it, and LiveKit
-      video visit details are sent only after approval. Do not request scheduling during an active emergency escalation.
+      4) Ask for a preferred date. They may say it aloud OR enter MMDD on the keypad then #.
+         You can also offer the first available slot via get_next_available_slot.
+      5) Call list_available_appointment_slots (or use the next slot). Read back the auto-selected
+         time (earliest free slot on that date unless they pick another).
+      6) Repeat hospital, staff, date, and time aloud; get explicit yes.
+      7) Call book_appointment with patient_confirmed=true and the slot startsAt.
+      Explain the appointment is booked immediately (not pending approval). Prefer book_appointment
+      over schedule_health_staff_meeting for new bookings. Do not book during an active emergency escalation.
     - Live hospital staff on this same call (interpretation bridge): after verification, if the
       caller presses 0 on the keypad, asks to speak with hospital staff / a clinician, or needs
       live translation with staff on the line:
@@ -460,6 +461,7 @@ async def zorba_session(ctx: JobContext) -> None:
 
     async def _handle_dtmf(ev) -> None:
         from verification import normalize_otp, verify_existing_otp_for_session
+        from datetime import date
 
         digit = getattr(ev, "digit", "") or ""
         with tracer.start_as_current_span(
@@ -467,6 +469,7 @@ async def zorba_session(ctx: JobContext) -> None:
             attributes={
                 "voice.session_id": ud.session_id,
                 "voice.dtmf.digit_count": len(ud.dtmf_otp_buffer),
+                "voice.dtmf.mode": ud.dtmf_mode or "otp",
             },
         ):
             # Verified callers may press 0 to request hospital staff on this call.
@@ -474,6 +477,7 @@ async def zorba_session(ctx: JobContext) -> None:
                 digit == "0"
                 and ud.is_verified
                 and ud.verification_state != "existing_patient_otp_pending"
+                and ud.dtmf_mode != "appointment_date"
                 and not ud.interpreter_mode
             ):
                 try:
@@ -488,6 +492,75 @@ async def zorba_session(ctx: JobContext) -> None:
                     )
                 except Exception:
                     logger.exception("dtmf staff transfer prompt failed session=%s", ud.session_id)
+                return
+
+            # Appointment date keypad entry: MMDD then # (* clears).
+            if ud.dtmf_mode == "appointment_date" and ud.is_verified:
+                if digit == "*":
+                    ud.dtmf_appointment_date_buffer = ""
+                    return
+                if digit == "#":
+                    buf = ud.dtmf_appointment_date_buffer
+                    ud.dtmf_appointment_date_buffer = ""
+                    ud.dtmf_mode = ""
+                    if len(buf) != 4 or not buf.isdigit():
+                        try:
+                            await session.generate_reply(
+                                instructions=(
+                                    "Tell the caller the date must be four digits as month then day "
+                                    "(for example 0315 for March 15), then press #. Offer to try again "
+                                    "via collect_appointment_date_via_keypad."
+                                ),
+                                allow_interruptions=False,
+                            )
+                        except Exception:
+                            logger.exception("dtmf appointment date invalid prompt failed session=%s", ud.session_id)
+                        return
+                    month, day = int(buf[:2]), int(buf[2:])
+                    year = date.today().year
+                    try:
+                        parsed = date(year, month, day)
+                    except ValueError:
+                        try:
+                            await session.generate_reply(
+                                instructions="Tell the caller that date is not valid and ask them to try again.",
+                                allow_interruptions=False,
+                            )
+                        except Exception:
+                            logger.exception("dtmf appointment date parse prompt failed session=%s", ud.session_id)
+                        return
+                    if parsed < date.today():
+                        try:
+                            parsed = date(year + 1, month, day)
+                        except ValueError:
+                            try:
+                                await session.generate_reply(
+                                    instructions="Tell the caller that date is not valid and ask them to try again.",
+                                    allow_interruptions=False,
+                                )
+                            except Exception:
+                                logger.exception("dtmf appointment date year rollover failed session=%s", ud.session_id)
+                            return
+                    ud.pending_appointment_date = parsed.isoformat()
+                    staff_id = ud.pending_appointment_staff_id
+                    hospital_id = ud.pending_appointment_hospital_id
+                    try:
+                        session.interrupt()
+                        await session.generate_reply(
+                            instructions=(
+                                f"The caller entered date {parsed.isoformat()} on the keypad. "
+                                f"Call list_available_appointment_slots with staff_id={staff_id} "
+                                f"hospital_id={hospital_id} for that calendar day, auto-select the "
+                                "earliest slot (or get_next_available_slot), read the time back, "
+                                "confirm, then book_appointment with patient_confirmed=true."
+                            ),
+                            allow_interruptions=False,
+                        )
+                    except Exception:
+                        logger.exception("dtmf appointment date success prompt failed session=%s", ud.session_id)
+                    return
+                if digit.isdigit():
+                    ud.dtmf_appointment_date_buffer = (ud.dtmf_appointment_date_buffer + digit)[-4:]
                 return
 
             if ud.verification_state != "existing_patient_otp_pending":

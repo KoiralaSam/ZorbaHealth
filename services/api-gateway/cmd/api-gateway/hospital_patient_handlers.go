@@ -80,9 +80,22 @@ func listHospitalPatients(ctx context.Context, hospitalID string, lookup string,
 				$2 = ''
 				OR p.id::text = $2
 				OR lower(COALESCE(p.email, '')) = lower($2)
+				OR lower(COALESCE(p.email, '')) LIKE lower('%' || $2 || '%')
 				OR p.full_name ILIKE '%' || $2 || '%'
+				OR (
+					SELECT COALESCE(bool_and(p.full_name ILIKE '%' || trim(both from t) || '%'), false)
+					FROM unnest(string_to_array(trim(both from $2), ' ')) AS t
+					WHERE trim(both from t) <> ''
+				)
 			)
-		ORDER BY c.granted_at DESC
+		ORDER BY
+			CASE
+				WHEN lower(COALESCE(p.full_name, '')) = lower($2) THEN 0
+				WHEN p.full_name ILIKE $2 || '%' THEN 1
+				WHEN p.full_name ILIKE '%' || $2 || '%' THEN 2
+				ELSE 3
+			END,
+			c.granted_at DESC
 		LIMIT $3
 	`, hospitalID, query, limit)
 	if errors.Is(err, pgx.ErrNoRows) {

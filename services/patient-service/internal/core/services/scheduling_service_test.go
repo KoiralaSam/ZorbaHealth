@@ -53,6 +53,47 @@ func TestScheduleHealthStaffMeetingCreatesPendingWithoutLiveKit(t *testing.T) {
 	}
 }
 
+func TestScheduleHealthStaffMeetingByStaffAutoConfirmsWithLiveKit(t *testing.T) {
+	ids := testSchedulingIDs()
+	repo := newSchedulingRepo(ids)
+	patients := &fakeSchedulingPatientRepo{patient: &models.Patient{ID: ids.patientID, Email: "patient@example.com", PhoneNumber: "+15551234567", FullName: "Pat Patient"}}
+	livekit := &fakeLiveKitProvider{}
+	publisher := &fakeSchedulingPublisher{}
+	svc := NewSchedulingService(repo, patients, nil, livekit, publisher, nil)
+
+	meeting, err := svc.ScheduleHealthStaffMeeting(context.Background(), &models.ScheduleMeetingCommand{
+		PatientID:       ids.patientID,
+		StaffID:         ids.staffID,
+		HospitalID:      ids.hospitalID,
+		StartsAt:        time.Now().UTC().Add(2 * time.Hour),
+		DurationMinutes: 30,
+		Timezone:        "America/Chicago",
+		Channel:         models.MeetingChannelDashboard,
+		CorrelationID:   uuid.New(),
+		SendSMS:         true,
+		ActorType:       "staff",
+		ActorID:         ids.staffID.String(),
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if meeting.Status != models.MeetingStatusScheduled {
+		t.Fatalf("status = %s, want scheduled", meeting.Status)
+	}
+	if meeting.JoinURL == "" || meeting.LiveKitRoomName == "" || meeting.PatientToken == "" || meeting.StaffToken == "" {
+		t.Fatalf("auto-confirmed meeting missing LiveKit fields: %+v", meeting)
+	}
+	if livekit.lastInput.RoomName == "" {
+		t.Fatal("expected livekit room creation on staff schedule")
+	}
+	if publisher.requested != nil {
+		t.Fatal("did not expect meeting requested event for staff-created visit")
+	}
+	if publisher.scheduled == nil || publisher.scheduled.JoinURL == "" {
+		t.Fatalf("expected scheduled event with join URL, got %+v", publisher.scheduled)
+	}
+}
+
 func TestAcceptScheduledMeetingCreatesLiveKitRoomAndPublishesScheduled(t *testing.T) {
 	ids := testSchedulingIDs()
 	repo := newSchedulingRepo(ids)

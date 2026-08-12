@@ -42,6 +42,16 @@ spec:
                 configMapKeyRef:
                   key: API_GATEWAY_HTTP_ADDR
                   name: app-config
+            - name: API_GATEWAY_ALLOWED_ORIGINS
+              valueFrom:
+                configMapKeyRef:
+                  key: API_GATEWAY_ALLOWED_ORIGINS
+                  name: app-config
+            - name: API_GATEWAY_ALLOW_LOCALHOST_ORIGINS
+              valueFrom:
+                configMapKeyRef:
+                  key: API_GATEWAY_ALLOW_LOCALHOST_ORIGINS
+                  name: app-config
             - name: DATABASE_URL
               valueFrom:
                 secretKeyRef:
@@ -61,6 +71,16 @@ spec:
               valueFrom:
                 configMapKeyRef:
                   key: AUTH_SERVICE_GRPC_ADDR
+                  name: app-config
+            - name: HEALTH_PROVIDER_SERVICE_GRPC_ADDR
+              valueFrom:
+                configMapKeyRef:
+                  key: HEALTH_PROVIDER_SERVICE_GRPC_ADDR
+                  name: app-config
+            - name: APPOINTMENT_SERVICE_GRPC_ADDR
+              valueFrom:
+                configMapKeyRef:
+                  key: APPOINTMENT_SERVICE_GRPC_ADDR
                   name: app-config
             - name: HEALTH_RECORDS_SERVICE_GRPC_ADDR
               valueFrom:
@@ -141,6 +161,16 @@ spec:
               valueFrom:
                 configMapKeyRef:
                   key: LIVEKIT_PUBLIC_WS_URL
+                  name: app-config
+            - name: VOIPMS_DID
+              valueFrom:
+                configMapKeyRef:
+                  key: VOIPMS_DID
+                  name: app-config
+            - name: ZORBA_VOICE_PHONE_NUMBER
+              valueFrom:
+                configMapKeyRef:
+                  key: ZORBA_VOICE_PHONE_NUMBER
                   name: app-config
 ---
 apiVersion: v1

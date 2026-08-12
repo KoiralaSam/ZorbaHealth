@@ -1,0 +1,123 @@
+{
+  "name": "ZorbaHealth Peak UX Brief Audit",
+  "audited_at": "2026-08-12",
+  "attached_brief": "/home/koiralas2/.codex/attachments/73bb9a5e-1442-4b1c-b7b2-f2d26be39b31/pasted-text.txt",
+  "peak_ux_figma": {
+    "file_key": "eNq0V4HwW6Yk4ut4GQWg8b",
+    "url": "https://www.figma.com/design/eNq0V4HwW6Yk4ut4GQWg8b",
+    "status": "present"
+  },
+  "hard_gate": {
+    "requirement": "Count current-state decisions from the Current State Figma file and prove fewer decisions in Peak UX.",
+    "status": "blocked",
+    "evidence": [
+      "docs/design/current-state-dna.json does not exist",
+      "Search across workspace, Codex attachments, and Codex state found no Current State Figma URL or file key",
+      "The attached Peak UX brief references the Current State file but does not include its URL/key",
+      "Fresh rg search on 2026-08-12 across repo docs, Codex attachments, and plugin cache found only prompt references to the Current State file, not a URL/key.",
+      "graphify query for current-state baseline returned exit code 1 with no output."
+    ],
+    "unblock": "Provide the ZorbaHealth \u2014 Current State Figma URL/file key or add docs/design/current-state-dna.json with current-state journey counts.",
+    "last_rechecked_at": "2026-08-12"
+  },
+  "completed_or_verified": [
+    {
+      "requirement": "Peak UX sibling Figma file exists",
+      "status": "pass",
+      "evidence": "File pages include Goal, Foundations, Components, Auth & Journey Map, Web/Mobile Patient/Hospital, Web Meeting, and Redesign Rationale."
+    },
+    {
+      "requirement": "Design-intelligence searches captured",
+      "status": "pass",
+      "evidence": "docs/design/peak-ux-design-intelligence-evidence.md captures the named ui-ux-pro-max design-system, color, typography, and UX searches."
+    },
+    {
+      "requirement": "Peak UX DNA artifact exists and validates",
+      "status": "pass",
+      "evidence": "python3 -m json.tool docs/design/peak-ux-dna.json passes."
+    },
+    {
+      "requirement": "Verification artifact exists and validates",
+      "status": "pass",
+      "evidence": "python3 -m json.tool docs/design/peak-ux-verification.json passes."
+    },
+    {
+      "requirement": "Patient appointment booking flow is walkable in Peak UX",
+      "status": "pass",
+      "evidence": "Web Patient: Book appointment -> who -> when -> confirm -> booked. Mobile Patient visible Confirm booking button now routes directly to booked frame 25:2."
+    },
+    {
+      "requirement": "Patient QR consent flow is walkable in Peak UX",
+      "status": "pass",
+      "evidence": "Web Patient Privacy sidebar cards and Mobile Patient Privacy tabs now provide visible entry to scan; QR scan -> grant/review -> granted remains wired."
+    },
+    {
+      "requirement": "Patient video visit flow is walkable in Peak UX",
+      "status": "pass",
+      "evidence": "Web Patient visible Run device check and Join visit controls route to prejoin 24:2 -> room 24:3 -> ended 24:4. Mobile Patient visible Join/device check routes to prejoin 25:3 -> room 25:4 -> ended 25:5. Standalone Web Meeting page remains wired for /meeting/join."
+    },
+    {
+      "requirement": "Patient records question flow is walkable in Peak UX",
+      "status": "pass",
+      "evidence": "Web Patient Records sidebar cards and Mobile Patient Records tabs now provide visible entry to records; Ask question remains wired to sourced answer/provenance state."
+    },
+    {
+      "requirement": "Staff triages incident and reviews summary",
+      "status": "pass",
+      "evidence": "Web Hospital chains Home Triage incident -> incidents -> Review patient summary -> summary -> Trace audit -> audit. Mobile Hospital chains Home Triage alert -> alerts -> Trace audit -> audit; summary also opens audit trail."
+    },
+    {
+      "requirement": "WCAG 2.2 AA contrast evidence exists",
+      "status": "pass_for_text_contrast_scan",
+      "evidence": "Figma MCP approximate contrast scan checked 550 visible text nodes across five core Peak UX pages with 0 AA contrast issues; docs/design/peak-ux-verification.json also lists AA semantic pairs. Full WCAG remains broader than contrast."
+    },
+    {
+      "requirement": "WCAG 2.2 AA target-size evidence exists",
+      "status": "pass_for_target_size_scan",
+      "evidence": "Figma MCP checked 112 visible interactive prototype nodes across five core Peak UX pages after raising 45 Mobile Patient tab targets to 62x45; 0 WCAG 24x24 failures and 0 44x44 comfort failures."
+    },
+    {
+      "requirement": "Interactive accessible-name and focus-order metadata exists",
+      "status": "pass_for_figma_metadata",
+      "evidence": "Figma MCP annotated 112 interactive nodes across five core pages with zorba.a11y label/focusOrder/frame metadata and re-scan found 0 missing entries. Runtime keyboard/screen-reader QA remains open."
+    },
+    {
+      "requirement": "PatientPicker option state is exposed for assistive tech",
+      "status": "pass_for_build_warning",
+      "evidence": "Added aria-selected to web PatientPicker role=\"option\" buttons at web/src/components/PatientPicker.tsx:155; npm run build in web passed and the prior jsx-a11y warning did not recur."
+    },
+    {
+      "requirement": "WCAG 2.2 AA gap ledger exists",
+      "status": "pass_for_gap_accounting_not_full_wcag",
+      "evidence": "docs/design/peak-ux-wcag-gap-audit.json enumerates proven, partial, and missing WCAG evidence; it keeps full WCAG 2.2 AA open until runtime keyboard/focus/screen-reader/reduced-motion and all-frame checks are complete."
+    }
+  ],
+  "figma_live_counts": {
+    "web_patient": {
+      "frames": 14,
+      "reactions": 50
+    },
+    "mobile_patient": {
+      "frames": 15,
+      "reactions": 47
+    },
+    "web_hospital": {
+      "frames": 6,
+      "reactions": 6
+    },
+    "mobile_hospital": {
+      "frames": 5,
+      "reactions": 5
+    },
+    "web_meeting": {
+      "frames": 5,
+      "reactions": 4
+    }
+  },
+  "not_complete_because": [
+    "No authoritative Current State Figma baseline is available to count decision steps.",
+    "No docs/design/current-state-dna.json exists to compare Peak UX against.",
+    "Therefore the fewer-decisions-than-current-state acceptance criterion is unproved.",
+    "Full WCAG 2.2 AA remains unproved until runtime keyboard, focus-visible, screen-reader, reduced-motion, and all-frame checks are complete."
+  ]
+}

@@ -52,8 +52,15 @@ docker compose -f deploy/docker/livekit/docker-compose.yml down
 
 Tilt cannot open your cloud firewall or change VoIP.ms. You still need:
 
-1. **GCP firewall** (this is a GCP VM): allow ingress `udp/tcp:5060` and `udp:10000-10100` (and for WebRTC: `udp:50000-50100`, `tcp:7881`)
+1. **GCP firewall** (this is a GCP VM): allow ingress `tcp:7880` (LiveKit signaling / join WebSocket), `tcp:7881`, `udp:50000-50100` (WebRTC), plus SIP `udp/tcp:5060` and `udp:10000-10100`. Without `tcp:7880`, phones and browsers cannot reach `LIVEKIT_PUBLIC_WS_URL` and fail with `could not establish signal connection: Abort handler called`.
+   - From **Cloud Shell** (the VM SA lacks compute scopes): `bash deploy/tilt/open-livekit-firewall.sh`
+   - Targets existing instance tag `livekit-sip`.
 2. **VoIP.ms** DID voice routing to SIP URI: `3185162690@<public-ip>:5060`
+   - Current VM public IP example: `3185162690@34.30.50.212:5060`
+   - If the GCP external IP changes, update the SIP URI in VoIP.ms or inbound PSTN calls never reach LiveKit (agent/trunk can be healthy while dials still fail).
+   - Portal: **DID Numbers → Manage DID → Routing → SIP URI** (create/edit URI host=`<public-ip>`, port=`5060`, then point the DID at that URI).
+3. **Outbound From header:** Voip.ms requires `From: <sip:{account}@{pop}.voip.ms>` (not `DID@livekit-ip`). `livekit-up.sh` configures the outbound trunk with `numbers=[sip_username]` and `fromHost=dallas1.voip.ms`. Put your **numeric SIP account/subaccount** in `voipms-credentials.sip_username` (portal email in `username` is for the REST API only). Set the account’s default Caller ID to your DID in the Voip.ms portal so callees still see `3185162690`.
+4. **Outbound SIP 603 Declined after a GCP IP change:** LiveKit can still send a correct INVITE (`527931@dallas1.voip.ms` → patient number) and Voip.ms will decline it if the VM’s **current public IP** is not on the account allowlist. In the portal: **Main Menu → Account Settings → Security / Allowed IPs** — add the current external IP (check with `curl -4 ifconfig.me`). Prefer a **static/reserved** GCP external IP so this does not break again. Auth username/password alone is not enough when IP restrictions are enabled.
 
 SMS routing (notification-service) is separate and unchanged.
 

@@ -87,6 +87,16 @@ env:
       configMapKeyRef:
         key: LIVEKIT_PUBLIC_WS_URL
         name: app-config
+  - name: VOIPMS_DID
+    valueFrom:
+      configMapKeyRef:
+        key: VOIPMS_DID
+        name: app-config
+  - name: ZORBA_VOICE_PHONE_NUMBER
+    valueFrom:
+      configMapKeyRef:
+        key: ZORBA_VOICE_PHONE_NUMBER
+        name: app-config
 resources:
   requests:
     memory: 128Mi

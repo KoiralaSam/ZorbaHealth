@@ -21,6 +21,7 @@ import (
 	regpb "github.com/KoiralaSam/ZorbaHealth/shared/proto/patient/registration_verification"
 	patientportalpb "github.com/KoiralaSam/ZorbaHealth/shared/proto/patientportal"
 	schedpb "github.com/KoiralaSam/ZorbaHealth/shared/proto/patient/scheduling"
+	appointmentpb "github.com/KoiralaSam/ZorbaHealth/shared/proto/appointment"
 	transpb "github.com/KoiralaSam/ZorbaHealth/shared/proto/translation"
 	"github.com/KoiralaSam/ZorbaHealth/shared/tracing"
 	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
@@ -78,6 +79,10 @@ func main() {
 	if err != nil {
 		log.Fatalf("audit-service dial: %v", err)
 	}
+	apptConn, err := grpcclient.Dial(sharedenv.GetString("APPOINTMENT_SERVICE_GRPC_ADDR", "appointment-service:9099"))
+	if err != nil {
+		log.Fatalf("appointment-service dial: %v", err)
+	}
 
 	defer healthConn.Close()
 	defer transConn.Close()
@@ -85,6 +90,7 @@ func main() {
 	defer analyticsConn.Close()
 	defer patientConn.Close()
 	defer auditConn.Close()
+	defer apptConn.Close()
 	defer rabbitmq.Close()
 	defer callsRabbitMQ.Close()
 
@@ -95,6 +101,7 @@ func main() {
 	patientClient := regpb.NewRegistrationVerificationServiceClient(patientConn)
 	patientPortalClient := patientportalpb.NewPatientPortalServiceClient(patientConn)
 	schedulingClient := schedpb.NewSchedulingServiceClient(patientConn)
+	appointmentClient := appointmentpb.NewAppointmentServiceClient(apptConn)
 	auditClient := auditpb.NewAuditServiceClient(auditConn)
 	tools.ConfigureAuditClient(auditClient)
 
@@ -121,6 +128,10 @@ func main() {
 	tools.RegisterListSchedulableStaff(server, db, schedulingClient)
 	tools.RegisterScheduleHealthStaffMeeting(server, db, schedulingClient)
 	tools.RegisterRequestStaffTransfer(server, db, schedulingClient)
+	tools.RegisterListAvailableAppointmentSlots(server, db, appointmentClient)
+	tools.RegisterGetNextAvailableSlot(server, db, appointmentClient)
+	tools.RegisterBookAppointment(server, db, appointmentClient)
+	tools.RegisterCancelAppointment(server, db, appointmentClient)
 
 	if strings.EqualFold(sharedenv.GetString("MCP_TRANSPORT", "stdio"), "http") {
 		addr := sharedenv.GetString("MCP_HTTP_ADDR", ":8092")
