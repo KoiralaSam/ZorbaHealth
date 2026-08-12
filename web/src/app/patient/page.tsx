@@ -805,7 +805,7 @@ function PatientHomePageContent() {
             <div className="h-32 rounded-2xl bg-white shadow-sm dark:bg-slate-900" />
             <div className="h-32 rounded-2xl bg-white shadow-sm dark:bg-slate-900" />
           </div>
-          <div className="grid gap-6 xl:grid-cols-[1.1fr_0.9fr]">
+          <div className="hidden">
             <div className="h-80 rounded-2xl bg-white shadow-sm dark:bg-slate-900" />
             <div className="h-80 rounded-2xl bg-white shadow-sm dark:bg-slate-900" />
           </div>
@@ -850,7 +850,9 @@ function PatientHomePageContent() {
 
           {activeSection === "dashboard" ? (
             <section className="space-y-6">
-              <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+              <PeakPatientHome profile={profile} meetings={meetings} hospitalConsents={hospitalConsents} auditEvents={auditEvents} activeConsents={activeConsents} onNavigate={setActiveSection} />
+
+              <div className="hidden">
                 <StatCard
                   icon={FileText}
                   label="Active Consents"
@@ -1267,6 +1269,75 @@ export default function PatientHomePage() {
     >
       <PatientHomePageContent />
     </Suspense>
+  );
+}
+
+function PeakPatientHome({
+  profile,
+  meetings,
+  hospitalConsents,
+  auditEvents,
+  activeConsents,
+  onNavigate,
+}: {
+  profile: HTTPPatientProfileResponse["data"] | null;
+  meetings: HospitalMeetingRecord[];
+  hospitalConsents: PatientHospitalConsentRecord[];
+  auditEvents: AuditEventRecord[];
+  activeConsents: number;
+  onNavigate: (section: string) => void;
+}) {
+  const upcomingMeeting = meetings.find((meeting) => meeting.status !== "cancelled") ?? null;
+  const pendingConsentCount = hospitalConsents.filter((consent) => consent.status === "pending").length;
+  const nextAction = upcomingMeeting
+    ? "Your next visit is ready to join."
+    : pendingConsentCount > 0
+      ? "Review a hospital consent request."
+      : "Ask a question about your records.";
+
+  return (
+    <section className="space-y-4" aria-label="Next best action">
+      <div className="rounded-[var(--zh-radius-panel)] border border-indigo-100 bg-white p-6 shadow-sm dark:border-slate-700 dark:bg-slate-900">
+        <div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
+          <div className="max-w-2xl">
+            <p className="text-base font-bold text-indigo-700 dark:text-indigo-300">Good to see you, {profile?.full_name || "there"}</p>
+            <h2 className="mt-2 font-patient text-[length:var(--zh-display-size)] font-semibold leading-tight text-slate-950 dark:text-white">{nextAction}</h2>
+            <p className="mt-3 text-base leading-6 text-slate-600 dark:text-slate-300">Your care, records, and privacy controls are in one place. Choose what needs your attention now.</p>
+          </div>
+          <div className="flex flex-wrap gap-3">
+            {upcomingMeeting ? (
+              <Button type="button" variant="healthcare" onClick={() => onNavigate("meetings")} className="min-h-[44px]">Join visit</Button>
+            ) : pendingConsentCount > 0 ? (
+              <Button type="button" variant="healthcare" onClick={() => onNavigate("consents")} className="min-h-[44px]">Review consent</Button>
+            ) : (
+              <Button type="button" variant="healthcare" onClick={() => onNavigate("records")} className="min-h-[44px]">Ask records</Button>
+            )}
+            <Button type="button" variant="outline" onClick={() => onNavigate("welfare")} className="min-h-[44px] border-rose-200 text-rose-700 hover:bg-rose-50">Emergency / welfare</Button>
+          </div>
+        </div>
+      </div>
+      <div className="grid gap-4 lg:grid-cols-[1.35fr_0.65fr]">
+        <article className="rounded-[var(--zh-radius-card)] border border-slate-200 bg-white p-5 dark:border-slate-700 dark:bg-slate-900">
+          <p className="text-sm font-bold uppercase tracking-wide text-slate-500">Upcoming care</p>
+          {upcomingMeeting ? (
+            <div className="mt-3 flex items-start justify-between gap-4">
+              <div><h3 className="text-lg font-bold text-slate-950 dark:text-white">{upcomingMeeting.title || "Care visit"}</h3><p className="mt-1 text-base text-slate-600 dark:text-slate-300">{formatDateTime(upcomingMeeting.starts_at, "Time to be confirmed")} · {upcomingMeeting.timezone || "your local time"}</p></div>
+              <span className="rounded-full bg-emerald-50 px-3 py-1 text-sm font-bold text-emerald-700">{upcomingMeeting.status || "scheduled"}</span>
+            </div>
+          ) : <p className="mt-3 text-base text-slate-600 dark:text-slate-300">No upcoming visits. Book a time with a linked hospital.</p>}
+        </article>
+        <article className="rounded-[var(--zh-radius-card)] border border-slate-200 bg-white p-5 dark:border-slate-700 dark:bg-slate-900">
+          <p className="text-sm font-bold uppercase tracking-wide text-slate-500">Privacy at a glance</p>
+          <p className="mt-3 text-3xl font-bold text-slate-950 dark:text-white">{activeConsents}</p>
+          <p className="text-base text-slate-600 dark:text-slate-300">active consent grants</p>
+          <button type="button" className="mt-4 min-h-[44px] text-base font-bold text-indigo-700 underline-offset-4 hover:underline dark:text-indigo-300" onClick={() => onNavigate("consents")}>Manage privacy</button>
+        </article>
+      </div>
+      <div className="rounded-[var(--zh-radius-card)] border border-slate-200 bg-slate-50 p-5 dark:border-slate-700 dark:bg-slate-800">
+        <p className="text-sm font-bold uppercase tracking-wide text-slate-500">Recent care events</p>
+        {auditEvents.length === 0 ? <p className="mt-3 text-base text-slate-600 dark:text-slate-300">No care events yet.</p> : <ul className="mt-3 space-y-2">{auditEvents.slice(0, 3).map((event) => <li key={`-`} className="flex items-center justify-between gap-4 text-base"><span className="text-slate-700 dark:text-slate-200">{formatEventType(event.event_type)}</span><time className="text-sm text-slate-500">{formatDateTime(event.timestamp, "Recently")}</time></li>)}</ul>}
+      </div>
+    </section>
   );
 }
 

@@ -141,6 +141,33 @@ function filterAuditEvents(
   });
 }
 
+function HospitalTriageStrip({
+  incidents,
+  bridges,
+  meetings,
+  onNavigate,
+}: {
+  incidents: HospitalIncidentRecord[];
+  bridges: BridgedCallSessionRecord[];
+  meetings: HospitalMeetingRecord[];
+  onNavigate: (section: string) => void;
+}) {
+  const activeMeetings = meetings.filter((meeting) => meeting.status !== "cancelled");
+  return (
+    <section className="rounded-[var(--zh-radius-card)] border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-700 dark:bg-slate-900" aria-label="Triage strip">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div><p className="text-base font-bold text-slate-950 dark:text-white">What needs attention now</p><p className="mt-1 text-base text-slate-600 dark:text-slate-300">Triage incidents, incoming bridges, and today&apos;s schedule from one view.</p></div>
+        <span className="rounded-full bg-indigo-50 px-3 py-1 text-sm font-bold text-indigo-700">Live clinical workspace</span>
+      </div>
+      <div className="mt-4 grid gap-3 md:grid-cols-3">
+        <button type="button" className="min-h-[72px] rounded-xl border border-rose-200 bg-rose-50 p-4 text-left hover:border-rose-400" onClick={() => onNavigate("incidents")}><span className="text-2xl font-bold text-rose-800">{incidents.length}</span><span className="mt-1 block text-sm font-bold text-rose-900">Open incidents</span></button>
+        <button type="button" className="min-h-[72px] rounded-xl border border-amber-200 bg-amber-50 p-4 text-left hover:border-amber-400" onClick={() => onNavigate("home")}><span className="text-2xl font-bold text-amber-800">{bridges.length}</span><span className="mt-1 block text-sm font-bold text-amber-900">Incoming bridge calls</span></button>
+        <button type="button" className="min-h-[72px] rounded-xl border border-indigo-200 bg-indigo-50 p-4 text-left hover:border-indigo-400" onClick={() => onNavigate("appointments")}><span className="text-2xl font-bold text-indigo-800">{activeMeetings.length}</span><span className="mt-1 block text-sm font-bold text-indigo-900">Today&apos;s schedule</span></button>
+      </div>
+    </section>
+  );
+}
+
 function HospitalPatientSummaryPageContent() {
   const router = useRouter();
   const pathname = usePathname();
@@ -817,6 +844,7 @@ function HospitalPatientSummaryPageContent() {
               trend="Last patient lookup"
             />
           </div>
+          <HospitalTriageStrip incidents={incidents} bridges={pendingBridges} meetings={meetings} onNavigate={setActiveSection} />
 
           {error ? <StatusBanner tone="error" message={error} /> : null}
 

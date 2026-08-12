@@ -46,6 +46,7 @@ import {
   TextButton,
 } from "./src/components/primitives";
 import { resolveIANATimezone } from "./src/timezone";
+import { colors } from "./src/theme/tokens";
 import { styles } from "./src/theme/styles";
 
 const API_URL = process.env.EXPO_PUBLIC_API_URL ?? "http://localhost:8081";
@@ -858,7 +859,7 @@ function Header({
           <Ionicons
             name={role === "patient" ? "pulse" : "medkit"}
             size={22}
-            color="#ffffff"
+            color={colors.surface}
           />
         </View>
         <View>
@@ -1093,7 +1094,7 @@ function PatientAuth({ onLogin }: { onLogin: (token: string) => void }) {
           ) : null}
           {mode === "email" ? (
             <View style={styles.emailNoticeCard}>
-              <Ionicons name="mail-unread-outline" size={24} color="#4f46e5" />
+              <Ionicons name="mail-unread-outline" size={24} color={colors.primary} />
               <View style={styles.flex}>
                 <Text style={styles.cardTitle}>
                   Email verification required
@@ -1541,8 +1542,8 @@ function PatientPortal({
           <RefreshControl
             refreshing={refreshing}
             onRefresh={refresh}
-            tintColor="#4f46e5"
-            colors={["#4f46e5"]}
+            tintColor={colors.primary}
+            colors={[colors.primary]}
           />
         }
       >
@@ -1553,7 +1554,11 @@ function PatientPortal({
             profile={profile}
             calls={calls}
             audit={audit}
+            meetings={meetings}
+            hospitalConsents={hospitalConsents}
+            activeConsentCount={activeConsents.size}
             onRefresh={refresh}
+            onNavigate={(nextTab) => setTab(nextTab)}
           />
         ) : null}
         {!loading && tab === "consents" ? (
@@ -1643,68 +1648,34 @@ function PatientPortal({
 }
 
 function PatientHome({
-  profile,
-  calls,
-  audit,
-  onRefresh,
+  profile, calls, audit, meetings, hospitalConsents, activeConsentCount, onRefresh, onNavigate,
 }: {
-  profile: PatientProfile | null;
-  calls: CallSummary[];
-  audit: AuditEvent[];
-  onRefresh: () => void;
+  profile: PatientProfile | null; calls: CallSummary[]; audit: AuditEvent[]; meetings: HospitalMeeting[]; hospitalConsents: PatientHospitalConsent[]; activeConsentCount: number; onRefresh: () => void; onNavigate: (tab: PatientTab) => void;
 }) {
+  const nextMeeting = meetings.find((meeting) => meeting.status !== "cancelled") ?? null;
+  const pendingConsents = hospitalConsents.filter((consent) => consent.status === "pending").length;
+  const nextAction = nextMeeting ? "Your next visit is ready." : pendingConsents ? "Review a consent request." : "Ask a question about your records.";
   return (
     <View style={styles.stack}>
-      <View style={styles.heroPanel}>
-        <View style={styles.rowBetween}>
-          <Text style={styles.eyebrow}>Patient Home</Text>
-          <Pressable onPress={onRefresh} style={styles.refreshIcon}>
-            <Ionicons name="refresh" size={18} color="#e0e7ff" />
-          </Pressable>
-        </View>
-        <Text style={styles.largeTitle}>
-          {profile?.full_name || "Welcome Back"}
-        </Text>
-        <Text style={styles.heroCopy}>
-          Zorba Voice Care: {profile?.voice_phone || "Support line active"}
-        </Text>
-
-        <View style={styles.heroActions}>
-          <Pressable
-            onPress={() => callNumber(profile?.voice_phone)}
-            style={styles.heroCallBtn}
-          >
-            <Ionicons name="call" size={16} color="#4f46e5" />
-            <Text style={styles.heroCallBtnText}>Call Assistant</Text>
-          </Pressable>
+      <View style={styles.card}>
+        <Text style={styles.eyebrow}>Next best action</Text>
+        <Text style={styles.screenTitle}>{nextAction}</Text>
+        <Text style={styles.screenCopy}>Hi {profile?.full_name || "there"}. Your care, records, and privacy controls are in one place.</Text>
+        <View style={styles.inlineActions}>
+          <PrimaryButton icon={nextMeeting ? "videocam-outline" : pendingConsents ? "shield-checkmark-outline" : "chatbubble-ellipses-outline"} label={nextMeeting ? "Join visit" : pendingConsents ? "Review consent" : "Ask records"} onPress={() => onNavigate(nextMeeting ? "meetings" : pendingConsents ? "consents" : "records")} />
+          <IconButton icon="heart-outline" label="Emergency / welfare" onPress={() => onNavigate("welfare")} tone="neutral" />
         </View>
       </View>
-
+      <View style={styles.card}>
+        <View style={styles.rowBetween}><Text style={styles.sectionTitle}>Upcoming care</Text><TextButton label="Refresh" onPress={onRefresh} /></View>
+        {nextMeeting ? <Text style={styles.cardBody}>{nextMeeting.title || "Care visit"}
+{formatTime(nextMeeting.starts_at)} · {nextMeeting.timezone || "your local time"}</Text> : <EmptyText text="No upcoming visits. Book a time with a linked hospital." />}
+      </View>
       <View style={styles.gridTwo}>
-        <InfoCard
-          icon="person-outline"
-          title="Demographics"
-          body={`${profile?.phone_number || "No phone listed"}\n${profile?.email || "No email listed"}`}
-        />
-        <InfoCard
-          icon="document-text-outline"
-          title="Last Audit Event"
-          body={
-            audit[0]
-              ? `${titleFromCode(audit[0].event_type)}\n${formatTime(audit[0].timestamp)}`
-              : "No audit trail logs yet."
-          }
-        />
+        <Pressable style={styles.infoCard} onPress={() => onNavigate("consents")}><Text style={styles.infoCardTitle}>Privacy</Text><Text style={styles.infoCardBody}>{activeConsentCount} active consent grants</Text></Pressable>
+        <Pressable style={styles.infoCard} onPress={() => onNavigate("audit")}><Text style={styles.infoCardTitle}>Care events</Text><Text style={styles.infoCardBody}>{audit.length ? ` events logged` : "No care events yet."}</Text></Pressable>
       </View>
-
-      <Section title="Recent Calls">
-        {calls.slice(0, 2).map((call) => (
-          <CallRow key={String(call.id)} call={call} />
-        ))}
-        {calls.length === 0 ? (
-          <EmptyText text="No call logs captured yet." />
-        ) : null}
-      </Section>
+      <Section title="Recent Calls">{calls.slice(0, 2).map((call) => <CallRow key={String(call.id)} call={call} />)}{calls.length === 0 ? <EmptyText text="No call logs captured yet." /> : null}</Section>
     </View>
   );
 }
@@ -2106,7 +2077,7 @@ function HealthQuestion({ token }: { token: string }) {
                 <Ionicons
                   name="document-text-outline"
                   size={14}
-                  color="#4f46e5"
+                  color={colors.primary}
                 />
                 <Text style={styles.cardTitle}>
                   {citation.source_file || "Record Source"}
@@ -2359,8 +2330,8 @@ function CallList({
           style={[
             styles.card,
             liveSessionId
-              ? { borderColor: "#6ee7b7", backgroundColor: "#ecfdf5" }
-              : { borderColor: "#fcd34d", backgroundColor: "#fffbeb" },
+              ? { borderColor: colors.success, backgroundColor: colors.successBg }
+              : { borderColor: colors.accent, backgroundColor: colors.cautionBg },
           ]}
         >
           <Text style={styles.cardTitle}>
@@ -2690,7 +2661,7 @@ function LocationSharing({
           <Ionicons
             name={connected ? "radio-outline" : "radio-button-off-outline"}
             size={26}
-            color={connected ? "#059669" : "#64748b"}
+            color={connected ? colors.success : colors.mutedText}
           />
         </View>
         <Text style={styles.meta}>
@@ -2928,7 +2899,7 @@ function PatientMeetings({
                     style={[
                       styles.card,
                       selected && {
-                        borderColor: "#4f46e5",
+                        borderColor: colors.primary,
                         borderWidth: 2,
                       },
                     ]}
@@ -2962,7 +2933,7 @@ function PatientMeetings({
                     style={[
                       styles.card,
                       selected && {
-                        borderColor: "#4f46e5",
+                        borderColor: colors.primary,
                         borderWidth: 2,
                       },
                     ]}
@@ -3276,14 +3247,15 @@ function HospitalPortal({
           <RefreshControl
             refreshing={refreshing}
             onRefresh={refreshCurrentTab}
-            tintColor="#4f46e5"
-            colors={["#4f46e5"]}
+            tintColor={colors.primary}
+            colors={[colors.primary]}
           />
         }
       >
         {tab === "home" ? (
           <View style={styles.stack}>
             <HospitalIncomingBridges token={token} />
+            <HospitalTriage incidents={incidents} meetings={meetings} onNavigate={(nextTab) => setTab(nextTab)} />
             <HospitalHome
               patients={patients}
               loading={loadingPatients}
@@ -3507,7 +3479,7 @@ function HospitalIncomingBridges({ token }: { token: string }) {
         <EmptyText text="No patients waiting for a bridged consult." />
       ) : (
         pending.map((session) => (
-          <View key={session.session_id} style={[styles.card, { borderColor: "#f59e0b", borderWidth: 2 }]}>
+          <View key={session.session_id} style={[styles.card, { borderColor: colors.accent, borderWidth: 2 }]}>
             <Text style={styles.badge}>Ringing</Text>
             <Text style={styles.cardTitle}>{session.session_id}</Text>
             <Text style={styles.cardBody}>
@@ -3518,13 +3490,13 @@ function HospitalIncomingBridges({ token }: { token: string }) {
               <IconButton
                 icon="laptop-outline"
                 label={busySession === session.session_id ? "Connecting..." : "Accept (Web)"}
-                onPress={() => void acceptCall(session.session_id, "web")}
+                onPress={() => void acceptCall(session.session_id || "", "web")}
                 tone="accent"
               />
               <IconButton
                 icon="call-outline"
                 label="Accept (Phone)"
-                onPress={() => void acceptCall(session.session_id, "phone")}
+                onPress={() => void acceptCall(session.session_id || "", "phone")}
                 tone="neutral"
               />
             </View>
@@ -3533,6 +3505,20 @@ function HospitalIncomingBridges({ token }: { token: string }) {
       )}
       <IconButton icon="refresh-outline" label="Refresh" onPress={() => void loadPending()} tone="neutral" />
     </Section>
+  );
+}
+
+function HospitalTriage({ incidents, meetings, onNavigate }: { incidents: Incident[]; meetings: HospitalMeeting[]; onNavigate: (tab: HospitalTab) => void }) {
+  const activeMeetings = meetings.filter((meeting) => meeting.status !== "cancelled").length;
+  return (
+    <View style={styles.card}>
+      <Text style={styles.sectionTitle}>What needs attention now</Text>
+      <Text style={styles.cardBody}>Triage alerts, incoming bridge calls, and today's schedule in one glance.</Text>
+      <View style={styles.gridTwo}>
+        <Pressable style={styles.infoCard} onPress={() => onNavigate("incidents")}><Text style={styles.infoCardTitle}>Open incidents</Text><Text style={styles.infoCardBody}>{incidents.length}</Text></Pressable>
+        <Pressable style={styles.infoCard} onPress={() => onNavigate("meetings")}><Text style={styles.infoCardTitle}>Today's schedule</Text><Text style={styles.infoCardBody}>{activeMeetings}</Text></Pressable>
+      </View>
+    </View>
   );
 }
 
@@ -4352,7 +4338,7 @@ function AuditList({
           <Ionicons
             name={showTypeOptions ? "chevron-up" : "chevron-down"}
             size={16}
-            color="#475569"
+            color={colors.subtleText}
           />
         </Pressable>
         {showTypeOptions ? (
@@ -4449,7 +4435,7 @@ function CallRow({ call }: { call: CallSummary }) {
     <View style={styles.card}>
       <View style={styles.rowBetween}>
         <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
-          <Ionicons name="call-outline" size={16} color="#4f46e5" />
+          <Ionicons name="call-outline" size={16} color={colors.primary} />
           <Text style={styles.cardTitle}>Call Ref #{call.id}</Text>
         </View>
         <Text style={styles.badge}>{call.status || "Completed"}</Text>
@@ -4466,7 +4452,7 @@ function CallRow({ call }: { call: CallSummary }) {
           onPress={() => Linking.openURL(call.recording_url as string)}
           style={styles.playRecordBtn}
         >
-          <Ionicons name="play" size={12} color="#4f46e5" />
+          <Ionicons name="play" size={12} color={colors.primary} />
           <Text style={styles.playRecordBtnText}>Open Audio Recording</Text>
         </Pressable>
       ) : null}
