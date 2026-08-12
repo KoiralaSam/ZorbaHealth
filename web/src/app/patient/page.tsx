@@ -48,6 +48,7 @@ import {
   WelfareCheckReason,
 } from "../../contracts";
 import { apiFetch, cachedApiJSON, clearApiCache, logoutAuth, preloadApiJSON } from "../../lib/auth-client";
+import { PatientAppointmentBookingPanel } from "../../components/PatientAppointmentBookingPanel";
 import {
   findActivePatientCall,
   isCallInProgress,
@@ -57,6 +58,7 @@ import { useAuth } from "../../hooks/useAuth";
 import { usePatientLocationSession } from "../../hooks/usePatientLocationSession";
 import {
   Calendar,
+  CalendarDays,
   Camera,
   CheckCircle,
   Clock,
@@ -119,6 +121,7 @@ const navItems: SidebarItem[] = [
   { id: "records", label: "Ask Records", icon: MessageSquare },
   { id: "calls", label: "Call History", icon: Phone },
   { id: "meetings", label: "Meetings", icon: Video },
+  { id: "appointments", label: "Appointments", icon: CalendarDays },
   { id: "welfare", label: "Welfare Checks", icon: HeartPulse },
   { id: "audit", label: "Audit Trail", icon: Shield },
   { id: "gps", label: "GPS", icon: Compass },
@@ -784,10 +787,18 @@ function PatientHomePageContent() {
         body: JSON.stringify({ reason: "Cancelled by patient" }),
       });
       const data: HTTPPatientMeetingMutationResponse = await res.json();
-      if (res.ok && data.data?.meeting) {
-        setMeetings((prev) => prev.map((m) => (m.id === meetingID ? data.data!.meeting! : m)));
-        clearApiCache("patient");
+      if (!res.ok) {
+        setError(data.error?.message || "Unable to cancel meeting.");
+        return;
       }
+      clearApiCache("patient");
+      setMeetings((prev) =>
+        prev.map((m) =>
+          m.id === meetingID
+            ? data.data?.meeting ?? { ...m, status: "cancelled" }
+            : m,
+        ),
+      );
     } catch {
       setError("Network error while cancelling meeting.");
     } finally {
@@ -864,7 +875,7 @@ function PatientHomePageContent() {
                   label="Total Calls"
                   value={calls.length}
                   tone="orange"
-                  trend={profile?.voice_phone || "Voice line pending"}
+                  trend={profile?.voice_phone || "+1 (318) 516-2690"}
                 />
                 <StatCard
                   icon={HeartPulse}
@@ -915,10 +926,10 @@ function PatientHomePageContent() {
                       safety triage.
                     </p>
                     <a
-                      href={`tel:${profile?.voice_phone || "+1-800-555-0199"}`}
+                      href={`tel:${profile?.voice_phone || "+13185162690"}`}
                       className="mt-3 inline-flex h-10 items-center justify-center gap-2 rounded-xl bg-indigo-600 px-4 text-sm font-bold text-white shadow-glow"
                     >
-                      <Phone className="h-4 w-4" /> Call Zorba
+                      <Phone className="h-4 w-4" /> Call Zorba ({profile?.voice_phone || "+1 (318) 516-2690"})
                     </a>
                   </div>
                 </section>
@@ -1204,6 +1215,29 @@ function PatientHomePageContent() {
             />
           ) : null}
 
+          {activeSection === "appointments" ? (
+            <PatientAppointmentBookingPanel
+              hospitals={hospitalConsents
+                .filter((c) => c.hospital_id && !c.revoked_at)
+                .map((c) => ({
+                  hospital_id: c.hospital_id!,
+                  hospital_name: c.hospital_name || c.hospital_id!,
+                }))}
+              loadStaff={async (hospitalID) => {
+                const res = await apiFetch(
+                  "patient",
+                  `${APIEndpoints.PATIENT_SCHEDULABLE_STAFF}?hospital_id=${encodeURIComponent(hospitalID)}`,
+                );
+                const data: HTTPPatientSchedulableStaffResponse = await res.json();
+                return (data.data?.staff ?? []).map((s) => ({
+                  staff_id: s.staff_id,
+                  name: s.name || s.staff_id,
+                  role: s.role || "staff",
+                }));
+              }}
+            />
+          ) : null}
+
           {activeSection === "welfare" ? (
             <WelfarePanel
               welfareChecks={welfareChecks}
@@ -1297,45 +1331,45 @@ function PeakPatientHome({
 
   return (
     <section className="space-y-4" aria-label="Next best action">
-      <div className="rounded-[var(--zh-radius-panel)] border border-indigo-100 bg-white p-6 shadow-sm dark:border-slate-700 dark:bg-slate-900">
+      <div className="rounded-[var(--zh-radius-panel)] border border-[var(--zh-indigo-100)] bg-[var(--zh-surface-raised)] p-6 shadow-sm dark:border-[var(--zh-border-default)] dark:bg-[var(--zh-surface-raised)]">
         <div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
           <div className="max-w-2xl">
-            <p className="text-base font-bold text-indigo-700 dark:text-indigo-300">Good to see you, {profile?.full_name || "there"}</p>
-            <h2 className="mt-2 font-patient text-[length:var(--zh-display-size)] font-semibold leading-tight text-slate-950 dark:text-white">{nextAction}</h2>
-            <p className="mt-3 text-base leading-6 text-slate-600 dark:text-slate-300">Your care, records, and privacy controls are in one place. Choose what needs your attention now.</p>
+            <p className="text-[length:var(--zh-body-size)] font-bold text-[var(--zh-indigo-700)] dark:text-[var(--zh-indigo-100)]">Good to see you, {profile?.full_name || "there"}</p>
+            <h2 className="mt-2 font-patient text-[length:var(--zh-display-size)] font-semibold leading-tight text-[var(--zh-text-primary)] dark:text-[var(--zh-text-primary)]">{nextAction}</h2>
+            <p className="mt-3 text-[length:var(--zh-body-size)] leading-[var(--zh-body-leading)] text-[var(--zh-text-secondary)] dark:text-[var(--zh-text-secondary)]">Your care, records, and privacy controls are in one place. Choose what needs your attention now.</p>
           </div>
           <div className="flex flex-wrap gap-3">
             {upcomingMeeting ? (
-              <Button type="button" variant="healthcare" onClick={() => onNavigate("meetings")} className="min-h-[44px]">Join visit</Button>
+              <Button type="button" variant="healthcare" onClick={() => onNavigate("meetings")} className="min-h-[var(--zh-touch-min)]">Join visit</Button>
             ) : pendingConsentCount > 0 ? (
-              <Button type="button" variant="healthcare" onClick={() => onNavigate("consents")} className="min-h-[44px]">Review consent</Button>
+              <Button type="button" variant="healthcare" onClick={() => onNavigate("consents")} className="min-h-[var(--zh-touch-min)]">Review consent</Button>
             ) : (
-              <Button type="button" variant="healthcare" onClick={() => onNavigate("records")} className="min-h-[44px]">Ask records</Button>
+              <Button type="button" variant="healthcare" onClick={() => onNavigate("records")} className="min-h-[var(--zh-touch-min)]">Ask records</Button>
             )}
-            <Button type="button" variant="outline" onClick={() => onNavigate("welfare")} className="min-h-[44px] border-rose-200 text-rose-700 hover:bg-rose-50">Emergency / welfare</Button>
+            <Button type="button" variant="outline" onClick={() => onNavigate("welfare")} className="min-h-[var(--zh-touch-min)] border-[var(--zh-critical)] text-[var(--zh-critical)] hover:bg-[var(--zh-critical-surface)]">Emergency / welfare</Button>
           </div>
         </div>
       </div>
       <div className="grid gap-4 lg:grid-cols-[1.35fr_0.65fr]">
-        <article className="rounded-[var(--zh-radius-card)] border border-slate-200 bg-white p-5 dark:border-slate-700 dark:bg-slate-900">
-          <p className="text-sm font-bold uppercase tracking-wide text-slate-500">Upcoming care</p>
+        <article className="rounded-[var(--zh-radius-card)] border border-[var(--zh-border-default)] bg-[var(--zh-surface-raised)] p-5 dark:border-[var(--zh-border-default)] dark:bg-[var(--zh-surface-raised)]">
+          <p className="text-[length:var(--zh-body-size)] font-bold uppercase tracking-wide text-[var(--zh-text-secondary)]">Upcoming care</p>
           {upcomingMeeting ? (
             <div className="mt-3 flex items-start justify-between gap-4">
-              <div><h3 className="text-lg font-bold text-slate-950 dark:text-white">{upcomingMeeting.title || "Care visit"}</h3><p className="mt-1 text-base text-slate-600 dark:text-slate-300">{formatDateTime(upcomingMeeting.starts_at, "Time to be confirmed")} · {upcomingMeeting.timezone || "your local time"}</p></div>
-              <span className="rounded-full bg-emerald-50 px-3 py-1 text-sm font-bold text-emerald-700">{upcomingMeeting.status || "scheduled"}</span>
+              <div><h3 className="text-[length:var(--zh-heading-size)] font-bold text-[var(--zh-text-primary)] dark:text-[var(--zh-text-primary)]">{upcomingMeeting.title || "Care visit"}</h3><p className="mt-1 text-[length:var(--zh-body-size)] text-[var(--zh-text-secondary)] dark:text-[var(--zh-text-secondary)]">{formatDateTime(upcomingMeeting.starts_at, "Time to be confirmed")} · {upcomingMeeting.timezone || "your local time"}</p></div>
+              <span className="rounded-[var(--zh-radius-pill)] bg-[var(--zh-success-surface)] px-3 py-1 text-[length:var(--zh-body-size)] font-bold text-[var(--zh-success)]">{upcomingMeeting.status || "scheduled"}</span>
             </div>
-          ) : <p className="mt-3 text-base text-slate-600 dark:text-slate-300">No upcoming visits. Book a time with a linked hospital.</p>}
+          ) : <p className="mt-3 text-[length:var(--zh-body-size)] text-[var(--zh-text-secondary)] dark:text-[var(--zh-text-secondary)]">No upcoming visits. Book a time with a linked hospital.</p>}
         </article>
-        <article className="rounded-[var(--zh-radius-card)] border border-slate-200 bg-white p-5 dark:border-slate-700 dark:bg-slate-900">
-          <p className="text-sm font-bold uppercase tracking-wide text-slate-500">Privacy at a glance</p>
-          <p className="mt-3 text-3xl font-bold text-slate-950 dark:text-white">{activeConsents}</p>
-          <p className="text-base text-slate-600 dark:text-slate-300">active consent grants</p>
-          <button type="button" className="mt-4 min-h-[44px] text-base font-bold text-indigo-700 underline-offset-4 hover:underline dark:text-indigo-300" onClick={() => onNavigate("consents")}>Manage privacy</button>
+        <article className="rounded-[var(--zh-radius-card)] border border-[var(--zh-border-default)] bg-[var(--zh-surface-raised)] p-5 dark:border-[var(--zh-border-default)] dark:bg-[var(--zh-surface-raised)]">
+          <p className="text-[length:var(--zh-body-size)] font-bold uppercase tracking-wide text-[var(--zh-text-secondary)]">Privacy at a glance</p>
+          <p className="mt-3 text-[length:var(--zh-display-size)] font-bold text-[var(--zh-text-primary)] dark:text-[var(--zh-text-primary)]">{activeConsents}</p>
+          <p className="text-[length:var(--zh-body-size)] text-[var(--zh-text-secondary)] dark:text-[var(--zh-text-secondary)]">active consent grants</p>
+          <button type="button" className="mt-4 min-h-[var(--zh-touch-min)] text-[length:var(--zh-body-size)] font-bold text-[var(--zh-indigo-700)] underline-offset-4 hover:underline dark:text-[var(--zh-indigo-100)]" onClick={() => onNavigate("consents")}>Manage privacy</button>
         </article>
       </div>
-      <div className="rounded-[var(--zh-radius-card)] border border-slate-200 bg-slate-50 p-5 dark:border-slate-700 dark:bg-slate-800">
-        <p className="text-sm font-bold uppercase tracking-wide text-slate-500">Recent care events</p>
-        {auditEvents.length === 0 ? <p className="mt-3 text-base text-slate-600 dark:text-slate-300">No care events yet.</p> : <ul className="mt-3 space-y-2">{auditEvents.slice(0, 3).map((event) => <li key={`-`} className="flex items-center justify-between gap-4 text-base"><span className="text-slate-700 dark:text-slate-200">{formatEventType(event.event_type)}</span><time className="text-sm text-slate-500">{formatDateTime(event.timestamp, "Recently")}</time></li>)}</ul>}
+      <div className="rounded-[var(--zh-radius-card)] border border-[var(--zh-border-default)] bg-[var(--zh-surface-subtle)] p-5 dark:border-[var(--zh-border-default)] dark:bg-[var(--zh-surface-subtle)]">
+        <p className="text-[length:var(--zh-body-size)] font-bold uppercase tracking-wide text-[var(--zh-text-secondary)]">Recent care events</p>
+        {auditEvents.length === 0 ? <p className="mt-3 text-[length:var(--zh-body-size)] text-[var(--zh-text-secondary)] dark:text-[var(--zh-text-secondary)]">No care events yet.</p> : <ul className="mt-3 space-y-2">{auditEvents.slice(0, 3).map((event) => <li key={`${event.timestamp}-${event.event_type}`} className="flex items-center justify-between gap-4 text-[length:var(--zh-body-size)]"><span className="text-[var(--zh-text-secondary)] dark:text-[var(--zh-text-primary)]">{formatEventType(event.event_type)}</span><time className="text-[length:var(--zh-body-size)] text-[var(--zh-text-secondary)]">{formatDateTime(event.timestamp, "Recently")}</time></li>)}</ul>}
       </div>
     </section>
   );
@@ -2228,7 +2262,8 @@ function PatientMeetingCard({
   onCancel: () => void;
 }) {
   const status = meeting.status || "pending";
-  const accepted = status === "accepted";
+  // Backend uses "scheduled" after clinician accept (legacy "accepted" kept for older payloads).
+  const confirmed = status === "scheduled" || status === "accepted";
   const cancelled = status === "cancelled";
 
   return (
@@ -2240,13 +2275,13 @@ function PatientMeetingCard({
               className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-black uppercase ${
                 cancelled
                   ? "bg-slate-100 text-slate-500"
-                  : accepted
+                  : confirmed
                     ? "bg-emerald-50 text-emerald-700"
                     : "bg-orange-50 text-orange-700"
               }`}
             >
               {cancelled ? <VideoOff className="h-3.5 w-3.5" /> : <Video className="h-3.5 w-3.5" />}
-              {status}
+              {status.replaceAll("_", " ")}
             </span>
             <span className="text-xs font-semibold text-slate-400">
               {meeting.duration_minutes || 30} min
